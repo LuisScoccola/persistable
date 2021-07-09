@@ -3,16 +3,12 @@ import scipy as sp
 import random
 import warnings
 import math
-
-from scipy import cluster
-
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.neighbors import KDTree, BallTree
 from sklearn.metrics import pairwise_distances
 from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
-
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 
 TOL = 1e-15
@@ -1219,12 +1215,13 @@ def latex_float(f):
 
 
 def ticks_in_scientific_notation(tks) :
-    return [ "$" + latex_float(t) + "$" for t in tks]
+    #return [ "$" + latex_float(t) + "$" for t in tks]
+    return [ latex_float(t) for t in tks]
 
 
 def plot_shadow(shadow, n_ticks = 11, n_shadows = 10, maxt = None, gammas = None, n_samples_curve_domain = 10000, h_size = 10, v_size = 5) :
 
-    sns.set(rc={'text.usetex': True})
+    #sns.set(rc={'text.usetex': True})
 
     # set size of final picture
     sns.set(rc={'figure.figsize':(h_size,v_size)})
