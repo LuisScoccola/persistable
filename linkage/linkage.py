@@ -485,25 +485,31 @@ class HierarchicalClustering :
         if threshold != None and num_clusters != None :
             warnings.warn("Both threshold and num_clusters given, using threshold.")
         elif threshold == None :
-            bd = self.PD()[0]
+            bd = self.PD(end="infinity")[0]
             pers = np.abs(bd[:,0] - bd[:,1])
             if num_clusters + 1 > bd.shape[0] :
                 threshold = 0
             else :
-                threshold = np.sort(pers)[-(num_clusters+1)] + TOL
+                spers = np.sort(pers)
+                threshold = (spers[-num_clusters] + spers[-(num_clusters+1)])/2
 
 
-        appearances = np.argsort(self.heights)
         heights = self.heights.copy()
-
         merges_heights = self.merges_heights.copy()
+
         if not self.covariant :
-            heights = -heights 
+            heights = -heights - TOL
             merges_heights = -merges_heights
+        else :
+            heights = heights - TOL
+
+        # for numerical reasons, it may be that a point is merged before it appears,
+        # we subtract TOL, above, to make sure this doesn't happen
+
+        appearances = np.argsort(heights)
 
         uf = UnionFind()
         clusters_birth = {}
-        #clusters_death = {}
         clusters_died = {}
         clusters = []
         hind = 0
@@ -580,10 +586,11 @@ class HierarchicalClustering :
                 break
 
 
-        if self.covariant :
-            death = np.inf
-        else :
-            death = -self.minr
+        death = np.inf
+        #if self.covariant :
+        #    death = np.inf
+        #else :
+        #    death = -self.minr
         
         for x in range(n_points) :
             rx = uf.find(x)
