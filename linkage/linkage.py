@@ -463,8 +463,144 @@ class MPSpace :
     def connection_radius(self) :
         gamma = Gamma_curve.constant_k_alpha_s_indexed(0)
         return self.gamma_linkage(gamma).start_and_end()[1]
+    
+    
+class PersCluster:
+    
+    def __init__(self, identifier=None, child=None, parents=None,
+                 size=2, index=None, score_summands=None):
+        
+        self.id = identifier
+        self.child = child
+        self.parents = parents
+        self.size = size
+        self.index = index
+        self.score_summands = score_summands
+        self.id_after_pruning = identifier
+        self.score_summand_after_pruning = 0
+        
+    def reset_after_pruning(self):
+        self.id_after_pruning = self.id
+        self.score_summand_after_pruning = 0
+        
+    def score(self, m):
+        return np.sum(self.score_summands[m:]) + self.score_summand_after_pruning
+    
 
+class PCTree:
+    
+    def __init__(self, pers_clusters, pc_of_points, max_m, roots):
+        self.pers_clusters = pers_clusters
+        self.pc_of_points = pc_of_points
+        self.max_m = max_m
+        self.roots = roots
+        
+    def point_ancestors_of_x_to_y(self, x, y, dictionary):
+        
+        dictionary[x] = y
+        
+        pc = self.pers_clusters[x]
+        
+        if pc.parents != None:
+            for parent in pc.parents:
+                self.point_ancestors_of_x_to_y(parent, y, dictionary)
+        
+    def optimal_clustering(self, ident, m):
+        
+        pc = self.pers_clusters[ident]
+        
+        if pc.parents == None:
+            
+            if pc.size < m:
+                return [], 0
+            
+            if pc.size >= m:
+                return [pc.id_after_pruning], pc.score(m)
+            
+        else:
+            
+            parent_0_id = pc.parents[0]
+            parent_1_id = pc.parents[1]
+            
+            parent_0 = self.pers_clusters[parent_0_id]
+            parent_1 = self.pers_clusters[parent_1_id]
+            
+            if parent_0.size >= m and parent_1.size >= m:
+                
+                clustering_0, score_0 = self.optimal_clustering(parent_0_id, m)
+                clustering_1, score_1 = self.optimal_clustering(parent_1_id, m)
+                
+                if score_0 + score_1 >= pc.score(m):
+                    
+                    return clustering_0 + clustering_1, score_0 + score_1
+                
+                else:
+                    
+                    return [pc.id_after_pruning], pc.score(m)
+                
+            if parent_0.size < m and parent_1.size >= m:
+                
+                parent_1.id_after_pruning = pc.id_after_pruning
+                
+                parent_1.score_summand_after_pruning = pc.score(m)
+                
+                return self.optimal_clustering(parent_1_id, m)
+            
+            if parent_1.size < m and parent_0.size >= m:
+                
+                parent_0.id_after_pruning = pc.id_after_pruning
+                
+                parent_0.score_summand_after_pruning = pc.score(m)
+                
+                return self.optimal_clustering(parent_0_id, m)
+            
+            if parent_0.size < m and parent_1.size < m:
+                
+                if pc.size < m:
+                    return [], 0
+            
+                if pc.size >= m:
+                    return [pc.id_after_pruning], pc.score(m)
+                
 
+    def measure_based_flattening(self, m):
+        
+        if m > self.max_m:
+            raise Exception("m is larger than max_m!")
+            
+        pc_of_points = self.pc_of_points.copy()
+        num_points = pc_of_points.shape[0]
+        
+        result_ids = []
+        
+        for root in self.roots:
+            
+            clustering, score = self.optimal_clustering(root, m)
+            result_ids += clustering
+            
+        id_to_flat_id = {}
+        
+        for ident in result_ids:
+            
+            self.point_ancestors_of_x_to_y(ident, ident, id_to_flat_id)
+            
+        for p in range(num_points):
+            
+            if pc_of_points[p] in id_to_flat_id.keys():
+                pc_of_points[p] = id_to_flat_id[pc_of_points[p]]
+                
+            else:
+                pc_of_points[p] = -1
+            
+        # reset the after-pruning data of all persistent clusters,
+        # in case we flatten again with a different m
+        for key in self.pers_clusters.keys():
+            pc = self.pers_clusters[key]
+            pc.reset_after_pruning()
+        
+        return pc_of_points
+        
+        
 class HierarchicalClustering :
     """Implements a hierarchical clustering of a dataset"""
 
@@ -927,7 +1063,192 @@ class HierarchicalClustering :
 
         return trimmed_pers_diag[non_trivial_points], np.array(non_empty_indices)[non_trivial_points]
 
+    
+    # Returns the PC of the hierarchical clustering, 
+    # after the measure-based pruning with m=2.
+    # From this, one can compute the measure-based flattening with any m
+    # such that 2 <= m <= max_m.
+    def PC(self, max_m):
+        
+        # is it necessary to copy these?
+        heights = self.heights.copy()
+        merges = self.merges.copy()
+        merges_heights = self.merges_heights.copy()
 
+        covariant = self.covariant
+        if covariant :
+            ti = self.maxr
+        else :
+            ti = self.minr
+
+        num_points = heights.shape[0]
+        num_merges = merges.shape[0]
+        
+        pc_of_points = np.empty(shape=num_points, dtype=np.int64)
+        pc_of_points.fill(-1)
+        
+        X = PCTree(pers_clusters = {}, 
+                   pc_of_points = pc_of_points,
+                   max_m = max_m,
+                   roots = [])
+        
+        # Initialize an array of cluster identifiers.
+        # For the cluster i in the stepwise dendrogram,
+        # cluster_ids[i] will be the identifier of the persistent cluster
+        # to which i belongs.
+        cluster_ids = np.empty(shape=num_merges, dtype=np.int64)
+        cluster_ids.fill(-1)
+        
+        for i in range(num_merges):
+            
+            cluster_0 = merges[i, 0]
+            cluster_1 = merges[i, 1]
+            
+            # if both clusters are singletons
+            if cluster_0 < num_points and cluster_1 < num_points:
+                
+                # add persistent cluster to the PC
+                score_summands = np.zeros(shape=max_m + 1, dtype=np.float64)
+            
+                pers_cluster = PersCluster(identifier = i,
+                                           index = merges_heights[i],
+                                           score_summands = score_summands)
+                
+                X.pers_clusters[i] = pers_cluster
+                
+                # cluster i in the stepwise dendrogram belongs to
+                # the persistent cluster i
+                cluster_ids[i] = i
+                
+                # both singletons belong to the persistent cluster i
+                pc_of_points[cluster_0] = i
+                pc_of_points[cluster_1] = i
+                
+                
+            # if cluster_0 is not a singleton and cluster_1 is a singleton
+            if cluster_0 >= num_points and cluster_1 < num_points:
+                
+                # find the persistent cluster to which cluster_0 belongs
+                ident = cluster_ids[cluster_0 - num_points]
+                pc = X.pers_clusters[ident]
+                
+                current_index = merges_heights[i]
+                
+                # update the score of pc
+                if pc.size <= max_m:
+                    pc.score_summands[pc.size] = pc.size * np.abs(current_index - pc.index)
+                else:
+                    pc.score_summands[max_m] += pc.size * np.abs(current_index - pc.index)
+                
+                # update the index where pc was last visited
+                pc.index = current_index
+                
+                # pc has increased in size, since cluster_1 was added
+                pc.size += 1
+                
+                # cluster_1 belongs to pc
+                pc_of_points[cluster_1] = ident
+                
+                # cluster i in the stepwise dendrogram belongs to
+                # the persistent cluster ident
+                cluster_ids[i] = ident
+                
+            # if cluster_1 is not a singleton and cluster_0 is a singleton
+            if cluster_1 >= num_points and cluster_0 < num_points:
+                
+                # find the persistent cluster to which cluster_1 belongs
+                ident = cluster_ids[cluster_1 - num_points]
+                pc = X.pers_clusters[ident]
+                
+                current_index = merges_heights[i]
+                
+                # update the score of pc
+                if pc.size <= max_m:
+                    pc.score_summands[pc.size] = pc.size * np.abs(current_index - pc.index)
+                else:
+                    pc.score_summands[max_m] += pc.size * np.abs(current_index - pc.index)
+                
+                # update the index where pc was last visited
+                pc.index = current_index
+                
+                # pc has increased in size, since cluster_0 was added
+                pc.size += 1
+                
+                # cluster_0 belongs to pc
+                pc_of_points[cluster_0] = ident
+                
+                # cluster i in the stepwise dendrogram belongs to
+                # the persistent cluster ident
+                cluster_ids[i] = ident
+                
+            # if both clusters are not singletons
+            if cluster_0 >= num_points and cluster_1 >= num_points:
+                
+                # find the persistent cluster to which cluster_0 belongs
+                ident_0 = cluster_ids[cluster_0 - num_points]
+                pc_0 = X.pers_clusters[ident_0]
+                
+                # find the persistent cluster to which cluster_1 belongs
+                ident_1 = cluster_ids[cluster_1 - num_points]
+                pc_1 = X.pers_clusters[ident_1]
+                
+                current_index = merges_heights[i]
+                
+                # update the score of pc_0
+                if pc_0.size <= max_m:
+                    pc_0.score_summands[pc_0.size] = pc_0.size * np.abs(current_index - pc_0.index)
+                else:
+                    pc_0.score_summands[max_m] += pc_0.size * np.abs(current_index - pc_0.index)
+                    
+                # update the score of pc_1
+                if pc_1.size <= max_m:
+                    pc_1.score_summands[pc_1.size] = pc_1.size * np.abs(current_index - pc_1.index)
+                else:
+                    pc_1.score_summands[max_m] += pc_1.size * np.abs(current_index - pc_1.index)
+                    
+                # Since pc_0 and pc_1 have merged,
+                # they create a child in X
+
+                score_summands = np.zeros(shape=max_m + 1, dtype=np.float64)
+            
+                pers_cluster = PersCluster(identifier = i,
+                                           parents = [ident_0, ident_1],
+                                           size = pc_0.size + pc_1.size,
+                                           index = current_index,
+                                           score_summands = score_summands)
+                
+                X.pers_clusters[i] = pers_cluster
+                
+                pc_0.child = i
+                pc_1.child = i
+                
+                # cluster i in the stepwise dendrogram belongs to
+                # the persistent cluster i
+                cluster_ids[i] = i
+                
+        # find the roots of the PC        
+        for ident in X.pers_clusters.keys():
+            if X.pers_clusters[ident].child == None:
+                X.roots.append(ident)
+                
+        # we have to finish computing the scores of root elements
+        
+        current_index = ti
+        
+        for root in X.roots:
+
+            # find the persistent cluster to which root belongs
+            pc = X.pers_clusters[root]
+            
+            # update the score of pc
+            if pc.size <= max_m:
+                pc.score_summands[pc.size] = pc.size * np.abs(current_index - pc.index)
+            else:
+                pc.score_summands[max_m] += pc.size * np.abs(current_index - pc.index)
+                
+        return X
+
+                
 class Shadow :
 
     # returns an empty shadow
