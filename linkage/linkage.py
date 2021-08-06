@@ -468,14 +468,16 @@ class MPSpace :
 class PersCluster:
     
     def __init__(self, identifier=None, child=None, parents=None,
-                 size=2, index=None, score_summands=None):
+                 size=2, index=None, min_m=2, max_m=2):
         
         self.id = identifier
         self.child = child
         self.parents = parents
         self.size = size
         self.index = index
-        self.score_summands = score_summands
+        self.min_m = min_m
+        self.max_m = max_m
+        self.score_summands = np.zeros(shape = max_m - min_m + 1, dtype=np.float64)
         self.id_after_pruning = identifier
         self.score_summand_after_pruning = 0
         
@@ -484,14 +486,24 @@ class PersCluster:
         self.score_summand_after_pruning = 0
         
     def score(self, m):
-        return np.sum(self.score_summands[m:]) + self.score_summand_after_pruning
+        return np.sum(self.score_summands[m - self.min_m:]) + self.score_summand_after_pruning
+    
+    def update_score_summands(self, current_index):
+        
+        if self.size >= self.min_m:
+            
+            if self.size <= self.max_m:
+                self.score_summands[self.size - self.min_m] = self.size * np.abs(current_index - self.index)
+            else:
+                self.score_summands[self.max_m - self.min_m] += self.size * np.abs(current_index - self.index)
     
 
 class PCTree:
     
-    def __init__(self, pers_clusters, pc_of_points, max_m, roots):
+    def __init__(self, pers_clusters, pc_of_points, min_m, max_m, roots):
         self.pers_clusters = pers_clusters
         self.pc_of_points = pc_of_points
+        self.min_m = min_m
         self.max_m = max_m
         self.roots = roots
         
@@ -563,7 +575,10 @@ class PCTree:
                     return [pc.id_after_pruning], pc.score(m)
                 
 
-    def measure_based_flattening(self, m):
+    def measure_based_flattening_PC(self, m, verbose=False):
+        
+        if m < self.min_m:
+            raise Exception("m is smaller than min_m!")
         
         if m > self.max_m:
             raise Exception("m is larger than max_m!")
@@ -597,8 +612,11 @@ class PCTree:
         for key in self.pers_clusters.keys():
             pc = self.pers_clusters[key]
             pc.reset_after_pruning()
-        
-        return pc_of_points
+            
+        if verbose:
+            return pc_of_points, result_ids
+        else:
+            return pc_of_points
         
         
 class HierarchicalClustering :
@@ -1062,18 +1080,47 @@ class HierarchicalClustering :
         non_trivial_points = np.abs(trimmed_pers_diag[:,0] - trimmed_pers_diag[:,1]) > TOL
 
         return trimmed_pers_diag[non_trivial_points], np.array(non_empty_indices)[non_trivial_points]
-
     
+    def measure_based_flattening(self, m):
+        
+        # compute poset of persistent clusters
+        X = self.PC(min_m = m, max_m = m)
+        
+        return X.measure_based_flattening_PC(m = m)
+    
+    def measure_based_flattening_several_m(self, min_m, max_m):
+        
+        # compute poset of persistent clusters
+        X = self.PC(min_m = min_m, max_m = max_m)
+        
+        # compute all measure-based flattenings
+        num_points = self.heights.shape[0]
+        labels = np.empty(shape=(max_m - min_m + 1, num_points), dtype=np.int64)
+        ids = {}
+        
+        for m in range(min_m, max_m + 1):
+            labels_m, ids_m = X.measure_based_flattening_PC(m = m, verbose = True)
+            labels[m - min_m, :] = labels_m
+            ids[m] = ids_m
+            
+        critical_m = [(min_m, len(ids[min_m]))]
+            
+        for m in range(min_m + 1, max_m + 1):
+            
+            if len(ids[m-1]) != len(ids[m]):
+                critical_m.append((m, len(ids[m])))
+            else:
+                if set(ids[m-1]) != set(ids[m]):
+                    critical_m.append((m, len(ids[m])))
+            
+        return labels, critical_m
+            
+
     # Returns the PC of the hierarchical clustering, 
     # after the measure-based pruning with m=2.
     # From this, one can compute the measure-based flattening with any m
-    # such that 2 <= m <= max_m.
-    def PC(self, max_m):
-        
-        # is it necessary to copy these?
-        heights = self.heights.copy()
-        merges = self.merges.copy()
-        merges_heights = self.merges_heights.copy()
+    # such that min_m <= m <= max_m.
+    def PC(self, min_m, max_m):
 
         covariant = self.covariant
         if covariant :
@@ -1081,15 +1128,15 @@ class HierarchicalClustering :
         else :
             ti = self.minr
 
-        num_points = heights.shape[0]
-        num_merges = merges.shape[0]
+        num_points = self.heights.shape[0]
+        num_merges = self.merges.shape[0]
         
         pc_of_points = np.empty(shape=num_points, dtype=np.int64)
         pc_of_points.fill(-1)
         
         X = PCTree(pers_clusters = {}, 
                    pc_of_points = pc_of_points,
-                   max_m = max_m,
+                   min_m = min_m, max_m = max_m,
                    roots = [])
         
         # Initialize an array of cluster identifiers.
@@ -1101,18 +1148,16 @@ class HierarchicalClustering :
         
         for i in range(num_merges):
             
-            cluster_0 = merges[i, 0]
-            cluster_1 = merges[i, 1]
+            cluster_0 = self.merges[i, 0]
+            cluster_1 = self.merges[i, 1]
             
             # if both clusters are singletons
             if cluster_0 < num_points and cluster_1 < num_points:
                 
-                # add persistent cluster to the PC
-                score_summands = np.zeros(shape=max_m + 1, dtype=np.float64)
-            
+                # add persistent cluster to the PC            
                 pers_cluster = PersCluster(identifier = i,
-                                           index = merges_heights[i],
-                                           score_summands = score_summands)
+                                           index = self.merges_heights[i],
+                                           min_m = min_m, max_m = max_m)
                 
                 X.pers_clusters[i] = pers_cluster
                 
@@ -1132,13 +1177,10 @@ class HierarchicalClustering :
                 ident = cluster_ids[cluster_0 - num_points]
                 pc = X.pers_clusters[ident]
                 
-                current_index = merges_heights[i]
+                current_index = self.merges_heights[i]
                 
                 # update the score of pc
-                if pc.size <= max_m:
-                    pc.score_summands[pc.size] = pc.size * np.abs(current_index - pc.index)
-                else:
-                    pc.score_summands[max_m] += pc.size * np.abs(current_index - pc.index)
+                pc.update_score_summands(current_index)
                 
                 # update the index where pc was last visited
                 pc.index = current_index
@@ -1160,13 +1202,10 @@ class HierarchicalClustering :
                 ident = cluster_ids[cluster_1 - num_points]
                 pc = X.pers_clusters[ident]
                 
-                current_index = merges_heights[i]
+                current_index = self.merges_heights[i]
                 
                 # update the score of pc
-                if pc.size <= max_m:
-                    pc.score_summands[pc.size] = pc.size * np.abs(current_index - pc.index)
-                else:
-                    pc.score_summands[max_m] += pc.size * np.abs(current_index - pc.index)
+                pc.update_score_summands(current_index)
                 
                 # update the index where pc was last visited
                 pc.index = current_index
@@ -1192,30 +1231,22 @@ class HierarchicalClustering :
                 ident_1 = cluster_ids[cluster_1 - num_points]
                 pc_1 = X.pers_clusters[ident_1]
                 
-                current_index = merges_heights[i]
+                current_index = self.merges_heights[i]
                 
                 # update the score of pc_0
-                if pc_0.size <= max_m:
-                    pc_0.score_summands[pc_0.size] = pc_0.size * np.abs(current_index - pc_0.index)
-                else:
-                    pc_0.score_summands[max_m] += pc_0.size * np.abs(current_index - pc_0.index)
+                pc_0.update_score_summands(current_index)
                     
                 # update the score of pc_1
-                if pc_1.size <= max_m:
-                    pc_1.score_summands[pc_1.size] = pc_1.size * np.abs(current_index - pc_1.index)
-                else:
-                    pc_1.score_summands[max_m] += pc_1.size * np.abs(current_index - pc_1.index)
+                pc_1.update_score_summands(current_index)
                     
                 # Since pc_0 and pc_1 have merged,
                 # they create a child in X
-
-                score_summands = np.zeros(shape=max_m + 1, dtype=np.float64)
             
                 pers_cluster = PersCluster(identifier = i,
                                            parents = [ident_0, ident_1],
                                            size = pc_0.size + pc_1.size,
                                            index = current_index,
-                                           score_summands = score_summands)
+                                           min_m = min_m, max_m = max_m)
                 
                 X.pers_clusters[i] = pers_cluster
                 
@@ -1241,10 +1272,7 @@ class HierarchicalClustering :
             pc = X.pers_clusters[root]
             
             # update the score of pc
-            if pc.size <= max_m:
-                pc.score_summands[pc.size] = pc.size * np.abs(current_index - pc.index)
-            else:
-                pc.score_summands[max_m] += pc.size * np.abs(current_index - pc.index)
+            pc.update_score_summands(current_index)
                 
         return X
 
