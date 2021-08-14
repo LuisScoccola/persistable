@@ -575,7 +575,8 @@ class PCTree:
                     return [pc.id_after_pruning], pc.score(m)
                 
 
-    def measure_based_flattening_PC(self, m, verbose=False):
+    def measure_based_flattening_PC(self, m, verbose=False,
+                                    allow_one_cluster=False):
         
         if m < self.min_m:
             raise Exception("m is smaller than min_m!")
@@ -588,16 +589,43 @@ class PCTree:
         
         result_ids = []
         
-        for root in self.roots:
+        if allow_one_cluster:
+        
+            # compute optimal clustering
+            for root in self.roots:
+                
+                clustering, score = self.optimal_clustering(root, m)
+                result_ids += clustering
+                
+        else:
             
-            clustering, score = self.optimal_clustering(root, m)
-            result_ids += clustering
-            
+            if len(self.roots) == 1:
+                
+                root = self.roots[0]
+                pc = self.pers_clusters[root]
+                pc.score_summand_after_pruning = -np.inf
+                
+                #compute optimal clustering
+                clustering, score = self.optimal_clustering(root, m)
+                result_ids = clustering
+                
+            else:
+                
+                # compute optimal clustering
+                for root in self.roots:
+                    
+                    clustering, score = self.optimal_clustering(root, m)
+                    result_ids += clustering
+                    
+        # if x is a member of the optimal solution,
+        # and x' is an ancestor of x, then 
+        # the points of x' should be in the same cluster as x
+        
         id_to_flat_id = {}
         
-        for ident in result_ids:
+        for count, ident in enumerate(result_ids):
             
-            self.point_ancestors_of_x_to_y(ident, ident, id_to_flat_id)
+            self.point_ancestors_of_x_to_y(ident, count, id_to_flat_id)
             
         for p in range(num_points):
             
@@ -1074,8 +1102,20 @@ class HierarchicalClustering :
         trimmed_pers_diag[trimmed_pers_diag <= TOL*2] = 0
         trimmed_pers_diag[trimmed_pers_diag >= INF/2] = np.infty
 
+        # set the death of the first born point to -infinity
         if covariant == False and end == "infinity" :
-            trimmed_pers_diag[np.argmax(trimmed_pers_diag[:,0]),1] = -np.infty
+            
+            #trimmed_pers_diag[np.argmax(trimmed_pers_diag[:,0]),1] = -np.infty
+            
+            first_birth = np.max(trimmed_pers_diag[:,0])
+            
+            first_born = np.argwhere(trimmed_pers_diag[:,0] > first_birth - TOL).flatten()
+            
+            # of the first born, take the last to die
+            most_persistent = np.argmin(trimmed_pers_diag[first_born,1])
+            
+            index = first_born[most_persistent]
+            trimmed_pers_diag[index,1] = -np.infty
 
         non_trivial_points = np.abs(trimmed_pers_diag[:,0] - trimmed_pers_diag[:,1]) > TOL
 
