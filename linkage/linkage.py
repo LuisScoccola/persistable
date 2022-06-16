@@ -9,6 +9,7 @@ from sklearn.neighbors import KDTree, BallTree
 from sklearn.metrics import pairwise_distances
 from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
+from linkage.plot import StatusbarHoverManager
 
 
 TOL = 1e-15
@@ -355,46 +356,6 @@ class MPSpace :
             return gamma.s_component.inverse(np.array(list(map(op, point_index, i_indices))))
 
 
-    def its_shadow(self, gridk = 1.1, grids = 1, n_bins = 250) :
-        # to do: check input
-
-        if not self.fitted_density_estimates :
-            raise Exception("Must fit before computing shadow.")
-
-        # create grid if not given explicitly
-        if isinstance(gridk, float) or isinstance(gridk, int) :
-            n_bins = n_bins
-            max_grid_k = gridk
-            gridk = np.array(range(0,n_bins))/(n_bins-1) * max_grid_k
-            max_grid_s = grids
-            grids = np.array(range(0,n_bins))/(n_bins-1) * max_grid_s
-
-        shadow = np.zeros((len(gridk),len(grids)))
-
-        mask = np.full((len(gridk),len(grids)),False)
-
-        for i in range(len(self.fit_on)) :
-
-            estimates, out_of_bounds = self.kde(i, grids)
-
-            k_indices = np.searchsorted(gridk, estimates, side = 'left')
-            k_indices -= 1
-
-            shadow[(k_indices, range(0,len(k_indices)))] += self.measure[i]
-
-            for s_index, b in enumerate(out_of_bounds) :
-                if b :
-                    mask[k_indices[s_index]][s_index] = True
-
-        shadow = shadow[::-1].cumsum(axis = 0)[::-1]
-        normalize_by = np.sum(self.measure[self.fit_on])
-        shadow /= normalize_by
-
-        mask = np.logical_or.accumulate(mask)
-
-        return Shadow(gridk, grids, shadow, mask)
-
-
     def gamma_linkage(self, gamma, consistent = False, intrinsic_dim = 1) :
         covariant = gamma.covariant
         
@@ -459,7 +420,7 @@ class MPSpace :
 
 
     # avoid copying all the code from gamma_linkage!
-    def gamma_prominence_vineyard(self, gammas, consistent = False, intrinsic_dim = 1, is_one_parameter_family = True) :
+    def gamma_prominence_vineyard(self, gammas, consistent = False, intrinsic_dim = 1) :
 
         def prominences(bd : np.array) -> np.array :
             return np.sort(np.abs(bd[:,0] - bd[:,1]))[::-1]
@@ -536,7 +497,7 @@ class MPSpace :
             parameters.append(gamma)
             prominence_diagrams.append(prominence_diagram)
             
-        return Prominence_vineyard(parameters, prominence_diagrams, is_one_parameter_family)
+        return prominence_diagrams
 
 
     def connection_radius(self) :
@@ -1330,99 +1291,18 @@ class Gamma_curve :
 
 ### PROMINENCE VINEYARD
     
-class Prominence_vineyard :
+class ProminenceVineyard :
     
-    def __init__(self, parameters, prominence_diagrams, is_one_parameter_family=True) :
-        
+    def __init__(self, parameters, prominence_diagrams) :
         self.parameters = parameters
         self.prominence_diagrams = prominence_diagrams
-        self.is_one_parameter_family = is_one_parameter_family
+        # to do: delete these
         self.largest_gaps = []
         self.largest_gap_parameters = []
         
-        
-    def find_largest_gaps(self, max_ell):
-        largest_gaps, largest_gap_parameters = Prominence_vineyard.gaps(self.parameters, self.prominence_diagrams, max_ell)
-        self.largest_gaps = largest_gaps
-        self.largest_gap_parameters = largest_gap_parameters
-        
-        
-    def gaps(parameters, prominence_diagrams, max_ell):
-    
-        N = len(prominence_diagrams)
-        largest_gaps = []
-        largest_gap_parameters = []
-        
-        prominences = np.zeros(shape=(max_ell, N), dtype=np.float64)
-        for ell in range(max_ell):
-            for i in range(N):
-                if prominence_diagrams[i].shape[0] > ell:
-                    prominences[ell, i] = prominence_diagrams[i][ell]
-                    
-        for ell in range(max_ell-1):
-            largest_gaps.append(np.amax(prominences[ell,:] - prominences[ell+1,:]))
-            largest_gap_parameters.append(parameters[np.argmax(prominences[ell,:] - prominences[ell+1,:])])
-            
-        return largest_gaps, largest_gap_parameters
-    
-    
-    def plot_largest_gaps(self, min_ell, max_ell):
-        
-        plt.xticks(ticks=range(min_ell, max_ell, 2))
-        plt.bar(range(min_ell, max_ell), [self.largest_gaps[ell-1] for ell in range(min_ell, max_ell)])
-        plt.show()
-        
-    def plot_vineyard(self, times):
-        Prominence_vineyard.plot_prominence_vineyard(times, self.prominence_diagrams, firstn = None, interpolate=True, areas=False, points=False)
-        
-
-    # vineyard plotting
-    
-    def vine_parts(times, prominences, tol = 1e-8):
-        parts = []
-        current_vine_part = []
-        current_time_part = []
-        part_number = 0
-        for i in range(len(times)):
-            if prominences[i] < tol :
-                if len(current_vine_part) > 0:
-                    # we have constructed a non-trivial vine part that has now ended
-                    if part_number != 0 :
-                        # this is not the first vine part, so we prepend 0 to the vine and the previous time to the times
-                        current_vine_part.insert(0,0)
-                        current_time_part.insert(0,times[i-len(current_vine_part)])
-                    
-                    # finish the vine part with a 0 and the time with the current time
-                    current_vine_part.append(0)
-                    current_time_part.append(times[i])
-    
-                    ## we save the current vine part and start over
-                    parts.append( ( np.array(current_vine_part), np.array(current_time_part)))
-    
-                    part_number += 1
-                    current_vine_part = []
-                    current_time_part = []
-                # else, we haven't constructed a non-trivial vine part, so we just keep going
-            elif i == len(times)-1 :
-                if part_number != 0 :
-                    # this is not the first vine part, so we prepend 0 to the vine and the previous time to the times
-                    current_vine_part.insert(0,0)
-                    current_time_part.insert(0,times[i-len(current_vine_part)])
-    
-                # finish the vine part with its value and the time with the current time
-                current_vine_part.append(prominences[i])
-                current_time_part.append(times[i])
-                    
-                # we save the final vine part and time
-                parts.append( ( np.array(current_vine_part), np.array(current_time_part)))
-            else :
-                # we keep constructing the vine part, since the prominence is non-zero
-                current_vine_part.append(prominences[i])
-                current_time_part.append(times[i])
-        return parts
-    
-    
-    def vineyard_to_vines(times, prominence_diagrams):
+    def vineyard_to_vines(self):
+        times = self.parameters
+        prominence_diagrams = self.prominence_diagrams
         num_vines = np.max([len(prom) for prom in prominence_diagrams])
         padded_prominence_diagrams = np.zeros((len(times),num_vines))
         for i in range(len(times)):
@@ -1430,36 +1310,117 @@ class Prominence_vineyard :
     
         return [ (times,padded_prominence_diagrams[:,j]) for j in range(num_vines) ]
     
+    def plot_prominence_vineyard(self, ax, color_firstn = 10, interpolate=True, areas=True, points=False):
+
+        times = self.parameters
+        prominence_diagrams = self.prominence_diagrams
+
+        def vine_parts(times, prominences, tol = 1e-8):
+            parts = []
+            current_vine_part = []
+            current_time_part = []
+            part_number = 0
+            for i in range(len(times)):
+                if prominences[i] < tol :
+                    if len(current_vine_part) > 0:
+                        # we have constructed a non-trivial vine part that has now ended
+                        if part_number != 0 :
+                            # this is not the first vine part, so we prepend 0 to the vine and the previous time to the times
+                            current_vine_part.insert(0,0)
+                            current_time_part.insert(0,times[i-len(current_vine_part)])
+
+                        # finish the vine part with a 0 and the time with the current time
+                        current_vine_part.append(0)
+                        current_time_part.append(times[i])
     
-    def plot_prominence_vineyard(times, prominence_diagrams, firstn = None, interpolate=True, areas=True, points=False):
-        vines = Prominence_vineyard.vineyard_to_vines(times,prominence_diagrams)
+                        ## we save the current vine part and start over
+                        parts.append( ( np.array(current_vine_part), np.array(current_time_part)))
+    
+                        part_number += 1
+                        current_vine_part = []
+                        current_time_part = []
+                    # else, we haven't constructed a non-trivial vine part, so we just keep going
+                elif i == len(times)-1 :
+                    if part_number != 0 :
+                        # this is not the first vine part, so we prepend 0 to the vine and the previous time to the times
+                        current_vine_part.insert(0,0)
+                        current_time_part.insert(0,times[i-len(current_vine_part)])
+    
+                    # finish the vine part with its value and the time with the current time
+                    current_vine_part.append(prominences[i])
+                    current_time_part.append(times[i])
+
+                    # we save the final vine part and time
+                    parts.append( ( np.array(current_vine_part), np.array(current_time_part)))
+                else :
+                    # we keep constructing the vine part, since the prominence is non-zero
+                    current_vine_part.append(prominences[i])
+                    current_time_part.append(times[i])
+            return parts
+
+        vines = self.vineyard_to_vines()
        
         num_vines = len(vines)
     
         cscheme = lambda x : plt.cm.viridis(x)
     
-        if firstn == None :
+        if color_firstn == None :
             colors = cscheme(np.linspace(0, 1, num_vines)[::-1])
         else :
-            colors = list(cscheme(np.linspace(0, 1, firstn)[::-1]))
+            colors = list(cscheme(np.linspace(0, 1, color_firstn)[::-1]))
             last = colors[-1]
-            colors.extend([last for _ in range(num_vines-firstn)])
+            colors.extend([last for _ in range(num_vines-color_firstn)])
     
+        shm = StatusbarHoverManager(ax, "parameter", "prominence")
+
         if areas:
             for i in range(len(vines)-1):
-                plt.fill_between(times, vines[i][1], vines[i+1][1], color = colors[i])
-            plt.fill_between(times, vines[len(vines)-1][1], 0, color = colors[len(vines)-1])
+                artist = ax.fill_between(times, vines[i][1], vines[i+1][1], color = colors[i])
+                shm.add_artist_labels(artist, "gap " + str(i+1))
+            ax.fill_between(times, vines[len(vines)-1][1], 0, color = colors[len(vines)-1])
+            shm.add_artist_labels(artist, "gap " + str(i+1))
             
-        for tv,c in list(zip(vines,colors))[::-1] :
+        for i,tv in enumerate(vines) :
             times, vine = tv
     
-            for vine_part, time_part in Prominence_vineyard.vine_parts(times,vine) :
+            for vine_part, time_part in vine_parts(times,vine) :
                 if interpolate:
-                    plt.plot(time_part,vine_part, c="black")
+                    artist = ax.plot(time_part,vine_part, c="black")
+                    shm.add_artist_labels(artist, "vine " + str(i+1))
                 if points:
-                    plt.plot(time_part,vine_part, "o", c="black")
+                    artist = ax.plot(time_part,vine_part, "o", c="black")
+                    shm.add_artist_labels(artist, "vine " + str(i+1))
             
+
+
+    def find_largest_gaps(self, max_ell):
+        # why are we assigning these to object fields instead of just returning them?
+        largest_gaps, largest_gap_parameters = self.gaps(max_ell)
+        self.largest_gaps = largest_gaps
+        self.largest_gap_parameters = largest_gap_parameters
+        
+    def gaps(self,max_ell):
+        N = len(self.prominence_diagrams)
+        largest_gaps = []
+        largest_gap_parameters = []
+        
+        prominences = np.zeros(shape=(max_ell, N), dtype=np.float64)
+        for ell in range(max_ell):
+            for i in range(N):
+                if self.prominence_diagrams[i].shape[0] > ell:
+                    prominences[ell, i] = self.prominence_diagrams[i][ell]
+                    
+        for ell in range(max_ell-1):
+            largest_gaps.append(np.amax(prominences[ell,:] - prominences[ell+1,:]))
+            largest_gap_parameters.append(self.parameters[np.argmax(prominences[ell,:] - prominences[ell+1,:])])
+            
+        return largest_gaps, largest_gap_parameters
+    
+    def plot_largest_gaps(self, min_ell, max_ell):
+        plt.xticks(ticks=range(min_ell, max_ell, 2))
+        plt.bar(range(min_ell, max_ell), [self.largest_gaps[ell-1] for ell in range(min_ell, max_ell)])
         plt.show()
+
 
 
 ### UNION FIND
