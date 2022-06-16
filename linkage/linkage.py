@@ -10,35 +10,11 @@ from sklearn.metrics import pairwise_distances
 from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
 
-import time
-
 
 TOL = 1e-15
 INF = 1e15
 
 ### GAMMA LINKAGE
-
-
-def lazy_intersection(increasing, increasing2, f2) :
-    # find first occurence of increasing[i] >= f2(increasing2[i])
-    first = 0
-    last = len(increasing)-1
-
-    if increasing[first] >= f2(increasing2[first]) :
-        return first, False
-    if increasing[last] < f2(increasing2[last]) :
-        return last, True
-
-    while first+1 < last :
-
-        midpoint = (first + last)//2
-        if increasing[midpoint] >= f2(increasing2[midpoint]) :
-            last = midpoint
-        else:
-            first = midpoint
-
-    return last, False
-
 
 class MPSpace :
     """Implements a finite metric probability space that can compute \
@@ -325,6 +301,26 @@ class MPSpace :
 
     def core_scale_varying_s_k(self, point_index, gamma) :
 
+        def lazy_intersection(increasing, increasing2, f2) :
+            # find first occurence of increasing[i] >= f2(increasing2[i])
+            first = 0
+            last = len(increasing)-1
+
+            if increasing[first] >= f2(increasing2[first]) :
+                return first, False
+            if increasing[last] < f2(increasing2[last]) :
+                return last, True
+
+            while first+1 < last :
+                midpoint = (first + last)//2
+                if increasing[midpoint] >= f2(increasing2[midpoint]) :
+                    last = midpoint
+                else:
+                    first = midpoint
+
+            return last, False
+
+
         k_s_inv = lambda d : gamma.k_component.func(gamma.s_component.func_inv(d))
 
         i_indices = []
@@ -462,7 +458,11 @@ class MPSpace :
         return ret
 
 
+    # avoid copying all the code from gamma_linkage!
     def gamma_prominence_vineyard(self, gammas, consistent = False, intrinsic_dim = 1, is_one_parameter_family = True) :
+
+        def prominences(bd : np.array) -> np.array :
+            return np.sort(np.abs(bd[:,0] - bd[:,1]))[::-1]
 
         if self.metric == "precomputed" :
             dm = self.dist_mat.copy()
@@ -543,192 +543,6 @@ class MPSpace :
         gamma = Gamma_curve.constant_k_alpha_s_indexed(0)
         return self.gamma_linkage(gamma).start_and_end()[1]
     
-    
-def prominences(bd : np.array) -> np.array :
-    return np.sort(np.abs(bd[:,0] - bd[:,1]))[::-1]
-    
-    
-class PersCluster:
-    
-    def __init__(self, identifier=None, child=None, parents=None,
-                 size=2, index=None, min_m=2, max_m=2):
-        
-        self.id = identifier
-        self.child = child
-        self.parents = parents
-        self.size = size
-        self.index = index
-        self.min_m = min_m
-        self.max_m = max_m
-        self.score_summands = np.zeros(shape = max_m - min_m + 1, dtype=np.float64)
-        self.id_after_pruning = identifier
-        self.score_summand_after_pruning = 0
-        
-    def reset_after_pruning(self):
-        self.id_after_pruning = self.id
-        self.score_summand_after_pruning = 0
-        
-    def score(self, m):
-        return np.sum(self.score_summands[m - self.min_m:]) + self.score_summand_after_pruning
-    
-    def update_score_summands(self, current_index):
-        
-        if self.size >= self.min_m:
-            
-            if self.size <= self.max_m:
-                self.score_summands[self.size - self.min_m] = self.size * np.abs(current_index - self.index)
-            else:
-                self.score_summands[self.max_m - self.min_m] += self.size * np.abs(current_index - self.index)
-    
-
-class PCTree:
-    
-    def __init__(self, pers_clusters, pc_of_points, min_m, max_m, roots):
-        self.pers_clusters = pers_clusters
-        self.pc_of_points = pc_of_points
-        self.min_m = min_m
-        self.max_m = max_m
-        self.roots = roots
-        
-    def point_ancestors_of_x_to_y(self, x, y, dictionary):
-        
-        dictionary[x] = y
-        
-        pc = self.pers_clusters[x]
-        
-        if pc.parents != None:
-            for parent in pc.parents:
-                self.point_ancestors_of_x_to_y(parent, y, dictionary)
-        
-    def optimal_clustering(self, ident, m):
-        
-        pc = self.pers_clusters[ident]
-        
-        if pc.parents == None:
-            
-            if pc.size < m:
-                return [], 0
-            
-            if pc.size >= m:
-                return [pc.id_after_pruning], pc.score(m)
-            
-        else:
-            
-            parent_0_id = pc.parents[0]
-            parent_1_id = pc.parents[1]
-            
-            parent_0 = self.pers_clusters[parent_0_id]
-            parent_1 = self.pers_clusters[parent_1_id]
-            
-            if parent_0.size >= m and parent_1.size >= m:
-                
-                clustering_0, score_0 = self.optimal_clustering(parent_0_id, m)
-                clustering_1, score_1 = self.optimal_clustering(parent_1_id, m)
-                
-                if score_0 + score_1 >= pc.score(m):
-                    
-                    return clustering_0 + clustering_1, score_0 + score_1
-                
-                else:
-                    
-                    return [pc.id_after_pruning], pc.score(m)
-                
-            if parent_0.size < m and parent_1.size >= m:
-                
-                parent_1.id_after_pruning = pc.id_after_pruning
-                
-                parent_1.score_summand_after_pruning = pc.score(m)
-                
-                return self.optimal_clustering(parent_1_id, m)
-            
-            if parent_1.size < m and parent_0.size >= m:
-                
-                parent_0.id_after_pruning = pc.id_after_pruning
-                
-                parent_0.score_summand_after_pruning = pc.score(m)
-                
-                return self.optimal_clustering(parent_0_id, m)
-            
-            if parent_0.size < m and parent_1.size < m:
-                
-                if pc.size < m:
-                    return [], 0
-            
-                if pc.size >= m:
-                    return [pc.id_after_pruning], pc.score(m)
-                
-
-    def measure_based_flattening_PC(self, m, verbose=False,
-                                    allow_one_cluster=False):
-        
-        if m < self.min_m:
-            raise Exception("m is smaller than min_m!")
-        
-        if m > self.max_m:
-            raise Exception("m is larger than max_m!")
-            
-        pc_of_points = self.pc_of_points.copy()
-        num_points = pc_of_points.shape[0]
-        
-        result_ids = []
-        
-        if allow_one_cluster:
-        
-            # compute optimal clustering
-            for root in self.roots:
-                
-                clustering, score = self.optimal_clustering(root, m)
-                result_ids += clustering
-                
-        else:
-            
-            if len(self.roots) == 1:
-                
-                root = self.roots[0]
-                pc = self.pers_clusters[root]
-                pc.score_summand_after_pruning = -np.inf
-                
-                #compute optimal clustering
-                clustering, score = self.optimal_clustering(root, m)
-                result_ids = clustering
-                
-            else:
-                
-                # compute optimal clustering
-                for root in self.roots:
-                    
-                    clustering, score = self.optimal_clustering(root, m)
-                    result_ids += clustering
-                    
-        # if x is a member of the optimal solution,
-        # and x' is an ancestor of x, then 
-        # the points of x' should be in the same cluster as x
-        
-        id_to_flat_id = {}
-        
-        for count, ident in enumerate(result_ids):
-            
-            self.point_ancestors_of_x_to_y(ident, count, id_to_flat_id)
-            
-        for p in range(num_points):
-            
-            if pc_of_points[p] in id_to_flat_id.keys():
-                pc_of_points[p] = id_to_flat_id[pc_of_points[p]]
-                
-            else:
-                pc_of_points[p] = -1
-            
-        # reset the after-pruning data of all persistent clusters,
-        # in case we flatten again with a different m
-        for key in self.pers_clusters.keys():
-            pc = self.pers_clusters[key]
-            pc.reset_after_pruning()
-            
-        if verbose:
-            return pc_of_points, result_ids
-        else:
-            return pc_of_points
-        
         
 class HierarchicalClustering :
     """Implements a hierarchical clustering of a dataset"""
@@ -892,75 +706,6 @@ class HierarchicalClustering :
             return np.min(self.heights), np.max(self.merges_heights)
         else :
             return np.max(self.heights), np.min(self.merges_heights)
-
-
-    def interleaving_distance(self, hc) :
-        """Computes the interleaving distance between self and the given hierarchical clustering.\
-            Assumes that self and the given hierarchical clustering are defined over the same set."""
-        heights1 = self.heights
-        heights2 = hc.heights
-
-        merges1 = self.merges
-        merges2 = hc.merges
-        merges_heights1 = self.merges_heights.copy()
-        merges_heights2 = hc.merges_heights.copy()
-        if not self.covariant :
-            merges_heights1 = - merges_heights1
-            merges_heights2 = - merges_heights2
-        nmerges1 = len(merges1)
-        nmerges2 = len(merges2)
-
-        npoints = len(self.heights)
-        #to do: fail if different number of points
-
-        dist = np.amax(np.abs(heights1 - heights2))
-
-        # compute the assymetric interleaving distance from 1 to 2
-        # to do: we assume that everything merges together right after the last thing that happens
-        # maybe this should be done at the level of dendrograms?
-        i = 0
-        epsilon1 = dist
-        uf1 = UnionFind()
-        uf1_ = UnionFind()
-        for xy,r,n in zip(merges1, merges_heights1, range(nmerges1)):
-            x,y = xy
-            uf1_.union(x,y)
-            uf1_.union(x,n + npoints)
-            while i < nmerges2 and merges_heights2[i] < r + epsilon1 :
-                uf1.union(merges2[i,0], merges2[i,1])
-                uf1.union(merges2[i,0], i + npoints)
-                i = i + 1
-
-            rx = uf1_.find(x)
-            ry = uf1_.find(y)
-            while i < nmerges2 and uf1.find(rx) != uf1.find(ry) :
-                epsilon1 = merges_heights2[i] - r
-                uf1.union(merges2[i,0], merges2[i,1])
-                uf1.union(merges2[i,0], i + npoints)
-                i = i + 1
-
-        i = 0
-        epsilon2 = epsilon1 
-        uf2 = UnionFind()
-        uf2_ = UnionFind()
-        for xy,r in zip(merges2, merges_heights2):
-            x,y = xy
-            uf2_.union(x,y)
-            uf2_.union(x,n + npoints)
-            while i < nmerges1 and merges_heights1[i] < r + epsilon2 :
-                uf2.union(merges1[i,0], merges1[i,1])
-                uf2.union(merges1[i,0], i + npoints)
-                i = i + 1
-
-            rx = uf2_.find(x)
-            ry = uf2_.find(y)
-            while i < nmerges1 and uf2.find(rx) != uf2.find(ry) :
-                epsilon2 = merges_heights1[i] - r
-                uf2.union(merges1[i,0], merges1[i,1])
-                uf2.union(merges1[i,0], i + npoints)
-                i = i + 1
-
-        return epsilon2
 
 
     def PD(self, end = None) :
@@ -1399,15 +1144,322 @@ class HierarchicalClustering :
                 
         return X
 
-                
-class Shadow :
 
-    # returns an empty shadow
-    def __init__(self, gridk, grids, matrix, mask) :
-        self.gridk = gridk
-        self.grids = grids
-        self.matrix = matrix
-        self.mask = mask 
+### CURVES
+
+class Parametrized_interval :
+
+    def __init__(self, dom_min, dom_max, cod_min, cod_max, func, covariant, func_inv = None) :
+        # to do: check input
+
+        self.covariant = covariant
+
+        self.dom_min = dom_min
+        self.dom_max = dom_max
+        self.cod_min = cod_min
+        self.cod_max = cod_max
+        
+        self.func = func
+        # could be None
+        self.func_inv = func_inv
+        if func_inv == None :
+            self.is_constant = True
+        else :
+            self.is_constant = False
+
+
+    def inverse(self, r) :
+        # to do: we don't assume the curve is invertible
+        # in the constant case self.cod_min == self.cod_max,
+        # make sure that the conditions are mutually exclusive
+        # and their union is everything
+
+        condlist = [ r < self.cod_min, r >= self.cod_max ]
+
+        if self.covariant :
+            choicelist = [ self.dom_min, self.dom_max ]
+        else :
+            choicelist = [ self.dom_max, self.dom_min ]
+
+        #to do: handle non-invertible curves better
+        if self.func_inv == None :
+            return np.select(condlist,choicelist, default = 0)
+        else:
+            return np.select(condlist,choicelist, default = self.func_inv(r))
+
+
+    def linear(dom_min, dom_max, cod_min, cod_max, slope, intercept, slope_inv = None, intercept_inv = None) :
+
+        def line(slope, intercept, r) :
+            return slope * r + intercept
+
+        dom_min = dom_min
+        dom_max = dom_max
+        cod_min = cod_min
+        cod_max = cod_max
+
+        func = lambda r : line(slope,intercept, r)
+        if slope_inv != None :
+            func_inv = lambda r : line(slope_inv,intercept_inv, r)
+        else :
+            func_inv = None
+
+        if slope >= 0 :
+            covariant = True
+        else :
+            covariant = False
+
+        return Parametrized_interval(dom_min, dom_max, cod_min, cod_max, func, covariant, func_inv = func_inv)
+
+
+    def linear_increasing(dom_min, dom_max, cod_min, cod_max) :
+        slope = (cod_max - cod_min)/(dom_max - dom_min)
+        intercept = cod_min - slope * dom_min
+
+        slope_inv = 1./slope
+        intercept_inv = -intercept * slope_inv
+
+        return Parametrized_interval.linear(dom_min, dom_max, cod_min, cod_max,\
+                slope, intercept, slope_inv = slope_inv, intercept_inv = intercept_inv)
+
+
+    def linear_decreasing(dom_min, dom_max, cod_min, cod_max) :
+        slope = (cod_min - cod_max)/(dom_max - dom_min)
+        intercept = cod_max - slope * dom_min
+        
+        slope_inv = 1./slope
+        intercept_inv = -intercept * slope_inv
+
+        return Parametrized_interval.linear(dom_min, dom_max, cod_min, cod_max,\
+                slope, intercept, slope_inv = slope_inv, intercept_inv = intercept_inv)
+
+
+    def constant(dom_min, dom_max, const, covariant) :
+        def constant(const, r) :
+            return const
+
+        # to do: test
+        dom_min = dom_min
+        dom_max = dom_max
+        cod_min = const
+        cod_max = const
+
+        func = lambda r : constant(const, r)
+
+        return Parametrized_interval(dom_min, dom_max, cod_min, cod_max, func, covariant)
+
+
+    def identity() :
+        def identity(r) :
+            return r
+
+        dom_min = 0
+        dom_max = np.infty
+        cod_min = 0
+        cod_max = np.infty
+
+        func = identity
+        func_inv = func
+
+        return Parametrized_interval(dom_min, dom_max, cod_min, cod_max, func, True, func_inv = func_inv)
+
+
+    def times(alpha) :
+        def times(alpha,r) :
+            return alpha * r
+
+        dom_min = 0
+        dom_max = np.infty
+        cod_min = 0
+        cod_max = np.infty
+
+        func = lambda r : times(alpha, r)
+        func_inv = lambda r : times(1./alpha,r)
+
+        return Parametrized_interval(dom_min, dom_max, cod_min, cod_max, func, True, func_inv = func_inv)
+
+
+class Gamma_curve :
+    
+    def __init__(self, s_component, t_component, k_component) :
+        # to do: actually, it does make sense for both components to be constant
+        if s_component.is_constant and k_component.is_constant :
+            raise Exception("Both components shouldn't be constant.")
+        if s_component.is_constant :
+            self.covariant = not k_component.covariant
+        else :
+            self.covariant = s_component.covariant
+
+        self.s_component = s_component
+        self.t_component = t_component
+        self.k_component = k_component
+        #self.k_s_inv = None
+
+        # to do: check that domains coincide (and min should be 0)
+        self.maxr = s_component.dom_max
+        self.minr = 0
+
+
+    def linear_interpolator_alpha_k_indexed(k, s, alpha = 1) :
+        k_component = Parametrized_interval.linear_increasing(0,k,0,k)
+        s_component = Parametrized_interval.linear_decreasing(0,k,0,s)
+        t_component = Parametrized_interval.linear_decreasing(0,k,0,alpha * s)
+        return Gamma_curve(s_component,t_component,k_component)
+
+
+    def linear_interpolator_alpha_s_indexed(k, s, alpha = 1) :
+        k_component = Parametrized_interval.linear_decreasing(0,s,0,k)
+        s_component = Parametrized_interval.linear_increasing(0,s,0,s)
+        t_component = Parametrized_interval.linear_increasing(0,s,0,alpha * s)
+        return Gamma_curve(s_component,t_component,k_component)
+
+
+    def constant_k_alpha_s_indexed(k,alpha = 1, maxs = np.infty) :
+        k_component = Parametrized_interval.constant(0,maxs,k,False)
+        s_component = Parametrized_interval.identity()
+        t_component = Parametrized_interval.times(alpha)
+        return Gamma_curve(s_component,t_component,k_component)
+
+
+    def constant_s_t_k_indexed(s,t,maxk = np.infty) :
+        k_component = Parametrized_interval.identity()
+        s_component = Parametrized_interval.constant(0,maxk,s,False)
+        t_component = Parametrized_interval.constant(0,maxk,t,False)
+        return Gamma_curve(s_component,t_component,k_component)
+
+
+### PROMINENCE VINEYARD
+    
+class Prominence_vineyard :
+    
+    def __init__(self, parameters, prominence_diagrams, is_one_parameter_family=True) :
+        
+        self.parameters = parameters
+        self.prominence_diagrams = prominence_diagrams
+        self.is_one_parameter_family = is_one_parameter_family
+        self.largest_gaps = []
+        self.largest_gap_parameters = []
+        
+        
+    def find_largest_gaps(self, max_ell):
+        largest_gaps, largest_gap_parameters = Prominence_vineyard.gaps(self.parameters, self.prominence_diagrams, max_ell)
+        self.largest_gaps = largest_gaps
+        self.largest_gap_parameters = largest_gap_parameters
+        
+        
+    def gaps(parameters, prominence_diagrams, max_ell):
+    
+        N = len(prominence_diagrams)
+        largest_gaps = []
+        largest_gap_parameters = []
+        
+        prominences = np.zeros(shape=(max_ell, N), dtype=np.float64)
+        for ell in range(max_ell):
+            for i in range(N):
+                if prominence_diagrams[i].shape[0] > ell:
+                    prominences[ell, i] = prominence_diagrams[i][ell]
+                    
+        for ell in range(max_ell-1):
+            largest_gaps.append(np.amax(prominences[ell,:] - prominences[ell+1,:]))
+            largest_gap_parameters.append(parameters[np.argmax(prominences[ell,:] - prominences[ell+1,:])])
+            
+        return largest_gaps, largest_gap_parameters
+    
+    
+    def plot_largest_gaps(self, min_ell, max_ell):
+        
+        plt.xticks(ticks=range(min_ell, max_ell, 2))
+        plt.bar(range(min_ell, max_ell), [self.largest_gaps[ell-1] for ell in range(min_ell, max_ell)])
+        plt.show()
+        
+    def plot_vineyard(self, times):
+        Prominence_vineyard.plot_prominence_vineyard(times, self.prominence_diagrams, firstn = None, interpolate=True, areas=False, points=False)
+        
+
+    # vineyard plotting
+    
+    def vine_parts(times, prominences, tol = 1e-8):
+        parts = []
+        current_vine_part = []
+        current_time_part = []
+        part_number = 0
+        for i in range(len(times)):
+            if prominences[i] < tol :
+                if len(current_vine_part) > 0:
+                    # we have constructed a non-trivial vine part that has now ended
+                    if part_number != 0 :
+                        # this is not the first vine part, so we prepend 0 to the vine and the previous time to the times
+                        current_vine_part.insert(0,0)
+                        current_time_part.insert(0,times[i-len(current_vine_part)])
+                    
+                    # finish the vine part with a 0 and the time with the current time
+                    current_vine_part.append(0)
+                    current_time_part.append(times[i])
+    
+                    ## we save the current vine part and start over
+                    parts.append( ( np.array(current_vine_part), np.array(current_time_part)))
+    
+                    part_number += 1
+                    current_vine_part = []
+                    current_time_part = []
+                # else, we haven't constructed a non-trivial vine part, so we just keep going
+            elif i == len(times)-1 :
+                if part_number != 0 :
+                    # this is not the first vine part, so we prepend 0 to the vine and the previous time to the times
+                    current_vine_part.insert(0,0)
+                    current_time_part.insert(0,times[i-len(current_vine_part)])
+    
+                # finish the vine part with its value and the time with the current time
+                current_vine_part.append(prominences[i])
+                current_time_part.append(times[i])
+                    
+                # we save the final vine part and time
+                parts.append( ( np.array(current_vine_part), np.array(current_time_part)))
+            else :
+                # we keep constructing the vine part, since the prominence is non-zero
+                current_vine_part.append(prominences[i])
+                current_time_part.append(times[i])
+        return parts
+    
+    
+    def vineyard_to_vines(times, prominence_diagrams):
+        num_vines = np.max([len(prom) for prom in prominence_diagrams])
+        padded_prominence_diagrams = np.zeros((len(times),num_vines))
+        for i in range(len(times)):
+            padded_prominence_diagrams[i,:len(prominence_diagrams[i])] = prominence_diagrams[i]
+    
+        return [ (times,padded_prominence_diagrams[:,j]) for j in range(num_vines) ]
+    
+    
+    def plot_prominence_vineyard(times, prominence_diagrams, firstn = None, interpolate=True, areas=True, points=False):
+        vines = Prominence_vineyard.vineyard_to_vines(times,prominence_diagrams)
+       
+        num_vines = len(vines)
+    
+        cscheme = lambda x : plt.cm.viridis(x)
+    
+        if firstn == None :
+            colors = cscheme(np.linspace(0, 1, num_vines)[::-1])
+        else :
+            colors = list(cscheme(np.linspace(0, 1, firstn)[::-1]))
+            last = colors[-1]
+            colors.extend([last for _ in range(num_vines-firstn)])
+    
+        if areas:
+            for i in range(len(vines)-1):
+                plt.fill_between(times, vines[i][1], vines[i+1][1], color = colors[i])
+            plt.fill_between(times, vines[len(vines)-1][1], 0, color = colors[len(vines)-1])
+            
+        for tv,c in list(zip(vines,colors))[::-1] :
+            times, vine = tv
+    
+            for vine_part, time_part in Prominence_vineyard.vine_parts(times,vine) :
+                if interpolate:
+                    plt.plot(time_part,vine_part, c="black")
+                if points:
+                    plt.plot(time_part,vine_part, "o", c="black")
+            
+        plt.show()
 
 
 ### UNION FIND
@@ -1495,407 +1547,3 @@ class UnionFind:
             next_obj = self.next[next_obj]
 
         return cl
-
-
-
-### CURVES
-
-def line(slope, intercept, r) :
-    return slope * r + intercept
-
-def constant(const, r) :
-    return const
-
-def identity(r) :
-    return r
-
-def times(alpha,r) :
-    return alpha * r
-
-class Parametrized_interval :
-
-    def __init__(self, dom_min, dom_max, cod_min, cod_max, func, covariant, func_inv = None) :
-        # to do: check input
-
-        self.covariant = covariant
-
-        self.dom_min = dom_min
-        self.dom_max = dom_max
-        self.cod_min = cod_min
-        self.cod_max = cod_max
-        
-        self.func = func
-        # could be None
-        self.func_inv = func_inv
-        if func_inv == None :
-            self.is_constant = True
-        else :
-            self.is_constant = False
-
-
-    def inverse(self, r) :
-        # to do: we don't assume the curve is invertible
-        # in the constant case self.cod_min == self.cod_max,
-        # make sure that the conditions are mutually exclusive
-        # and their union is everything
-
-        condlist = [ r < self.cod_min, r >= self.cod_max ]
-
-        if self.covariant :
-            choicelist = [ self.dom_min, self.dom_max ]
-        else :
-            choicelist = [ self.dom_max, self.dom_min ]
-
-        #to do: handle non-invertible curves better
-        if self.func_inv == None :
-            return np.select(condlist,choicelist, default = 0)
-        else:
-            return np.select(condlist,choicelist, default = self.func_inv(r))
-
-
-    def linear(dom_min, dom_max, cod_min, cod_max, slope, intercept, slope_inv = None, intercept_inv = None) :
-        dom_min = dom_min
-        dom_max = dom_max
-        cod_min = cod_min
-        cod_max = cod_max
-
-        func = lambda r : line(slope,intercept, r)
-        if slope_inv != None :
-            func_inv = lambda r : line(slope_inv,intercept_inv, r)
-        else :
-            func_inv = None
-
-        if slope >= 0 :
-            covariant = True
-        else :
-            covariant = False
-
-        return Parametrized_interval(dom_min, dom_max, cod_min, cod_max, func, covariant, func_inv = func_inv)
-
-
-    def linear_increasing(dom_min, dom_max, cod_min, cod_max) :
-        slope = (cod_max - cod_min)/(dom_max - dom_min)
-        intercept = cod_min - slope * dom_min
-
-        slope_inv = 1./slope
-        intercept_inv = -intercept * slope_inv
-
-        return Parametrized_interval.linear(dom_min, dom_max, cod_min, cod_max,\
-                slope, intercept, slope_inv = slope_inv, intercept_inv = intercept_inv)
-
-
-    def linear_decreasing(dom_min, dom_max, cod_min, cod_max) :
-        slope = (cod_min - cod_max)/(dom_max - dom_min)
-        intercept = cod_max - slope * dom_min
-        
-        slope_inv = 1./slope
-        intercept_inv = -intercept * slope_inv
-
-        return Parametrized_interval.linear(dom_min, dom_max, cod_min, cod_max,\
-                slope, intercept, slope_inv = slope_inv, intercept_inv = intercept_inv)
-
-
-    def constant(dom_min, dom_max, const, covariant) :
-        # to do: test
-        dom_min = dom_min
-        dom_max = dom_max
-        cod_min = const
-        cod_max = const
-
-        func = lambda r : constant(const, r)
-
-        return Parametrized_interval(dom_min, dom_max, cod_min, cod_max, func, covariant)
-
-
-    def identity() :
-        dom_min = 0
-        dom_max = np.infty
-        cod_min = 0
-        cod_max = np.infty
-
-        func = identity
-        func_inv = func
-
-        return Parametrized_interval(dom_min, dom_max, cod_min, cod_max, func, True, func_inv = func_inv)
-
-
-    def times(alpha) :
-        dom_min = 0
-        dom_max = np.infty
-        cod_min = 0
-        cod_max = np.infty
-
-        func = lambda r : times(alpha, r)
-        func_inv = lambda r : times(1./alpha,r)
-
-        return Parametrized_interval(dom_min, dom_max, cod_min, cod_max, func, True, func_inv = func_inv)
-
-
-class Gamma_curve :
-    
-    def __init__(self, s_component, t_component, k_component) :
-        # to do: actually, it does make sense for both components to be constant
-        if s_component.is_constant and k_component.is_constant :
-            raise Exception("Both components shouldn't be constant.")
-        if s_component.is_constant :
-            self.covariant = not k_component.covariant
-        else :
-            self.covariant = s_component.covariant
-
-        self.s_component = s_component
-        self.t_component = t_component
-        self.k_component = k_component
-        #self.k_s_inv = None
-
-        # to do: check that domains coincide (and min should be 0)
-        self.maxr = s_component.dom_max
-        self.minr = 0
-
-
-    def linear_interpolator_alpha_k_indexed(k, s, alpha = 1) :
-        k_component = Parametrized_interval.linear_increasing(0,k,0,k)
-        s_component = Parametrized_interval.linear_decreasing(0,k,0,s)
-        t_component = Parametrized_interval.linear_decreasing(0,k,0,alpha * s)
-        return Gamma_curve(s_component,t_component,k_component)
-
-
-    def linear_interpolator_alpha_s_indexed(k, s, alpha = 1) :
-        k_component = Parametrized_interval.linear_decreasing(0,s,0,k)
-        s_component = Parametrized_interval.linear_increasing(0,s,0,s)
-        t_component = Parametrized_interval.linear_increasing(0,s,0,alpha * s)
-        return Gamma_curve(s_component,t_component,k_component)
-
-
-    def constant_k_alpha_s_indexed(k,alpha = 1, maxs = np.infty) :
-        k_component = Parametrized_interval.constant(0,maxs,k,False)
-        s_component = Parametrized_interval.identity()
-        t_component = Parametrized_interval.times(alpha)
-        return Gamma_curve(s_component,t_component,k_component)
-
-
-    def constant_s_t_k_indexed(s,t,maxk = np.infty) :
-        k_component = Parametrized_interval.identity()
-        s_component = Parametrized_interval.constant(0,maxk,s,False)
-        t_component = Parametrized_interval.constant(0,maxk,t,False)
-        return Gamma_curve(s_component,t_component,k_component)
-
-
-### PLOTTING SHADOWS
-
-def latex_float(f):
-    # https://stackoverflow.com/a/13490601/2171328
-    float_str = "{0:.2g}".format(f)
-    if "e" in float_str:
-        base, exponent = float_str.split("e")
-        #return r"{0} \times 10^{{{1}}}".format(base, int(exponent))
-        return r"{0}e{{{1}}}".format(base, int(exponent))
-    else:
-        return float_str
-
-
-def ticks_in_scientific_notation(tks) :
-    #return [ "$" + latex_float(t) + "$" for t in tks]
-    return [ latex_float(t) for t in tks]
-
-
-def plot_shadow(shadow, n_ticks = 11, n_shadows = 10, maxt = None, gammas = None, n_samples_curve_domain = 10000, h_size = 10, v_size = 5) :
-
-    #sns.set(rc={'text.usetex': True})
-
-    # set size of final picture
-    sns.set(rc={'figure.figsize':(h_size,v_size)})
-
-    # draw heat map
-    ax = sns.heatmap(np.flip(shadow.matrix,0), cmap = sns.color_palette("Blues", n_shadows), mask = np.flip(shadow.mask,0), rasterized=True)
-    ax.set_facecolor('Grey')
-    old_xticks = ax.get_xticks()
-    new_xticks = np.linspace(np.min(old_xticks), np.max(old_xticks), n_ticks)
-    new_xlabels = ticks_in_scientific_notation(np.linspace(shadow.grids[0], shadow.grids[-1], n_ticks))
-    ax.set_xticks(new_xticks)
-    ax.set_xticklabels(new_xlabels)
-
-    old_yticks = ax.get_yticks()
-    new_yticks = np.linspace(np.min(old_yticks), np.max(old_yticks), n_ticks)
-    new_ylabels = ticks_in_scientific_notation(np.linspace(shadow.gridk[-1], shadow.gridk[0], n_ticks))
-    ax.set_yticks(new_yticks)
-    ax.set_yticklabels(new_ylabels, rotation = "horizontal")
-
-    # plot t at which everything gets merged together if given as parameter
-    if maxt != None :
-        plt.axvline(x = maxt * len(shadow.grids)/shadow.grids[-1])
-    
-    # plot gamma if given as a parameter
-    if gammas != None :
-    
-        mk = shadow.gridk[-1]
-        ms = shadow.grids[-1]
-    
-        for gamma in gammas :
-            # to do: there are more cases to consider in theory
-            if gamma.maxr == np.infty :
-                if gamma.s_component.is_constant :
-                    k_component_func = np.vectorize(gamma.k_component.func)
-                    s_component_func = np.vectorize(gamma.s_component.func)
-                    maxr_graph = gamma.k_component.func_inv(mk)
-                else :
-                    k_component_func = np.vectorize(lambda x : gamma.k_component.func(gamma.s_component.func_inv(x)))
-                    s_component_func = np.vectorize(lambda x : x)
-                    maxr_graph = ms
-            else :
-                maxr_graph = gamma.maxr
-                k_component_func = np.vectorize(gamma.k_component.func)
-                s_component_func = np.vectorize(gamma.s_component.func)
-                
-            sample_domain = np.linspace(0, maxr_graph, n_samples_curve_domain)
-        
-            k_bins = len(shadow.gridk)
-            s_bins = len(shadow.grids)
-        
-            scalex = lambda r : s_bins/ms * r
-            scaley = lambda r : -k_bins/mk * r + k_bins
-    
-            x_coord = scalex(s_component_func(sample_domain))
-            y_coord = scaley(k_component_func(sample_domain))
-   
-            ax.plot(x_coord, y_coord, '--k')
-
-    return ax
-
-
-### PROMINENCE VINEYARDS
-    
-class Prominence_vineyard :
-    
-    def __init__(self, parameters, prominence_diagrams, is_one_parameter_family=True) :
-        
-        self.parameters = parameters
-        self.prominence_diagrams = prominence_diagrams
-        self.is_one_parameter_family = is_one_parameter_family
-        self.largest_gaps = []
-        self.largest_gap_parameters = []
-        
-        
-    def find_largest_gaps(self, max_ell):
-        largest_gaps, largest_gap_parameters = Prominence_vineyard.gaps(self.parameters, self.prominence_diagrams, max_ell)
-        self.largest_gaps = largest_gaps
-        self.largest_gap_parameters = largest_gap_parameters
-        
-        
-    def gaps(parameters, prominence_diagrams, max_ell):
-    
-        N = len(prominence_diagrams)
-        largest_gaps = []
-        largest_gap_parameters = []
-        
-        prominences = np.zeros(shape=(max_ell, N), dtype=np.float64)
-        for ell in range(max_ell):
-            for i in range(N):
-                if prominence_diagrams[i].shape[0] > ell:
-                    prominences[ell, i] = prominence_diagrams[i][ell]
-                    
-        for ell in range(max_ell-1):
-            largest_gaps.append(np.amax(prominences[ell,:] - prominences[ell+1,:]))
-            largest_gap_parameters.append(parameters[np.argmax(prominences[ell,:] - prominences[ell+1,:])])
-            
-        return largest_gaps, largest_gap_parameters
-    
-    
-    def plot_largest_gaps(self, min_ell, max_ell):
-        
-        plt.xticks(ticks=range(min_ell, max_ell, 2))
-        plt.bar(range(min_ell, max_ell), [self.largest_gaps[ell-1] for ell in range(min_ell, max_ell)])
-        plt.show()
-        
-    def plot_vineyard(self, times):
-        Prominence_vineyard.plot_prominence_vineyard(times, self.prominence_diagrams, firstn = None, interpolate=True, areas=False, points=False)
-        
-
-    # vineyard plotting
-    
-    def vine_parts(times, prominences, tol = 1e-8):
-        #vine_parts = []
-        #time_parts = []
-        parts = []
-        current_vine_part = []
-        current_time_part = []
-        part_number = 0
-        for i in range(len(times)):
-            if prominences[i] < tol :
-                if len(current_vine_part) > 0:
-                    # we have constructed a non-trivial vine part that has now ended
-                    if part_number != 0 :
-                        # this is not the first vine part, so we prepend 0 to the vine and the previous time to the times
-                        current_vine_part.insert(0,0)
-                        current_time_part.insert(0,times[i-len(current_vine_part)])
-                    
-                    # finish the vine part with a 0 and the time with the current time
-                    current_vine_part.append(0)
-                    current_time_part.append(times[i])
-    
-                    ## we save the current vine part and start over
-                    parts.append( ( np.array(current_vine_part), np.array(current_time_part)))
-    
-                    part_number += 1
-                    current_vine_part = []
-                    current_time_part = []
-                # else, we haven't constructed a non-trivial vine part, so we just keep going
-            elif i == len(times)-1 :
-                if part_number != 0 :
-                    # this is not the first vine part, so we prepend 0 to the vine and the previous time to the times
-                    current_vine_part.insert(0,0)
-                    current_time_part.insert(0,times[i-len(current_vine_part)])
-    
-                # finish the vine part with its value and the time with the current time
-                current_vine_part.append(prominences[i])
-                current_time_part.append(times[i])
-                    
-                # we save the final vine part and time
-                parts.append( ( np.array(current_vine_part), np.array(current_time_part)))
-            else :
-                # we keep constructing the vine part, since the prominence is non-zero
-                current_vine_part.append(prominences[i])
-                current_time_part.append(times[i])
-        return parts
-    
-    
-    def vineyard_to_vines(times, prominence_diagrams):
-        num_vines = np.max([len(prom) for prom in prominence_diagrams])
-        padded_prominence_diagrams = np.zeros((len(times),num_vines))
-        for i in range(len(times)):
-            padded_prominence_diagrams[i,:len(prominence_diagrams[i])] = prominence_diagrams[i]
-    
-        return [ (times,padded_prominence_diagrams[:,j]) for j in range(num_vines) ]
-    
-    
-    def plot_prominence_vineyard(times, prominence_diagrams, firstn = None, interpolate=True, areas=True, points=False):
-        vines = Prominence_vineyard.vineyard_to_vines(times,prominence_diagrams)
-       
-        num_vines = len(vines)
-    
-        cscheme = lambda x : plt.cm.viridis(x)
-    
-        if firstn == None :
-            colors = cscheme(np.linspace(0, 1, num_vines)[::-1])
-        else :
-            colors = list(cscheme(np.linspace(0, 1, firstn)[::-1]))
-            last = colors[-1]
-            colors.extend([last for _ in range(num_vines-firstn)])
-    
-        if areas:
-            #for tv,c in zip(vines[::-1],colors) :
-            for i in range(len(vines)-1):
-                plt.fill_between(times, vines[i][1], vines[i+1][1], color = colors[i])
-            plt.fill_between(times, vines[len(vines)-1][1], 0, color = colors[len(vines)-1])
-            
-        for tv,c in list(zip(vines,colors))[::-1] :
-            times, vine = tv
-    
-            for vine_part, time_part in Prominence_vineyard.vine_parts(times,vine) :
-            #    #print(time_part,vine_part)
-                if interpolate:
-                    plt.plot(time_part,vine_part, c="black")
-                if points:
-                    plt.plot(time_part,vine_part, "o", c="black")
-            #    plt.fill_between()
-            
-        plt.show()
