@@ -527,8 +527,9 @@ class HierarchicalClustering :
         elif threshold == None :
             bd = self.PD(end="infinity")[0]
             pers = np.abs(bd[:,0] - bd[:,1])
-            if num_clusters + 1 > bd.shape[0] :
-                threshold = 0
+            if num_clusters >= bd.shape[0] :
+                spers = np.sort(pers)
+                threshold = spers[0] / 2
             else :
                 spers = np.sort(pers)
                 threshold = (spers[-num_clusters] + spers[-(num_clusters+1)])/2
