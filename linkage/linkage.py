@@ -18,7 +18,32 @@ TOL = 1e-8
 INF = 1e15
 
 
-### 
+### PERSISTABLE
+
+class Persistable :
+    def __init__(self, X, metric = 'minkowski', measure = None, kernel = 'square', maxk = None, leaf_size = 40, p = 2) :
+        self.mpspace = MPSpace(X, metric, measure, leaf_size, p)
+        self.mpspace.fit()
+        self.connection_radius = self.mpspace.connection_radius()
+        self.maxk = maxk
+        self.kernel = kernel
+
+    def parameter_selection(self, initial_k = 0.02, final_k = 0.2, n_parameters=100, color_firstn=10):
+        parameters = np.logspace(np.log10(initial_k), np.log10(final_k), num=n_parameters)
+        gammas = [ GammaCurve.linear_interpolator_alpha_s_indexed(k, self.connection_radius) for k in parameters ]
+        pds = self.mpspace.gamma_prominence_vineyard(gammas)
+        fig, ax = plt.subplots(figsize=(10,3))
+        plt.xscale("log")
+        plt.yscale("log")
+        vineyard = ProminenceVineyard(parameters,pds)
+        vineyard.plot_prominence_vineyard(ax, color_firstn=color_firstn)
+        plt.ylim([np.quantile(np.array(vineyard.values),0.05),max(vineyard.values)])
+        plt.show()
+
+    def cluster(self,num_clusters,k,s=None):
+        if s == None:
+            s = self.connection_radius
+        return self.mpspace.gamma_linkage(GammaCurve.linear_interpolator_alpha_s_indexed(k,s)).persistence_based_flattening(num_clusters = num_clusters)
 
 
 ### GAMMA LINKAGE
@@ -61,16 +86,12 @@ class MPSpace :
         self.kernel_estimate = None
 
         self.maxk = None
-        #self.maxs = None
+        self.maxs = None
 
         self.tol = TOL
 
-        #if metric in KDTree.valid_metrics :
-        #    self.tree = KDTree(X, metric=metric, leaf_size=leaf_size, p = p)
         if metric == "minkowski":
             self.tree = KDTree(X, leafsize=leaf_size)
-        #elif metric in BallTree.valid_metrics :
-        #    self.tree = BallTree(X, metric=metric, leaf_size=leaf_size)
         elif metric == 'precomputed':
             self.dist_mat = X
         else :
@@ -99,21 +120,12 @@ class MPSpace :
         self.fit_on = fit_on
         fit_on = self.points[fit_on]
 
-        if maxk == None :
-            maxk = self.size
-        #if maxk == 1 and maxs == 0 :
-        #    warnings.warn("Fitting with k = 1 and s = 0.")
-        if maxk > self.size :
-            warnings.warn("Trying to fit with k > |data set|. Changing to k = |data set|.")
+        if maxk == None or maxk > self.size :
             maxk = self.size
 
-        #self.maxs = maxs
         self.maxk = maxk
         
         if self.metric == 'minkowski' :
-            #k_neighbors = self.tree.query(\
-            #        fit_on, self.maxk, return_distance = True, sort_results = True,
-            #        dualtree = True, breadth_first = True)
             k_neighbors = self.tree.query(fit_on, k=self.maxk, p=self.p)
             k_neighbors = (np.array(k_neighbors[1]),np.array(k_neighbors[0]))
 
@@ -122,22 +134,6 @@ class MPSpace :
             neighbors = k_neighbors[0]
             nn_distance = k_neighbors[1]
 
-            #if maxs < maxs_given_by_maxk :
-            #    self.maxs = maxs_given_by_maxk
-            #    neighbors = k_neighbors[0]
-            #    nn_distance = k_neighbors[1]
-            #else :
-            #    s_neighbors = self.tree.query_radius(\
-            #            fit_on, maxs, return_distance = True, sort_results = True)
-
-            #    for i in range(len(fit_on)) :
-            #        # can this be done more efficiently at a lower level?
-            #        if len(k_neighbors[0][i]) >= len(s_neighbors[0][i]) :
-            #            neighbors.append(k_neighbors[0][i])
-            #            nn_distance.append(k_neighbors[1][i])
-            #        else :
-            #            neighbors.append(s_neighbors[0][i])
-            #            nn_distance.append(s_neighbors[1][i])
         else :
             warnings.warn("For now, for distance matrix we assume maxk = number of points.")
             self.maxk = self.size
@@ -223,7 +219,6 @@ class MPSpace :
         return self.kde_at_index_width(point_index,pos,width), out_of_range
            
 
-    # to do: use multiple cores when have lots of point indices
     def core_scale(self, point_index, gamma) :
         """Given a curve gamma (that takes an r and returns s,t,k) and a
         list of (indices of) points in the space, returns the r-time at which
@@ -233,22 +228,16 @@ class MPSpace :
         point_index = np.array(point_index)
 
         if gamma.s_component.is_constant :
-            #warnings.warn("s component is constant.")
             return self.core_scale_constant_s(point_index, gamma)
-
         elif gamma.k_component.is_constant :
-            #warnings.warn("k component is constant.")
             return self.core_scale_varying_s_constant_k(point_index, gamma)
-
         else :
             return self.core_scale_varying_s_k(point_index, gamma)
 
 
     def core_scale_constant_s(self, point_index, gamma) :
         s0 = gamma.s_component.func(gamma.minr)
-
         kde_s0 = np.vectorize(lambda i : self.kde(i,s0))
-
         kdes, out_of_range = kde_s0(point_index)
 
         if np.any(out_of_range) :
@@ -262,7 +251,6 @@ class MPSpace :
         k0 = gamma.k_component.func(gamma.minr)
 
         if k0 < TOL :
-            #warnings.warn("k is constant and 0, output is just single-linkage.")
             return np.zeros((len(point_index)))
 
         if k0 > 1 :
@@ -398,6 +386,8 @@ class MPSpace :
             sl_dist = np.maximum(sl_dist.T,core_scales).T
             sl_dist[sl_dist > INF] = INF
 
+
+        #mst = sp.sparse.csgraph.minimum_spanning_tree(sl_dist)
         sl = linkage(squareform(sl_dist, checks=False), 'single')
 
         merges = sl[:,0:2].astype(int)
@@ -520,7 +510,7 @@ class MPSpace :
 
 
     def connection_radius(self) :
-        gamma = Gamma_curve.constant_k_alpha_s_indexed(0)
+        gamma = GammaCurve.constant_k_alpha_s_indexed(0)
         return self.gamma_linkage(gamma).start_and_end()[1]
     
         
@@ -1133,7 +1123,7 @@ class HierarchicalClustering :
 
 ### CURVES
 
-class Parametrized_interval :
+class ParametrizedInterval :
 
     def __init__(self, dom_min, dom_max, cod_min, cod_max, func, covariant, func_inv = None) :
         # to do: check input
@@ -1195,7 +1185,7 @@ class Parametrized_interval :
         else :
             covariant = False
 
-        return Parametrized_interval(dom_min, dom_max, cod_min, cod_max, func, covariant, func_inv = func_inv)
+        return ParametrizedInterval(dom_min, dom_max, cod_min, cod_max, func, covariant, func_inv = func_inv)
 
 
     def linear_increasing(dom_min, dom_max, cod_min, cod_max) :
@@ -1205,7 +1195,7 @@ class Parametrized_interval :
         slope_inv = 1./slope
         intercept_inv = -intercept * slope_inv
 
-        return Parametrized_interval.linear(dom_min, dom_max, cod_min, cod_max,\
+        return ParametrizedInterval.linear(dom_min, dom_max, cod_min, cod_max,\
                 slope, intercept, slope_inv = slope_inv, intercept_inv = intercept_inv)
 
 
@@ -1216,7 +1206,7 @@ class Parametrized_interval :
         slope_inv = 1./slope
         intercept_inv = -intercept * slope_inv
 
-        return Parametrized_interval.linear(dom_min, dom_max, cod_min, cod_max,\
+        return ParametrizedInterval.linear(dom_min, dom_max, cod_min, cod_max,\
                 slope, intercept, slope_inv = slope_inv, intercept_inv = intercept_inv)
 
 
@@ -1232,7 +1222,7 @@ class Parametrized_interval :
 
         func = lambda r : constant(const, r)
 
-        return Parametrized_interval(dom_min, dom_max, cod_min, cod_max, func, covariant)
+        return ParametrizedInterval(dom_min, dom_max, cod_min, cod_max, func, covariant)
 
 
     def identity() :
@@ -1247,7 +1237,7 @@ class Parametrized_interval :
         func = identity
         func_inv = func
 
-        return Parametrized_interval(dom_min, dom_max, cod_min, cod_max, func, True, func_inv = func_inv)
+        return ParametrizedInterval(dom_min, dom_max, cod_min, cod_max, func, True, func_inv = func_inv)
 
 
     def times(alpha) :
@@ -1262,10 +1252,10 @@ class Parametrized_interval :
         func = lambda r : times(alpha, r)
         func_inv = lambda r : times(1./alpha,r)
 
-        return Parametrized_interval(dom_min, dom_max, cod_min, cod_max, func, True, func_inv = func_inv)
+        return ParametrizedInterval(dom_min, dom_max, cod_min, cod_max, func, True, func_inv = func_inv)
 
 
-class Gamma_curve :
+class GammaCurve :
     
     def __init__(self, s_component, t_component, k_component) :
         # to do: actually, it does make sense for both components to be constant
@@ -1287,31 +1277,31 @@ class Gamma_curve :
 
 
     def linear_interpolator_alpha_k_indexed(k, s, alpha = 1) :
-        k_component = Parametrized_interval.linear_increasing(0,k,0,k)
-        s_component = Parametrized_interval.linear_decreasing(0,k,0,s)
-        t_component = Parametrized_interval.linear_decreasing(0,k,0,alpha * s)
-        return Gamma_curve(s_component,t_component,k_component)
+        k_component = ParametrizedInterval.linear_increasing(0,k,0,k)
+        s_component = ParametrizedInterval.linear_decreasing(0,k,0,s)
+        t_component = ParametrizedInterval.linear_decreasing(0,k,0,alpha * s)
+        return GammaCurve(s_component,t_component,k_component)
 
 
     def linear_interpolator_alpha_s_indexed(k, s, alpha = 1) :
-        k_component = Parametrized_interval.linear_decreasing(0,s,0,k)
-        s_component = Parametrized_interval.linear_increasing(0,s,0,s)
-        t_component = Parametrized_interval.linear_increasing(0,s,0,alpha * s)
-        return Gamma_curve(s_component,t_component,k_component)
+        k_component = ParametrizedInterval.linear_decreasing(0,s,0,k)
+        s_component = ParametrizedInterval.linear_increasing(0,s,0,s)
+        t_component = ParametrizedInterval.linear_increasing(0,s,0,alpha * s)
+        return GammaCurve(s_component,t_component,k_component)
 
 
     def constant_k_alpha_s_indexed(k,alpha = 1, maxs = np.infty) :
-        k_component = Parametrized_interval.constant(0,maxs,k,False)
-        s_component = Parametrized_interval.identity()
-        t_component = Parametrized_interval.times(alpha)
-        return Gamma_curve(s_component,t_component,k_component)
+        k_component = ParametrizedInterval.constant(0,maxs,k,False)
+        s_component = ParametrizedInterval.identity()
+        t_component = ParametrizedInterval.times(alpha)
+        return GammaCurve(s_component,t_component,k_component)
 
 
     def constant_s_t_k_indexed(s,t,maxk = np.infty) :
-        k_component = Parametrized_interval.identity()
-        s_component = Parametrized_interval.constant(0,maxk,s,False)
-        t_component = Parametrized_interval.constant(0,maxk,t,False)
-        return Gamma_curve(s_component,t_component,k_component)
+        k_component = ParametrizedInterval.identity()
+        s_component = ParametrizedInterval.constant(0,maxk,s,False)
+        t_component = ParametrizedInterval.constant(0,maxk,t,False)
+        return GammaCurve(s_component,t_component,k_component)
 
 
 ### PROMINENCE VINEYARD
@@ -1324,6 +1314,7 @@ class ProminenceVineyard :
         # to do: delete these
         self.largest_gaps = []
         self.largest_gap_parameters = []
+        self.values = []
         
     def vineyard_to_vines(self):
         times = self.parameters
@@ -1415,6 +1406,8 @@ class ProminenceVineyard :
                 if points:
                     artist = ax.plot(time_part,vine_part, "o", c="black")
                     shm.add_artist_labels(artist, "vine " + str(i+1))
+                self.values.extend(vine_part)
+        
             
 
 
