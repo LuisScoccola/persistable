@@ -11,6 +11,8 @@ from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
 from linkage.plot import StatusbarHoverManager
 
+from scipy.cluster.hierarchy import DisjointSet
+
 
 TOL = 1e-15
 INF = 1e15
@@ -549,7 +551,7 @@ class HierarchicalClustering :
 
         appearances = np.argsort(heights)
 
-        uf = UnionFind()
+        uf = DisjointSet()
         clusters_birth = {}
         clusters_died = {}
         clusters = []
@@ -558,7 +560,7 @@ class HierarchicalClustering :
         n_points = heights.shape[0]
         while True :
             while hind < n_points and heights[appearances[hind]] <= merges_heights[mind] :
-                uf.find(appearances[hind])
+                uf.add(appearances[hind])
                 
                 clusters_birth[appearances[hind]] = heights[appearances[hind]]
                 hind += 1
@@ -571,8 +573,9 @@ class HierarchicalClustering :
             while mind < merges_heights.shape[0] and merges_heights[mind] < current_height :
                 xy = self.merges[mind]
                 x, y = xy
-                rx = uf.find(x)
-                ry = uf.find(y)
+                rx = uf.__getitem__(x)
+                ry = uf.__getitem__(y)
+
 
                 if rx not in clusters_died and ry not in clusters_died :
 
@@ -582,29 +585,32 @@ class HierarchicalClustering :
                     if bx > merges_heights[mind] - threshold or by > merges_heights[mind] - threshold :
                         del clusters_birth[rx]
                         del clusters_birth[ry]
-                        uf.union(x,y)
-                        uf.union(x,mind + n_points)
-                        rxy = uf.find(x)
+                        uf.merge(x,y)
+                        uf.add(mind + n_points)
+                        uf.merge(x,mind + n_points)
+                        rxy = uf.__getitem__(x)
                         clusters_birth[rxy] = min(bx, by)
 
                     else :
                         # they both must die
 
                         if clusters_birth[rx] + threshold <= merges_heights[mind] :
-                            clusters.append(uf.equivalence_class(x))
+                            clusters.append(list(uf.subset(x)))
                         if clusters_birth[ry] + threshold <= merges_heights[mind] :
-                            clusters.append(uf.equivalence_class(y))
+                            clusters.append(list(uf.subset(y)))
 
-                        uf.union(x,y)
-                        uf.union(x,mind + n_points)
-                        rxy = uf.find(x)
+                        uf.merge(x,y)
+                        uf.add(mind + n_points)
+                        uf.merge(x,mind + n_points)
+                        rxy = uf.__getitem__(x)
                         clusters_died[rxy] = True
 
                 elif rx in clusters_died and ry in clusters_died :
                     # both of them are dead
-                    uf.union(x,y)
-                    uf.union(x,mind + n_points)
-                    rxy = uf.find(x)
+                    uf.merge(x,y)
+                    uf.add(mind + n_points)
+                    uf.merge(x,mind + n_points)
+                    rxy = uf.__getitem__(x)
                     clusters_died[rxy] = True
 
                 else :
@@ -614,11 +620,12 @@ class HierarchicalClustering :
                     # ry already died and rx just died
 
                     if clusters_birth[rx] + threshold <= merges_heights[mind] :
-                        clusters.append(uf.equivalence_class(x))
+                        clusters.append(list(uf.subset(x)))
 
-                    uf.union(x,y)
-                    uf.union(x,mind + n_points)
-                    rxy = uf.find(x)
+                    uf.merge(x,y)
+                    uf.add(mind + n_points)
+                    uf.merge(x,mind + n_points)
+                    rxy = uf.__getitem__(x)
                     clusters_died[rxy] = True
 
                 mind += 1
@@ -634,10 +641,10 @@ class HierarchicalClustering :
         #    death = -self.minr
         
         for x in range(n_points) :
-            rx = uf.find(x)
+            rx = uf.__getitem__(x)
             if rx not in clusters_died :
                 if clusters_birth[rx] + threshold <= death :
-                    clusters.append(uf.equivalence_class(x))
+                    clusters.append(list(uf.subset(x)))
                 clusters_died[rx] = True
 
         current_cluster = 0
@@ -1421,91 +1428,3 @@ class ProminenceVineyard :
         plt.xticks(ticks=range(min_ell, max_ell, 2))
         plt.bar(range(min_ell, max_ell), [self.largest_gaps[ell-1] for ell in range(min_ell, max_ell)])
         plt.show()
-
-
-
-### UNION FIND
-
-class UnionFind:
-
-    def __str__(self) :
-        return 'par: ' + str(self.parent) + '\n' +\
-               'rnk: ' + str(self.rank) + '\n' +\
-               'siz: ' + str(self.size) + '\n' +\
-               'rep: ' + str(self.representatives)
-
-
-    def __init__(self):
-        self.parent = {}
-        self.rank = {}
-        self.size = {}
-        self.representatives = set()
-        self.next = {}
-
-
-    def __copy__(self):
-        new_uf = UnionFind()
-
-        new_uf.parent = self.parent.copy()
-        new_uf.rank = self.rank.copy()
-        new_uf.size = self.size.copy()
-        new_uf.representatives = self.representatives.copy()
-        new_uf.next = self.next.copy()
-
-        return new_uf
-
-
-    def class_size(self, obj) :
-        root = self.find(obj)
-        return self.size[root]
-
-
-    def class_representatives(self) :
-        return self.representatives
-
-
-    def insert_object(self, obj):
-        if not obj in self.parent :
-            self.parent[obj] = obj
-            self.rank[obj] = 0
-            self.size[obj] = 1
-            self.representatives.add(obj)
-            self.next[obj] = obj
-
-
-    def find(self, obj):
-        if not obj in self.parent :
-            self.insert_object(obj)
-            return obj
-
-        if self.parent[obj] != obj :
-            self.parent[obj] = self.find(self.parent[obj])
-        return self.parent[obj]
-
-
-    def union(self, obj1, obj2):
-        root1 = self.find(obj1)
-        root2 = self.find(obj2)
-
-        if root1 == root2 :
-            return
-
-        if self.rank[obj1] < self.rank[obj2] :
-            root1, root2 = root2, root1
-
-        self.parent[root2] = root1
-        self.size[root1] = self.size[root1] + self.size[root2]
-        self.representatives.remove(root2)
-        self.next[root1], self.next[root2] = self.next[root2], self.next[root1]
-
-        if self.rank[root1] == self.rank[root2] :
-            self.rank[root1] = self.rank[root1] + 1
-
-    def equivalence_class(self, obj) :
-        next_obj = self.next[obj]
-        cl = [obj]
-        while next_obj != obj :
-            cl.append(next_obj)
-            next_obj = self.next[next_obj]
-
-        return cl
