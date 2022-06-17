@@ -4,18 +4,22 @@ import random
 import warnings
 import math
 import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.neighbors import KDTree, BallTree
+#from sklearn.neighbors import KDTree
+from scipy.spatial import KDTree
 from sklearn.metrics import pairwise_distances
+from scipy.cluster.hierarchy import DisjointSet
 from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
 from linkage.plot import StatusbarHoverManager
 
-from scipy.cluster.hierarchy import DisjointSet
 
 
-TOL = 1e-15
+TOL = 1e-8
 INF = 1e15
+
+
+### 
+
 
 ### GAMMA LINKAGE
 
@@ -57,26 +61,28 @@ class MPSpace :
         self.kernel_estimate = None
 
         self.maxk = None
-        self.maxs = None
+        #self.maxs = None
 
         self.tol = TOL
 
-        if metric in KDTree.valid_metrics :
-            self.tree = KDTree(X, metric=metric, leaf_size=leaf_size, p = p)
-        elif metric in BallTree.valid_metrics :
-            self.tree = BallTree(X, metric=metric, leaf_size=leaf_size)
+        #if metric in KDTree.valid_metrics :
+        #    self.tree = KDTree(X, metric=metric, leaf_size=leaf_size, p = p)
+        if metric == "minkowski":
+            self.tree = KDTree(X, leafsize=leaf_size)
+        #elif metric in BallTree.valid_metrics :
+        #    self.tree = BallTree(X, metric=metric, leaf_size=leaf_size)
         elif metric == 'precomputed':
             self.dist_mat = X
         else :
             raise Exception("Metric given is not supported.")
 
 
-    def fit(self, maxk = None, maxs = 0, kernel = 'square', fit_on = None) :
-        self.fit_nn(maxk = maxk, maxs = maxs, fit_on = fit_on)
+    def fit(self, maxk = None, kernel = 'square', fit_on = None) :
+        self.fit_nn(maxk = maxk, fit_on = fit_on)
         self.fit_density_estimates(kernel = kernel)
 
 
-    def fit_nn(self, maxk, maxs, fit_on) :
+    def fit_nn(self, maxk, fit_on) :
         # to do: check input
         if fit_on == None :
             fit_on = range(0,self.size)
@@ -95,47 +101,47 @@ class MPSpace :
 
         if maxk == None :
             maxk = self.size
-        if maxk == 1 and maxs == 0 :
-            warnings.warn("Fitting with k = 1 and s = 0.")
+        #if maxk == 1 and maxs == 0 :
+        #    warnings.warn("Fitting with k = 1 and s = 0.")
         if maxk > self.size :
             warnings.warn("Trying to fit with k > |data set|. Changing to k = |data set|.")
             maxk = self.size
 
-        self.maxs = maxs
+        #self.maxs = maxs
         self.maxk = maxk
         
-        if self.metric != 'precomputed' :
-            # to do: check if dualtree or breadth_first set to False is faster
-            k_neighbors = self.tree.query(\
-                    fit_on, self.maxk, return_distance = True, sort_results = True,
-                    dualtree = True, breadth_first = True)
+        if self.metric == 'minkowski' :
+            #k_neighbors = self.tree.query(\
+            #        fit_on, self.maxk, return_distance = True, sort_results = True,
+            #        dualtree = True, breadth_first = True)
+            k_neighbors = self.tree.query(fit_on, k=self.maxk, p=self.p)
             k_neighbors = (np.array(k_neighbors[1]),np.array(k_neighbors[0]))
 
             maxs_given_by_maxk = np.min(k_neighbors[1][:,-1])
+            self.maxs = maxs_given_by_maxk
+            neighbors = k_neighbors[0]
+            nn_distance = k_neighbors[1]
 
-            neighbors = []
-            nn_distance = []
+            #if maxs < maxs_given_by_maxk :
+            #    self.maxs = maxs_given_by_maxk
+            #    neighbors = k_neighbors[0]
+            #    nn_distance = k_neighbors[1]
+            #else :
+            #    s_neighbors = self.tree.query_radius(\
+            #            fit_on, maxs, return_distance = True, sort_results = True)
 
-            if maxs < maxs_given_by_maxk :
-                self.maxs = maxs_given_by_maxk
-                neighbors = k_neighbors[0]
-                nn_distance = k_neighbors[1]
-
-            else :
-                s_neighbors = self.tree.query_radius(\
-                        fit_on, maxs, return_distance = True, sort_results = True)
-
-                for i in range(len(fit_on)) :
-                    # can this be done more efficiently at a lower level?
-                    if len(k_neighbors[0][i]) >= len(s_neighbors[0][i]) :
-                        neighbors.append(k_neighbors[0][i])
-                        nn_distance.append(k_neighbors[1][i])
-                    else :
-                        neighbors.append(s_neighbors[0][i])
-                        nn_distance.append(s_neighbors[1][i])
+            #    for i in range(len(fit_on)) :
+            #        # can this be done more efficiently at a lower level?
+            #        if len(k_neighbors[0][i]) >= len(s_neighbors[0][i]) :
+            #            neighbors.append(k_neighbors[0][i])
+            #            nn_distance.append(k_neighbors[1][i])
+            #        else :
+            #            neighbors.append(s_neighbors[0][i])
+            #            nn_distance.append(s_neighbors[1][i])
         else :
             warnings.warn("For now, for distance matrix we assume maxk = number of points.")
             self.maxk = self.size
+            self.maxs = 0
             neighbors = np.argsort(self.dist_mat)
             nn_distance = self.dist_mat[np.arange(len(self.dist_mat)), neighbors.transpose()].transpose()
 
@@ -323,12 +329,23 @@ class MPSpace :
 
             return last, False
 
+        #def lazy_intersection_2(increasing, increasing2, f2) :
+        #    f = np.vectorize(f2)
+        #    #res = np.argwhere(increasing >= f(increasing2))
+        #    res = np.nonzero(increasing >= f(increasing2))
+        #    if len(res) > 0 :
+        #        return res[0], True
+        #    else:
+        #        return len(increasing)-1, False 
+
 
         k_s_inv = lambda d : gamma.k_component.func(gamma.s_component.func_inv(d))
+        #k_s_inv = np.vectorize(lambda d : gamma.k_component.func(gamma.s_component.func_inv(d)))
 
         i_indices = []
         for p in point_index :
             i_indices.append(lazy_intersection(self.kernel_estimate[p], self.nn_distance[p], k_s_inv))
+            #i_indices.append(lazy_intersection_2(self.kernel_estimate[p], self.nn_distance[p], k_s_inv))
 
         i_indices = np.array(i_indices)
 
