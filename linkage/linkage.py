@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 #from sklearn.neighbors import KDTree
 from scipy.spatial import KDTree
 from sklearn.metrics import pairwise_distances
+from sklearn.neighbors import KNeighborsClassifier
 from scipy.cluster.hierarchy import DisjointSet
 from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
@@ -21,8 +22,10 @@ INF = 1e15
 ### PERSISTABLE
 
 class Persistable :
-    def __init__(self, X, metric = 'minkowski', measure = None, kernel = 'square', maxk = None, leaf_size = 40, p = 2) :
-        self.mpspace = MPSpace(X, metric, measure, leaf_size, p)
+    def __init__(self, X, measure = None, kernel = 'square', maxk = None, leaf_size = 40, p = 2) :
+        self.data = X
+        self.p = p
+        self.mpspace = MPSpace(X, 'minkowski', measure, leaf_size, self.p)
         self.mpspace.fit()
         self.connection_radius = self.mpspace.connection_radius()
         self.maxk = maxk
@@ -40,10 +43,24 @@ class Persistable :
         plt.ylim([np.quantile(np.array(vineyard.values),0.05),max(vineyard.values)])
         plt.show()
 
-    def cluster(self,num_clusters,k,s=None):
+    def cluster(self,num_clusters,k,s=None,cluster_all=False,cluster_all_k=5):
         if s == None:
             s = self.connection_radius
-        return self.mpspace.gamma_linkage(GammaCurve.linear_interpolator_alpha_s_indexed(k,s)).persistence_based_flattening(num_clusters = num_clusters)
+        cl = self.mpspace.gamma_linkage(GammaCurve.linear_interpolator_alpha_s_indexed(k,s)).persistence_based_flattening(num_clusters = num_clusters)
+
+        def postProcessing(dataset, labels, k) :
+            neigh = KNeighborsClassifier(n_neighbors=k, p=self.p)
+            neigh.fit(dataset[labels!=-1], labels[labels!=-1])
+            res = labels.copy()
+            res[labels==-1] = neigh.predict(dataset[labels==-1,:])
+            return res
+        
+        if cluster_all:
+            labels = postProcessing(self.data, cl[1], k=cluster_all_k)
+            return cl[0], labels
+        else:
+            return cl
+
 
 
 ### GAMMA LINKAGE
