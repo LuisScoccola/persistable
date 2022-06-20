@@ -4,15 +4,16 @@ import random
 import warnings
 import math
 import matplotlib.pyplot as plt
-#from sklearn.neighbors import KDTree
-from scipy.spatial import KDTree
+from sklearn.neighbors import KDTree
+#from scipy.spatial import KDTree
 from sklearn.metrics import pairwise_distances
 from sklearn.neighbors import KNeighborsClassifier
 from scipy.cluster.hierarchy import DisjointSet
 from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
 from linkage.plot import StatusbarHoverManager
-
+from linkage.from_hdbscan._hdbscan_boruvka import KDTreeBoruvkaAlgorithm
+#from linkage.from_hdbscan import *
 
 
 TOL = 1e-8
@@ -34,6 +35,7 @@ class Persistable :
     def parameter_selection(self, initial_k = 0.02, final_k = 0.2, n_parameters=100, color_firstn=10):
         parameters = np.logspace(np.log10(initial_k), np.log10(final_k), num=n_parameters)
         gammas = [ GammaCurve.linear_interpolator_alpha_s_indexed(k, self.connection_radius) for k in parameters ]
+        #gammas = [ GammaCurve.linear_interpolator_alpha_k_indexed(k, self.connection_radius) for k in parameters ]
         pds = self.mpspace.gamma_prominence_vineyard(gammas)
         fig, ax = plt.subplots(figsize=(10,3))
         plt.xscale("log")
@@ -47,6 +49,7 @@ class Persistable :
         if s == None:
             s = self.connection_radius
         cl = self.mpspace.gamma_linkage(GammaCurve.linear_interpolator_alpha_s_indexed(k,s)).persistence_based_flattening(num_clusters = num_clusters)
+        #cl = self.mpspace.gamma_linkage(GammaCurve.linear_interpolator_alpha_k_indexed(k,s)).persistence_based_flattening(num_clusters = num_clusters)
 
         def postProcessing(dataset, labels, k) :
             neigh = KNeighborsClassifier(n_neighbors=k, p=self.p)
@@ -108,7 +111,8 @@ class MPSpace :
         self.tol = TOL
 
         if metric == "minkowski":
-            self.tree = KDTree(X, leafsize=leaf_size)
+            #self.tree = KDTree(X, leafsize=leaf_size)
+            self.tree = KDTree(X, metric=metric, leaf_size=leaf_size, p = p)
         elif metric == 'precomputed':
             self.dist_mat = X
         else :
@@ -143,7 +147,10 @@ class MPSpace :
         self.maxk = maxk
         
         if self.metric == 'minkowski' :
-            k_neighbors = self.tree.query(fit_on, k=self.maxk, p=self.p)
+            #k_neighbors = self.tree.query(fit_on, k=self.maxk, p=self.p)
+            k_neighbors = self.tree.query(\
+                    fit_on, self.maxk, return_distance = True, sort_results = True,
+                    dualtree = True, breadth_first = True)
             k_neighbors = (np.array(k_neighbors[1]),np.array(k_neighbors[0]))
 
             maxs_given_by_maxk = np.min(k_neighbors[1][:,-1])
@@ -404,8 +411,8 @@ class MPSpace :
             sl_dist[sl_dist > INF] = INF
 
 
-        #mst = sp.sparse.csgraph.minimum_spanning_tree(sl_dist)
-        sl = linkage(squareform(sl_dist, checks=False), 'single')
+        #sl = linkage(squareform(sl_dist, checks=False), 'single')
+        sl = KDTreeBoruvkaAlgorithm(self.tree, core_scales, self.nn_indices).spanning_tree()
 
         merges = sl[:,0:2].astype(int)
         merges_heights = sl[:,2]
@@ -451,10 +458,10 @@ class MPSpace :
         def prominences(bd : np.array) -> np.array :
             return np.sort(np.abs(bd[:,0] - bd[:,1]))[::-1]
 
-        if self.metric == "precomputed" :
-            dm = self.dist_mat.copy()
-        else :
-            dm = pairwise_distances(self.points, metric = self.metric, p = self.p)
+        #if self.metric == "precomputed" :
+        #    dm = self.dist_mat.copy()
+        #else :
+        #    dm = pairwise_distances(self.points, metric = self.metric, p = self.p)
         
         parameters = []
         prominence_diagrams = []
@@ -466,24 +473,25 @@ class MPSpace :
             covariant = gamma.covariant
             core_scales = self.core_scale(indices, gamma)
             
-            sl_dist = dm.copy()
+            #sl_dist = dm.copy()
+            #sl_dist = gamma.t_component.inverse(sl_dist)
     
-            sl_dist = gamma.t_component.inverse(sl_dist)
+            #if not covariant :
+            #    sl_dist = np.minimum(sl_dist, core_scales)
+            #    sl_dist = np.minimum(sl_dist.T,core_scales).T
+            #    sl_dist[sl_dist < TOL] = TOL
+            #    sl_dist = np.reciprocal(sl_dist)
+            #else :
+            #    sl_dist = np.maximum(sl_dist, core_scales)
+            #    sl_dist = np.maximum(sl_dist.T,core_scales).T
+            #    sl_dist[sl_dist > INF] = INF
     
-            if not covariant :
-                sl_dist = np.minimum(sl_dist, core_scales)
-                sl_dist = np.minimum(sl_dist.T,core_scales).T
-                sl_dist[sl_dist < TOL] = TOL
-                sl_dist = np.reciprocal(sl_dist)
-            else :
-                sl_dist = np.maximum(sl_dist, core_scales)
-                sl_dist = np.maximum(sl_dist.T,core_scales).T
-                sl_dist[sl_dist > INF] = INF
-    
-            sl = linkage(squareform(sl_dist, checks=False), 'single')
+            #sl = linkage(squareform(sl_dist, checks=False), 'single')
+            sl = KDTreeBoruvkaAlgorithm(self.tree, core_scales, self.nn_indices).spanning_tree()
+
     
             merges = sl[:,0:2].astype(int)
-            merges_heights = sl[:,2]
+            merges_heights = gamma.t_component.inverse(sl[:,2])
           
             if not covariant :
                 merges_heights = np.reciprocal(merges_heights)
