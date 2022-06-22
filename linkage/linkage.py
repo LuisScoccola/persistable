@@ -2,10 +2,8 @@ import numpy as np
 import scipy as sp
 import random
 import warnings
-import math
 import matplotlib.pyplot as plt
 from sklearn.neighbors import KDTree
-#from scipy.spatial import KDTree
 from sklearn.metrics import pairwise_distances
 from sklearn.neighbors import KNeighborsClassifier
 from scipy.cluster.hierarchy import DisjointSet
@@ -13,7 +11,6 @@ from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
 from linkage.plot import StatusbarHoverManager
 from linkage.from_hdbscan._hdbscan_boruvka import KDTreeBoruvkaAlgorithm
-#from linkage.from_hdbscan import *
 
 
 TOL = 1e-8
@@ -144,8 +141,6 @@ class MPSpace :
         else :
             self.points = np.array(range(self.size))
 
-        self.fit_on = None
-
         self.fitted_nn = False
         self.fitted_density_estimates = False
 
@@ -162,33 +157,19 @@ class MPSpace :
 
         if metric == "minkowski":
             self.tree = KDTree(X, metric=metric, leaf_size=leaf_size, p = p)
-        elif metric == 'precomputed':
-            self.dist_mat = X
+        #elif metric == 'precomputed':
+        #    self.dist_mat = X
         else :
             raise Exception("Metric given is not supported.")
 
 
-    def fit(self, maxk = None, fit_on = None) :
-        self.fit_nn(maxk = maxk, fit_on = fit_on)
+    def fit(self, maxk = None) :
+        self.fit_nn(maxk = maxk)
         self.fit_density_estimates()
 
 
-    def fit_nn(self, maxk, fit_on) :
+    def fit_nn(self, maxk) :
         # to do: check input
-        if fit_on == None :
-            fit_on = range(0,self.size)
-
-        # fit_on can be just a number < 1
-        if isinstance(fit_on, float) and fit_on < 1 :
-            n_samples = int(self.size * fit_on)
-            fit_on = random.sample(range(self.size),n_samples)
-        # or > 1
-        if isinstance(fit_on, int) and fit_on > 1 :
-            n_samples = fit_on
-            fit_on = random.sample(range(self.size),n_samples)
-
-        self.fit_on = fit_on
-        fit_on = self.points[fit_on]
 
         if maxk == None or maxk > self.size :
             maxk = self.size
@@ -197,7 +178,7 @@ class MPSpace :
         
         if self.metric == 'minkowski' :
             k_neighbors = self.tree.query(\
-                    fit_on, self.maxk, return_distance = True, sort_results = True,
+                    self.points, self.maxk, return_distance = True, sort_results = True,
                     dualtree = True, breadth_first = True)
             k_neighbors = (np.array(k_neighbors[1]),np.array(k_neighbors[0]))
 
@@ -216,7 +197,6 @@ class MPSpace :
         self.nn_indices = np.array(neighbors)
         self.nn_distance = np.array(nn_distance)
         self.fitted_nn = True
-
 
     def fit_density_estimates(self) :
         self.fitted_density_estimates = True
@@ -304,7 +284,6 @@ class MPSpace :
                 self.nn_distance[p,i])
 
         return np.where(i_indices == 0, 0, op(point_index,i_indices))
-
 
 
     def lambda_linkage(self, s0, k0) :

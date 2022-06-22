@@ -1,7 +1,6 @@
 from setuptools import setup
-
-
 import warnings
+
 
 try:
     from Cython.Distutils import build_ext
@@ -23,14 +22,8 @@ class CustomBuildExtCommand(build_ext):
     """build_ext command for use when numpy headers are needed."""
 
     def run(self):
-
-        # Import numpy here, only when headers are needed
         import numpy
-
-        # Add numpy headers to include_dirs
         self.include_dirs.append(numpy.get_include())
-
-        # Call original build_ext command
         build_ext.run(self)
 
 
@@ -39,8 +32,10 @@ _hdbscan_boruvka = Extension('linkage.from_hdbscan._hdbscan_boruvka',
 dist_metrics = Extension('linkage.from_hdbscan.dist_metrics',
                          sources=['linkage/from_hdbscan/dist_metrics.pyx'])
 
+
 if not HAVE_CYTHON:
     raise ImportError('Cython not found!')
+
 
 setup(
    name='linkage',
