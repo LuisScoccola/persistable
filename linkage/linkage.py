@@ -27,16 +27,15 @@ class Persistable :
         self.data = X
         self.p = p
         self.mpspace = MPSpace(X, 'minkowski', measure, leaf_size, self.p)
-        self.mpspace.fit()
+        self.mpspace.fit(maxk=maxk)
         self.connection_radius = self.mpspace.connection_radius()
         self.maxk = maxk
         self.kernel = kernel
 
-    def parameter_selection(self, initial_k = 0.02, final_k = 0.2, n_parameters=100, color_firstn=10):
+    def parameter_selection(self, initial_k = 0.02, final_k = 0.2, n_parameters=50, color_firstn=10):
         parameters = np.logspace(np.log10(initial_k), np.log10(final_k), num=n_parameters)
-        gammas = [ GammaCurve.linear_interpolator_alpha_s_indexed(k, self.connection_radius) for k in parameters ]
-        #gammas = [ GammaCurve.linear_interpolator_alpha_k_indexed(k, self.connection_radius) for k in parameters ]
-        pds = self.mpspace.gamma_prominence_vineyard(gammas)
+        sks = [ (self.connection_radius, k) for k in parameters ]
+        pds = self.mpspace.lambda_linkage_prominence_vineyard(sks)
         fig, ax = plt.subplots(figsize=(10,3))
         plt.xscale("log")
         plt.yscale("log")
@@ -48,8 +47,7 @@ class Persistable :
     def cluster(self,num_clusters,k,s=None,cluster_all=False,cluster_all_k=5):
         if s == None:
             s = self.connection_radius
-        cl = self.mpspace.gamma_linkage(GammaCurve.linear_interpolator_alpha_s_indexed(k,s)).persistence_based_flattening(num_clusters = num_clusters)
-        #cl = self.mpspace.gamma_linkage(GammaCurve.linear_interpolator_alpha_k_indexed(k,s)).persistence_based_flattening(num_clusters = num_clusters)
+        cl = self.mpspace.lambda_linkage(s,k).persistence_based_flattening(num_clusters)
 
         def postProcessing(dataset, labels, k) :
             neigh = KNeighborsClassifier(n_neighbors=k, p=self.p)
@@ -80,6 +78,7 @@ class MPSpace :
 
         self.metric = metric
         self.p = p
+        self.leaf_size = leaf_size
 
         self.size = X.shape[0]
         if measure is None :
@@ -243,6 +242,52 @@ class MPSpace :
         return self.kde_at_index_width(point_index,pos,width), out_of_range
            
 
+    def core_distance(self, point_index, s0, k0) :
+
+        def lazy_intersection(increasing, increasing2, f1) :
+            # find first occurence of f1(increasing[i]) <= increasing2[i]
+            first = 0
+            last = len(increasing)-1
+
+            if f1(increasing[first]) <= increasing2[first] :
+                return first, False
+            if f1(increasing[last]) > increasing2[last] :
+                return last, True
+
+            while first+1 < last :
+                midpoint = (first + last)//2
+                if f1(increasing[midpoint]) <= increasing2[midpoint] :
+                    last = midpoint
+                else:
+                    first = midpoint
+
+            return last, False
+
+        mu = s0/k0
+        k_to_s = lambda y : s0 - mu * y
+
+        i_indices = []
+        for p in point_index :
+            i_indices.append(lazy_intersection(self.kernel_estimate[p], self.nn_distance[p], k_to_s))
+
+        i_indices = np.array(i_indices)
+
+        out_of_range = i_indices[:,1]
+        if np.any(out_of_range) :
+            # to do: better message for second condition
+            warnings.warn("Don't have enough neighbors to properly compute core scale, or point takes too long to appear.")
+
+        i_indices = i_indices[:,0]
+
+        op = lambda p, i : np.where(k_to_s(self.kernel_estimate[p,i-1]) <= self.nn_distance[p,i],\
+                k_to_s(self.kernel_estimate[p,i-1]),
+                self.nn_distance[p,i])
+
+        return np.where(i_indices == 0, 0, op(point_index,i_indices))
+
+
+
+
     def core_scale(self, point_index, gamma) :
         """Given a curve gamma (that takes an r and returns s,t,k) and a
         list of (indices of) points in the space, returns the r-time at which
@@ -341,15 +386,6 @@ class MPSpace :
 
             return last, False
 
-        #def lazy_intersection_2(increasing, increasing2, f2) :
-        #    f = np.vectorize(f2)
-        #    #res = np.argwhere(increasing >= f(increasing2))
-        #    res = np.nonzero(increasing >= f(increasing2))
-        #    if len(res) > 0 :
-        #        return res[0], True
-        #    else:
-        #        return len(increasing)-1, False 
-
 
         k_s_inv = lambda d : gamma.k_component.func(gamma.s_component.func_inv(d))
         #k_s_inv = np.vectorize(lambda d : gamma.k_component.func(gamma.s_component.func_inv(d)))
@@ -387,156 +423,40 @@ class MPSpace :
             return gamma.s_component.inverse(np.array(list(map(op, point_index, i_indices))))
 
 
-    def gamma_linkage(self, gamma, consistent = False, intrinsic_dim = 1) :
-        covariant = gamma.covariant
-        
-        if self.metric == "precomputed" :
-            sl_dist = self.dist_mat.copy()
-        else :
-            sl_dist = pairwise_distances(self.points, metric = self.metric, p = self.p)
+    def lambda_linkage(self, s0, k0) :
 
         indices = np.arange(self.size)
-        core_scales = self.core_scale(indices, gamma)
-
-        sl_dist = gamma.t_component.inverse(sl_dist)
-
-        if not covariant :
-            sl_dist = np.minimum(sl_dist, core_scales)
-            sl_dist = np.minimum(sl_dist.T,core_scales).T
-            sl_dist[sl_dist < TOL] = TOL
-            sl_dist = np.reciprocal(sl_dist)
-        else :
-            sl_dist = np.maximum(sl_dist, core_scales)
-            sl_dist = np.maximum(sl_dist.T,core_scales).T
-            sl_dist[sl_dist > INF] = INF
-
-
-        #sl = linkage(squareform(sl_dist, checks=False), 'single')
-        sl = KDTreeBoruvkaAlgorithm(self.tree, core_scales, self.nn_indices).spanning_tree()
-
+        core_scales = self.core_distance(indices, s0, k0)
+   
+        sl = KDTreeBoruvkaAlgorithm(self.tree, core_scales, self.nn_indices, leaf_size=self.leaf_size // 3).spanning_tree()
         merges = sl[:,0:2].astype(int)
         merges_heights = sl[:,2]
-      
-        if not covariant :
-            merges_heights = np.reciprocal(merges_heights)
-
-        merges_heights[merges_heights >= INF/2] = np.infty
         merges_heights[merges_heights <= TOL*2] = 0
 
-        ret = HierarchicalClustering(self.points, covariant, core_scales, merges, merges_heights, gamma.minr, gamma.maxr)
-
-        if consistent :
-            d = intrinsic_dim
-            if d == 1 :
-                if self.kernel == "square" :
-                    cons = 2
-                elif self.kernel == "triangle" :
-                    cons = 1
-                elif self.kernel == "epanechnikov" :
-                    cons = 4/3
-            else :
-                if self.kernel == "square" :
-                    cons = (np.pi ** (d/2)) / math.gamma(d/2 + 1)
-                elif self.kernel == "triangle" :
-                    cons = (2 * np.pi**((d-1)/2))/(math.gamma((d-1)/2) * d * (d+1))
-                elif self.kernel == "epanechnikov" :
-                    cons = (2 * np.pi**((d-1)/2) * 2)/(math.gamma((d-1)/2) * d * (d+2))
-
-            v_s = lambda s : cons * s**d
-
-            inverse_rescaling = np.vectorize(lambda r : gamma.k_component.func(r) / v_s(gamma.s_component.func(r)))
-
-            # new covariance is False
-            ret.reindex(inverse_rescaling, 0, np.inf, False)
-
-        return ret
+        return HierarchicalClustering(self.points, True, core_scales, merges, merges_heights, 0, s0)
 
 
-    # avoid copying all the code from gamma_linkage!
-    def gamma_prominence_vineyard(self, gammas, consistent = False, intrinsic_dim = 1) :
+
+    def lambda_linkage_prominence_vineyard(self, sks) :
 
         def prominences(bd : np.array) -> np.array :
             return np.sort(np.abs(bd[:,0] - bd[:,1]))[::-1]
 
-        #if self.metric == "precomputed" :
-        #    dm = self.dist_mat.copy()
-        #else :
-        #    dm = pairwise_distances(self.points, metric = self.metric, p = self.p)
-        
-        parameters = []
         prominence_diagrams = []
         
-        for gamma in gammas :
-    
-            indices = np.arange(self.size)
-            
-            covariant = gamma.covariant
-            core_scales = self.core_scale(indices, gamma)
-            
-            #sl_dist = dm.copy()
-            #sl_dist = gamma.t_component.inverse(sl_dist)
-    
-            #if not covariant :
-            #    sl_dist = np.minimum(sl_dist, core_scales)
-            #    sl_dist = np.minimum(sl_dist.T,core_scales).T
-            #    sl_dist[sl_dist < TOL] = TOL
-            #    sl_dist = np.reciprocal(sl_dist)
-            #else :
-            #    sl_dist = np.maximum(sl_dist, core_scales)
-            #    sl_dist = np.maximum(sl_dist.T,core_scales).T
-            #    sl_dist[sl_dist > INF] = INF
-    
-            #sl = linkage(squareform(sl_dist, checks=False), 'single')
-            sl = KDTreeBoruvkaAlgorithm(self.tree, core_scales, self.nn_indices).spanning_tree()
-
-    
-            merges = sl[:,0:2].astype(int)
-            merges_heights = gamma.t_component.inverse(sl[:,2])
-          
-            if not covariant :
-                merges_heights = np.reciprocal(merges_heights)
-    
-            merges_heights[merges_heights >= INF/2] = np.infty
-            merges_heights[merges_heights <= TOL*2] = 0
-    
-            hc = HierarchicalClustering(self.points, covariant, core_scales, merges, merges_heights, gamma.minr, gamma.maxr)
-    
-            if consistent :
-                d = intrinsic_dim
-                if d == 1 :
-                    if self.kernel == "square" :
-                        cons = 2
-                    elif self.kernel == "triangle" :
-                        cons = 1
-                    elif self.kernel == "epanechnikov" :
-                        cons = 4/3
-                else :
-                    if self.kernel == "square" :
-                        cons = (np.pi ** (d/2)) / math.gamma(d/2 + 1)
-                    elif self.kernel == "triangle" :
-                        cons = (2 * np.pi**((d-1)/2))/(math.gamma((d-1)/2) * d * (d+1))
-                    elif self.kernel == "epanechnikov" :
-                        cons = (2 * np.pi**((d-1)/2) * 2)/(math.gamma((d-1)/2) * d * (d+2))
-    
-                v_s = lambda s : cons * s**d
-    
-                inverse_rescaling = np.vectorize(lambda r : gamma.k_component.func(r) / v_s(gamma.s_component.func(r)))
-    
-                # new covariance is False
-                hc.reindex(inverse_rescaling, 0, np.inf, False)
-
+        for sk in sks :
+            s0, k0 = sk
+            hc = self.lambda_linkage(s0, k0)
             persistence_diagram = hc.PD()[0]
             prominence_diagram = prominences(persistence_diagram)
-            
-            parameters.append(gamma)
             prominence_diagrams.append(prominence_diagram)
             
         return prominence_diagrams
 
 
-    def connection_radius(self) :
-        gamma = GammaCurve.constant_k_alpha_s_indexed(0)
-        return self.gamma_linkage(gamma).start_and_end()[1]
+    def connection_radius(self,factor=1,percentile=1) :
+        mst = KDTreeBoruvkaAlgorithm(self.tree, np.zeros(len(self.points)), self.nn_indices, leaf_size=self.leaf_size // 3).spanning_tree()
+        return factor * np.quantile(mst[:,2],percentile)
     
         
 class HierarchicalClustering :
@@ -553,21 +473,21 @@ class HierarchicalClustering :
         self.minr = minr
 
 
-    def persistence_based_flattening(self, threshold = None, num_clusters = None) :
-        if threshold == None and num_clusters == None :
-            raise Exception("Either threshold or num_clusters must be given.")
-        if threshold != None and num_clusters != None :
-            warnings.warn("Both threshold and num_clusters given, using threshold.")
-        elif threshold == None :
-            bd = self.PD(end="infinity")[0]
-            pers = np.abs(bd[:,0] - bd[:,1])
-            if num_clusters >= bd.shape[0] :
-                spers = np.sort(pers)
-                threshold = spers[0] / 2
-            else :
-                spers = np.sort(pers)
-                threshold = (spers[-num_clusters] + spers[-(num_clusters+1)])/2
+    def persistence_based_flattening(self, num_clusters) :
+        #if threshold == None and num_clusters == None :
+        #    raise Exception("Either threshold or num_clusters must be given.")
+        #if threshold != None and num_clusters != None :
+        #    warnings.warn("Both threshold and num_clusters given, using threshold.")
+        #elif threshold == None :
 
+        bd = self.PD(end="infinity")[0]
+        pers = np.abs(bd[:,0] - bd[:,1])
+        if num_clusters >= bd.shape[0] :
+            spers = np.sort(pers)
+            threshold = spers[0] / 2
+        else :
+            spers = np.sort(pers)
+            threshold = (spers[-num_clusters] + spers[-(num_clusters+1)])/2
 
         heights = self.heights.copy()
         merges_heights = self.merges_heights.copy()
@@ -692,21 +612,6 @@ class HierarchicalClustering :
 
         return current_cluster, res
  
-
-    def reindex(self, inverse_rescaling, new_min, new_max, new_covariance) :
-        self.minr = new_min
-        self.maxr = new_max
-        self.covariant = new_covariance
-        self.merges_heights = inverse_rescaling(self.merges_heights)
-        self.heights = inverse_rescaling(self.heights)
-
-
-    def start_and_end(self) :
-        #returns the first and last things that happen in the hierarchical clustering
-        if self.covariant :
-            return np.min(self.heights), np.max(self.merges_heights)
-        else :
-            return np.max(self.heights), np.min(self.merges_heights)
 
 
     def PD(self, end = None) :

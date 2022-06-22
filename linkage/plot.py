@@ -1,6 +1,4 @@
 import matplotlib as mpl
-import matplotlib.pyplot as plt
-import numpy as np
 
 
 # https://stackoverflow.com/a/65604940/2171328
