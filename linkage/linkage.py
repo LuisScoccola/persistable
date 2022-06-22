@@ -23,25 +23,24 @@ INF = 1e15
 ### PERSISTABLE
 
 class Persistable :
-    def __init__(self, X, measure = None, kernel = 'square', maxk = None, leaf_size = 40, p = 2) :
+    def __init__(self, X, measure = None, maxk = None, leaf_size = 40, p = 2) :
         self.data = X
         self.p = p
         self.mpspace = MPSpace(X, 'minkowski', measure, leaf_size, self.p)
-        self.mpspace.fit(maxk=maxk)
+        self.mpspace.fit()
         self.connection_radius = self.mpspace.connection_radius()
         self.maxk = maxk
-        self.kernel = kernel
 
     def parameter_selection(self, initial_k = 0.02, final_k = 0.2, n_parameters=50, color_firstn=10):
         parameters = np.logspace(np.log10(initial_k), np.log10(final_k), num=n_parameters)
-        sks = [ (self.connection_radius, k) for k in parameters ]
-        pds = self.mpspace.lambda_linkage_prominence_vineyard(sks)
+        sks = [ (self.connection_radius,k) for k in parameters ]
+        pds = self.mpspace.lambda_linkage_prominence_vineyard(sks,k_indexed=True)
         fig, ax = plt.subplots(figsize=(10,3))
         plt.xscale("log")
         plt.yscale("log")
         vineyard = ProminenceVineyard(parameters,pds)
         vineyard.plot_prominence_vineyard(ax, color_firstn=color_firstn)
-        plt.ylim([np.quantile(np.array(vineyard.values),0.05),max(vineyard.values)])
+        plt.ylim([np.quantile(np.array(vineyard.values),0.1),max(vineyard.values)])
         plt.show()
 
     def cluster(self,num_clusters,k,s=None,cluster_all=False,cluster_all_k=5):
@@ -62,6 +61,61 @@ class Persistable :
         else:
             return cl
 
+#    def __init__(self, X, measure = None, k0="auto", leaf_size = 40, p = 2) :
+#        self.data = X
+#        self.p = p
+#        self.mpspace = MPSpace(X, 'minkowski', measure, leaf_size, self.p)
+#        if k0 == "auto":
+#            #self.k0 = min((np.log10(self.mpspace.size) * 30)/self.mpspace.size, 1)
+#            self.k0 = 0.05
+#        # to do: the following was to be changed when the weights are not uniform!
+#        self.maxk = int(self.k0 * self.mpspace.size)+1
+#        self.mpspace.fit(maxk=self.maxk)
+#        self.connection_radius = self.mpspace.connection_radius()
+
+#    def parameter_selection(self, k0 = "auto", ss = "auto", n_parameters=50, color_firstn=10, k_indexed=True):
+#        if k0 == "auto":
+#            k0 = self.k0
+#
+#        if ss == "auto":
+#            m = self.mpspace.connection_radius(percentiles=0.5)
+#            s1, s2 = m, m*10
+#        else :
+#            s1, s2 = ss
+#        parameters = np.logspace(np.log10(s1), np.log10(s2), num=n_parameters)
+#        sks = [ (s, k0) for s in parameters ]
+#        pds = self.mpspace.lambda_linkage_prominence_vineyard(sks,k_indexed)
+#
+#        fig, ax = plt.subplots(figsize=(10,3))
+#        plt.xscale("log")
+#        plt.yscale("log")
+#
+#        vineyard = ProminenceVineyard(parameters,pds)
+#        vineyard.plot_prominence_vineyard(ax, color_firstn=color_firstn)
+#        vv = np.array(vineyard.values)
+#        vv = vv[vv>=TOL]
+#
+#        plt.ylim([np.quantile(vv,0.05),max(vineyard.values)])
+#        plt.show()
+#
+#    def cluster(self, num_clusters, s0, k0="auto",cluster_all=False,cluster_all_k=5):
+#        if k0 == "auto":
+#            k0 = self.k0
+#        cl = self.mpspace.lambda_linkage(s0,k0).persistence_based_flattening(num_clusters)
+#
+#        def postProcessing(dataset, labels, k) :
+#            neigh = KNeighborsClassifier(n_neighbors=k, p=self.p)
+#            neigh.fit(dataset[labels!=-1], labels[labels!=-1])
+#            res = labels.copy()
+#            res[labels==-1] = neigh.predict(dataset[labels==-1,:])
+#            return res
+#        
+#        if cluster_all:
+#            labels = postProcessing(self.data, cl[1], k=cluster_all_k)
+#            return cl[0], labels
+#        else:
+#            return cl
+
 
 
 ### GAMMA LINKAGE
@@ -69,8 +123,6 @@ class Persistable :
 class MPSpace :
     """Implements a finite metric probability space that can compute \
        its kernel density estimates"""
-
-    POSSIBLE_KERNELS =  {'square', 'triangle', 'epanechnikov'}
 
     def __init__(self, X, metric = 'minkowski', measure = None, leaf_size = 40, p = 2) :
         # if metric = 'precomputed' then assumes that X is a distance matrix
@@ -94,7 +146,6 @@ class MPSpace :
 
         self.fit_on = None
 
-        self.kernel = None
         self.fitted_nn = False
         self.fitted_density_estimates = False
 
@@ -118,9 +169,9 @@ class MPSpace :
             raise Exception("Metric given is not supported.")
 
 
-    def fit(self, maxk = None, kernel = 'square', fit_on = None) :
+    def fit(self, maxk = None, fit_on = None) :
         self.fit_nn(maxk = maxk, fit_on = fit_on)
-        self.fit_density_estimates(kernel = kernel)
+        self.fit_density_estimates()
 
 
     def fit_nn(self, maxk, fit_on) :
@@ -169,46 +220,17 @@ class MPSpace :
         self.fitted_nn = True
 
 
-    def fit_density_estimates(self, kernel) :
-
-        self.kernel = kernel
+    def fit_density_estimates(self) :
         self.fitted_density_estimates = True
-
         self.square_kernel_estimate = np.cumsum(self.measure[self.nn_indices], axis = 1)
-
-        if kernel == 'square' :
-            self.kernel_estimate = self.square_kernel_estimate
-        else :
-            with np.errstate(divide='ignore'):
-                inv_width = np.where(self.nn_distance < self.tol, 0, np.divide(1.,self.nn_distance))
-            if kernel == 'triangle' :
-                self.delta = np.cumsum(self.measure[self.nn_indices] * self.nn_distance, axis = 1)
-                self.kernel_estimate = self.square_kernel_estimate - inv_width * self.delta
-            elif kernel == 'epanechnikov' :
-                self.delta = np.cumsum(self.measure[self.nn_indices] * np.square(self.nn_distance), axis = 1)
-                self.kernel_estimate = self.square_kernel_estimate - np.square(inv_width) * self.delta
-
+        self.kernel_estimate = self.square_kernel_estimate
 
     def kde_at_index_width(self, point_index, neighbor_index, width = None) :
         # to do: check input
         if width is None :
             width = self.nn_distance[point_index][neighbor_index]
 
-        if self.kernel == 'square' :
-            return self.square_kernel_estimate[point_index][neighbor_index]
-
-        else :
-            with np.errstate(divide='ignore'):
-                inv_width = np.where(width < self.tol, 0, np.divide(1.,width))
-   
-            if self.kernel == 'triangle' :
-                return self.square_kernel_estimate[point_index][neighbor_index] -\
-                    inv_width * self.delta[point_index][neighbor_index]
-
-            elif self.kernel == 'epanechnikov' :
-                return self.square_kernel_estimate[point_index][neighbor_index] -\
-                    np.square(inv_width) * self.delta[point_index][neighbor_index]
- 
+        return self.square_kernel_estimate[point_index][neighbor_index]
 
     def kde(self, point_index, width) :
         # to do: check input (in particular that the index is in bound)
@@ -287,142 +309,6 @@ class MPSpace :
 
 
 
-
-    def core_scale(self, point_index, gamma) :
-        """Given a curve gamma (that takes an r and returns s,t,k) and a
-        list of (indices of) points in the space, returns the r-time at which
-        the points are born."""
-
-        # point_index can be a list
-        point_index = np.array(point_index)
-
-        if gamma.s_component.is_constant :
-            return self.core_scale_constant_s(point_index, gamma)
-        elif gamma.k_component.is_constant :
-            return self.core_scale_varying_s_constant_k(point_index, gamma)
-        else :
-            return self.core_scale_varying_s_k(point_index, gamma)
-
-
-    def core_scale_constant_s(self, point_index, gamma) :
-        s0 = gamma.s_component.func(gamma.minr)
-        kde_s0 = np.vectorize(lambda i : self.kde(i,s0))
-        kdes, out_of_range = kde_s0(point_index)
-
-        if np.any(out_of_range) :
-            warnings.warn("Don't have enough neighbors to properly calculate core scale.")
-
-        return gamma.k_component.inverse(kdes)
-
-
-    def core_scale_varying_s_constant_k(self, point_index, gamma) :
-
-        k0 = gamma.k_component.func(gamma.minr)
-
-        if k0 < TOL :
-            return np.zeros((len(point_index)))
-
-        if k0 > 1 :
-            warnings.warn("The curve doesn't intersect the shadow.")
-            zero = np.vectorize(lambda x : 0)
-            return zero(point_index)
-
-        if self.kernel == 'square' and self.counting_measure :
-            # square kernel with couting measure and constant k
-            i_indices = int(np.ceil(k0 * self.size)) - 1
-
-            if i_indices + 1 > self.maxk :
-
-                if self.maxk < self.size :
-                    # to do: check that the boundary cases are correct here
-                    out_of_range = np.where((i_indices + 1 >\
-                            np.apply_along_axis(len,-1,self.nn_indices[point_index])) &\
-                            (i_indices + 1 < self.size), True, False)
-                    if np.any(out_of_range) :
-                        warnings.warn("Don't have enough neighbors to properly compute core scale.")
-        else :
-            i_indices = []
-            for p in point_index :
-                i_indices.append(np.searchsorted(self.kernel_estimate[p],k0, side = 'left'))
-
-            i_indices = np.array(i_indices)
-
-            if self.maxk < self.size :
-                out_of_range = np.where((i_indices >=\
-                    np.apply_along_axis(len,-1,self.nn_indices[point_index])) &\
-                    (np.apply_along_axis(len,-1,self.nn_indices[point_index]) < self.size), True, False)
-
-                if np.any(out_of_range) :
-                    warnings.warn("Don't have enough neighbors to properly compute core scale.")
-
-        if self.kernel == 'square' :
-            return gamma.s_component.inverse(self.nn_distance[(point_index, i_indices)])
-        if self.kernel == 'triangle' :
-            op = lambda p, i : np.divide(self.delta[p,i-1], (self.square_kernel_estimate[p,i-1] - k0))
-        elif self.kernel == 'epanechnikov' :
-            op = lambda p, i : np.sqrt(np.divide(self.delta[p,i-1], self.square_kernel_estimate[p,i-1] - k0))
-
-        return gamma.s_component.inverse(np.where(i_indices == 0, 0, op(point_index,i_indices)))
-
-
-    def core_scale_varying_s_k(self, point_index, gamma) :
-
-        def lazy_intersection(increasing, increasing2, f2) :
-            # find first occurence of increasing[i] >= f2(increasing2[i])
-            first = 0
-            last = len(increasing)-1
-
-            if increasing[first] >= f2(increasing2[first]) :
-                return first, False
-            if increasing[last] < f2(increasing2[last]) :
-                return last, True
-
-            while first+1 < last :
-                midpoint = (first + last)//2
-                if increasing[midpoint] >= f2(increasing2[midpoint]) :
-                    last = midpoint
-                else:
-                    first = midpoint
-
-            return last, False
-
-
-        k_s_inv = lambda d : gamma.k_component.func(gamma.s_component.func_inv(d))
-        #k_s_inv = np.vectorize(lambda d : gamma.k_component.func(gamma.s_component.func_inv(d)))
-
-        i_indices = []
-        for p in point_index :
-            i_indices.append(lazy_intersection(self.kernel_estimate[p], self.nn_distance[p], k_s_inv))
-            #i_indices.append(lazy_intersection_2(self.kernel_estimate[p], self.nn_distance[p], k_s_inv))
-
-        i_indices = np.array(i_indices)
-
-        out_of_range = i_indices[:,1]
-        if np.any(out_of_range) :
-            # to do: better message for second condition
-            warnings.warn("Don't have enough neighbors to properly compute core scale, or point takes too long to appear.")
-
-        i_indices = i_indices[:,0]
-
-        if self.kernel == 'square' :
-
-            op = lambda p, i : np.where(self.kernel_estimate[p,i-1] >= k_s_inv(self.nn_distance[p,i]),\
-                    gamma.s_component.func(gamma.k_component.func_inv(self.kernel_estimate[p,i-1])),
-                    self.nn_distance[p,i])
-
-            return gamma.s_component.inverse(np.where(i_indices == 0, 0, op(point_index,i_indices)))
-        else :
-
-            # to do: set tolerance so user can choose it, and handle nonconvergence in some controlled way
-            op_ = lambda p, i : sp.optimize.brentq(lambda s : self.kde(p, s)[0] -\
-                                       gamma.k_component.func(gamma.s_component.func_inv(s)),
-                                   self.nn_distance[p,i-1], self.nn_distance[p,i], disp = True)
-
-            op = lambda p, i : 0 if i == 0 else op_(p,i)
-
-            return gamma.s_component.inverse(np.array(list(map(op, point_index, i_indices))))
-
-
     def lambda_linkage(self, s0, k0) :
 
         indices = np.arange(self.size)
@@ -431,32 +317,37 @@ class MPSpace :
         sl = KDTreeBoruvkaAlgorithm(self.tree, core_scales, self.nn_indices, leaf_size=self.leaf_size // 3).spanning_tree()
         merges = sl[:,0:2].astype(int)
         merges_heights = sl[:,2]
+        #merges_heights[merges_heights >= INF*2] = np.inf
         merges_heights[merges_heights <= TOL*2] = 0
 
         return HierarchicalClustering(self.points, True, core_scales, merges, merges_heights, 0, s0)
 
 
+    def lambda_linkage_prominence_vineyard(self, sks, k_indexed) :
 
-    def lambda_linkage_prominence_vineyard(self, sks) :
-
-        def prominences(bd : np.array) -> np.array :
+        def prominences(bd) :
             return np.sort(np.abs(bd[:,0] - bd[:,1]))[::-1]
 
         prominence_diagrams = []
-        
+
         for sk in sks :
             s0, k0 = sk
             hc = self.lambda_linkage(s0, k0)
             persistence_diagram = hc.PD()[0]
+            if k_indexed:
+                mu = k0/s0
+                s_to_k = lambda x : k0 - mu * x
+                persistence_diagram = s_to_k(persistence_diagram)
+            
             prominence_diagram = prominences(persistence_diagram)
             prominence_diagrams.append(prominence_diagram)
             
         return prominence_diagrams
 
 
-    def connection_radius(self,factor=1,percentile=1) :
+    def connection_radius(self,percentiles=1) :
         mst = KDTreeBoruvkaAlgorithm(self.tree, np.zeros(len(self.points)), self.nn_indices, leaf_size=self.leaf_size // 3).spanning_tree()
-        return factor * np.quantile(mst[:,2],percentile)
+        return np.quantile(mst[:,2],percentiles)
     
         
 class HierarchicalClustering :
