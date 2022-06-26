@@ -11,6 +11,7 @@ from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
 from linkage.plot import StatusbarHoverManager
 from linkage.from_hdbscan._hdbscan_boruvka import KDTreeBoruvkaAlgorithm
+from linkage.aux import lazy_intersection
 
 _TOL = 1e-8
 _INF = 1e15
@@ -223,28 +224,11 @@ class _MetricProbabilitySpace :
         return self.kde_at_index_width(point_index,pos,width), out_of_range
 
     def core_distance(self, point_index, s0, k0) :
-
-        def _lazy_intersection(increasing, increasing2, f1) :
-            # find first occurence of f1(increasing[i]) <= increasing2[i]
-            first = 0
-            last = len(increasing)-1
-            if f1(increasing[first]) <= increasing2[first] :
-                return first, False
-            if f1(increasing[last]) > increasing2[last] :
-                return last, True
-            while first+1 < last :
-                midpoint = (first + last)//2
-                if f1(increasing[midpoint]) <= increasing2[midpoint] :
-                    last = midpoint
-                else:
-                    first = midpoint
-            return last, False
-
         mu = s0/k0
         k_to_s = lambda y : s0 - mu * y
         i_indices = []
         for p in point_index :
-            i_indices.append(_lazy_intersection(self._kernel_estimate[p], self._nn_distance[p], k_to_s))
+            i_indices.append(lazy_intersection(self._kernel_estimate[p], self._nn_distance[p], s0, k0))
         i_indices = np.array(i_indices)
         out_of_range = i_indices[:,1]
         if np.any(out_of_range) :
