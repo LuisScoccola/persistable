@@ -24,10 +24,12 @@ class CustomBuildExtCommand(build_ext):
         build_ext.run(self)
 
 aux = Extension('linkage.aux', sources=['linkage/aux.pyx'])
-_hdbscan_boruvka = Extension('linkage.from_hdbscan._hdbscan_boruvka',
-                             sources=['linkage/from_hdbscan/_hdbscan_boruvka.pyx'])
-dist_metrics = Extension('linkage.from_hdbscan.dist_metrics',
-                         sources=['linkage/from_hdbscan/dist_metrics.pyx'])
+relabel_dendrogram = Extension('linkage.borrowed.relabel_dendrogram',
+                             sources=['linkage/borrowed/relabel_dendrogram.pyx'])
+dist_metrics = Extension('linkage.borrowed.dist_metrics',
+                         sources=['linkage/borrowed/dist_metrics.pyx'])
+_hdbscan_boruvka = Extension('linkage.borrowed._hdbscan_boruvka',
+                             sources=['linkage/borrowed/_hdbscan_boruvka.pyx'])
 
 if not HAVE_CYTHON:
     raise ImportError('Cython not found!')
@@ -41,7 +43,7 @@ setup(
    maintainer_email='luis.scoccola@gmail.com',
    packages=['linkage'],
    install_requires=requirements(),
-   ext_modules=[_hdbscan_boruvka, dist_metrics, aux],
+   ext_modules=[relabel_dendrogram, aux, dist_metrics, _hdbscan_boruvka],
    cmdclass={'build_ext': CustomBuildExtCommand},
-   data_files=('linkage/from_hdbscan/dist_metrics.pxd',),
+   data_files=('linkage/borrowed/dist_metrics.pxd',),
 )

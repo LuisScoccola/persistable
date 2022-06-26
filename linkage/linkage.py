@@ -10,7 +10,7 @@ from scipy.cluster.hierarchy import DisjointSet
 from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
 from linkage.plot import StatusbarHoverManager
-from linkage.from_hdbscan._hdbscan_boruvka import KDTreeBoruvkaAlgorithm
+from linkage.borrowed._hdbscan_boruvka import KDTreeBoruvkaAlgorithm
 from linkage.aux import lazy_intersection
 
 _TOL = 1e-8
