@@ -1,9 +1,12 @@
+# cython: boundscheck=False, wraparound=False, cdivision=True
+
 import numpy as np
 cimport numpy as np
 np.import_array()
 
 DTYPE = np.float64
 ctypedef np.float64_t DTYPE_t
+
 
 def lazy_intersection(np.ndarray[DTYPE_t, ndim=1] increasing, np.ndarray[DTYPE_t, ndim=1] increasing2, np.float64_t s0, np.float64_t k0) :
     # find first occurence of s0 - (s0/k0) * increasing[i]) <= increasing2[i]

@@ -5,6 +5,12 @@ try:
     from Cython.Distutils import build_ext
     from setuptools import setup, Extension
     HAVE_CYTHON = True
+
+    from Cython.Compiler.Options import get_directive_defaults
+    directive_defaults = get_directive_defaults()
+    directive_defaults['linetrace'] = True
+    directive_defaults['binding'] = True
+
 except ImportError as e:
     warnings.warn(e.args[0])
     from setuptools import setup, Extension
@@ -23,13 +29,16 @@ class CustomBuildExtCommand(build_ext):
         self.include_dirs.append(numpy.get_include())
         build_ext.run(self)
 
-aux = Extension('linkage.aux', sources=['linkage/aux.pyx'])
+aux = Extension('linkage.aux', sources=['linkage/aux.pyx'], define_macros=[('CYTHON_TRACE', '1')])
 relabel_dendrogram = Extension('linkage.borrowed.relabel_dendrogram',
-                             sources=['linkage/borrowed/relabel_dendrogram.pyx'])
+                             sources=['linkage/borrowed/relabel_dendrogram.pyx'],
+                             define_macros=[('CYTHON_TRACE', '1')])
 dist_metrics = Extension('linkage.borrowed.dist_metrics',
-                         sources=['linkage/borrowed/dist_metrics.pyx'])
+                         sources=['linkage/borrowed/dist_metrics.pyx'],
+                             define_macros=[('CYTHON_TRACE', '1')])
 _hdbscan_boruvka = Extension('linkage.borrowed._hdbscan_boruvka',
-                             sources=['linkage/borrowed/_hdbscan_boruvka.pyx'])
+                             sources=['linkage/borrowed/_hdbscan_boruvka.pyx'],
+                             define_macros=[('CYTHON_TRACE', '1')])
 
 if not HAVE_CYTHON:
     raise ImportError('Cython not found!')
