@@ -173,7 +173,7 @@ class _MetricProbabilitySpace :
         if maxk == None or maxk > self._size :
             maxk = self._size
         self._maxk = maxk
-        if self._metric == 'minkowski' :
+        if self._metric in BallTree.valid_metrics + KDTree.valid_metrics:
             k_neighbors = self._tree.query(\
                     self._points, self._maxk, return_distance = True, sort_results = True,
                     dualtree = True, breadth_first = True)
