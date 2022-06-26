@@ -1,9 +1,13 @@
+# cython: profile=True
+# cython: linetrace=True
 # cython: boundscheck=False
 # cython: nonecheck=False
 # cython: wraparound=False
 # cython: initializedcheck=False
 # Minimum spanning tree single linkage implementation for hdbscan
 # Authors: Leland McInnes
+# License: 3-clause BSD
+# Modified to be part of Persistable pipeline by Luis Scoccola
 # License: 3-clause BSD
 
 # Code to implement a Dual Tree Boruvka Minimimum Spanning Tree computation
@@ -237,7 +241,9 @@ def _core_dist_query(tree, data, min_samples):
 cdef class KDTreeBoruvkaAlgorithm (object):
 
     cdef object tree
-    cdef object core_dist_tree
+    ##me
+    #cdef object core_dist_tree
+    ##
     cdef dist_metrics.DistanceMetric dist
     cdef np.ndarray _data
     cdef np.double_t[:, ::1] _raw_data
@@ -284,8 +290,8 @@ cdef class KDTreeBoruvkaAlgorithm (object):
     cdef np.ndarray candidate_distance_arr
 
     ####me
-    #cdef public np.int_t[:, ::1] nn
-    cdef public list nn
+    cdef public np.int_t[:, ::1] nn
+    # what I had before:# cdef public list nn
     #cdef np.int_t *nn_ptr
     #cdef np.ndarray nn_arr
     ####
@@ -293,7 +299,9 @@ cdef class KDTreeBoruvkaAlgorithm (object):
     def __init__(self, tree, core_distance, nn, min_samples=5, metric='euclidean', leaf_size=20,
                  alpha=1.0, approx_min_span_tree=False, n_jobs=4, **kwargs):
 
-        self.core_dist_tree = tree
+        ##me
+        #self.core_dist_tree = tree
+        ##
         self.tree = KDTree(tree.data, metric=metric, leaf_size=leaf_size,
                            **kwargs)
         self._data = np.array(self.tree.data)
@@ -313,7 +321,8 @@ cdef class KDTreeBoruvkaAlgorithm (object):
         self.core_distance = (<np.double_t[:self.num_points:1]> (
             <np.double_t *> self.core_distance_arr.data))
 
-        self.nn = list(nn)
+        # what I had before:# self.nn = list(nn)
+        self.nn = nn
         ####
 
 
@@ -832,12 +841,14 @@ cdef class KDTreeBoruvkaAlgorithm (object):
         # cdef np.intp_t num_components
         # cdef np.intp_t num_nodes
 
-        num_components = self.tree.data.shape[0]
-        num_nodes = self.tree.node_data.shape[0]
-        iteration = 0
+        cdef int num_components = self.tree.data.shape[0]
+        cdef int num_nodes = self.tree.node_data.shape[0]
+        #cdef int iteration = 0
         while num_components > 1:
             self.dual_tree_traversal(0, 0)
             num_components = self.update_components()
+            #iteration += 1
+        #print(iteration)
 
         order = np.argsort(self.edges[:, 2], kind='mergesort')
         self.dendrogram = self.edges[order]

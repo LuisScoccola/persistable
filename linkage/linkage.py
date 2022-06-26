@@ -16,17 +16,22 @@ from linkage.aux import lazy_intersection
 _TOL = 1e-8
 _INF = 1e15
 
+_DEFAULT_FINAL_K = 0.2
+
 class Persistable :
 
     def __init__(self, X, measure = None, maxk = None, leaf_size = 40, p = 2) :
         self._data = X
         self._p = p
         self._mpspace = _MetricProbabilitySpace(X, 'minkowski', measure, leaf_size, self._p)
-        self._mpspace.fit()
-        self._connection_radius = self._mpspace.connection_radius()
+        if maxk == None:
+            maxk = int(_DEFAULT_FINAL_K * X.shape[0]) + 1
         self._maxk = maxk
+        #self._mpspace.fit()
+        self._mpspace.fit(maxk=maxk)
+        self._connection_radius = self._mpspace.connection_radius()
 
-    def parameter_selection(self, initial_k = 0.02, final_k = 0.2, n_parameters=50, color_firstn=10, fig_size=(10,3)):
+    def parameter_selection(self, initial_k = 0.02, final_k = _DEFAULT_FINAL_K, n_parameters=50, color_firstn=10, fig_size=(10,3)):
         parameters = np.logspace(np.log10(initial_k), np.log10(final_k), num=n_parameters)
         sks = [ (self._connection_radius,k) for k in parameters ]
         pds = self._mpspace.lambda_linkage_prominence_vineyard(sks,k_indexed=True)

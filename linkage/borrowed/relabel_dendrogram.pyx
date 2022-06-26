@@ -1,3 +1,13 @@
+# cython: boundscheck=False, wraparound=False, cdivision=True
+
+# Copyright (c) 2001-2002 Enthought, Inc. 2003-2022, SciPy Developers.
+#
+# Functions to relabel a dendrogram according to scipy's standard,
+# modified to be used in Persistable pipeline. Originally in 
+# scipy/scipy/cluster/_hierarchy.pyx in
+# https://github.com/scipy/scipy/commit/2f4bd4234370adcd7085bcc145f9c302f231408f
+
+
 import numpy as np
 cimport numpy as np
 
