@@ -3,14 +3,14 @@ import scipy as sp
 import random
 import warnings
 import matplotlib.pyplot as plt
-from sklearn.neighbors import KDTree
+from sklearn.neighbors import KDTree, BallTree
 from sklearn.metrics import pairwise_distances
 from sklearn.neighbors import KNeighborsClassifier
 from scipy.cluster.hierarchy import DisjointSet
 from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
 from linkage.plot import StatusbarHoverManager
-from linkage.borrowed._hdbscan_boruvka import KDTreeBoruvkaAlgorithm
+from linkage.borrowed._hdbscan_boruvka import KDTreeBoruvkaAlgorithm, BallTreeBoruvkaAlgorithm
 from linkage.aux import lazy_intersection
 
 _TOL = 1e-8
@@ -155,7 +155,9 @@ class _MetricProbabilitySpace :
         self._maxk = None
         self._maxs = None
         self._tol = _TOL
-        if metric == "minkowski":
+        if metric in BallTree.valid_metrics:
+            self._tree = BallTree(X, metric=metric, leaf_size=leaf_size, p = p)
+        elif metric in KDTree.valid_metrics:
             self._tree = KDTree(X, metric=metric, leaf_size=leaf_size, p = p)
         #elif metric == 'precomputed':
         #    self.dist_mat = X
@@ -248,7 +250,12 @@ class _MetricProbabilitySpace :
     def lambda_linkage(self, s0, k0) :
         indices = np.arange(self._size)
         core_scales = self.core_distance(indices, s0, k0)
-        sl = KDTreeBoruvkaAlgorithm(self._tree, core_scales, self._nn_indices, leaf_size=self._leaf_size // 3).spanning_tree()
+        if self._metric in BallTree.valid_metrics:
+            sl = BallTreeBoruvkaAlgorithm(self._tree, core_scales, self._nn_indices, leaf_size=self._leaf_size // 3).spanning_tree()
+        elif self._metric in KDTree.valid_metrics:
+            sl = KDTreeBoruvkaAlgorithm(self._tree, core_scales, self._nn_indices, leaf_size=self._leaf_size // 3).spanning_tree()
+        else:
+            print("TO DO: non-fast metrics.")
         merges = sl[:,0:2].astype(int)
         merges_heights = sl[:,2]
         #merges_heights[merges_heights >= _INF*2] = np.inf
@@ -274,7 +281,10 @@ class _MetricProbabilitySpace :
         return prominence_diagrams
 
     def connection_radius(self,percentiles=1) :
-        mst = KDTreeBoruvkaAlgorithm(self._tree, np.zeros(len(self._points)), self._nn_indices, leaf_size=self._leaf_size // 3).spanning_tree()
+        if self._metric in BallTree.valid_metrics:
+            mst = BallTreeBoruvkaAlgorithm(self._tree, np.zeros(len(self._points)), self._nn_indices, leaf_size=self._leaf_size // 3).spanning_tree()
+        elif self._metric in KDTree.valid_metrics:
+            mst = KDTreeBoruvkaAlgorithm(self._tree, np.zeros(len(self._points)), self._nn_indices, leaf_size=self._leaf_size // 3).spanning_tree()
         return np.quantile(mst[:,2],percentiles)
         
 class _HierarchicalClustering :
