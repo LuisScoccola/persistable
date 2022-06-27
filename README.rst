@@ -2,18 +2,25 @@
 Persistable: persistent and stable clustering
 =============================================
 
-High performance implementation of the lambda-linkage hierarchical clustering algorithm and the persistence-based flattening of [1].
-The algorithm generalizes the HDBSCAN algorithm [2] and other standard density-based hierarchical clustering algorithms, and enjoys better stability properties (see [1, Sections 3 and 5]).
-This implementation is based on the high performance algorithms for density-based clustering developed in [3] and implemented in [4].
+High performance implementation of Persistable clustering, a combination of the
+lambda-linkage hierarchical clustering algorithm and the persistence-based
+flattening of [1]. Persistable is a density-based clustering algorithm
+intended for exploratory data analysis.
 
------
+The algorithm is similar in spirit to the HDBSCAN algorithm [2] and other
+standard density-based hierarchical clustering algorithms, but enjoys better
+stability properties (see [1, Sections 3 and 5]). This implementation is based
+on the high performance algorithms for density-based clustering developed
+in [3] and implemented in [4].
+
+
 Usage
 -----
 
 We are currently working on the documentation.
 For now, please see the Jupyter notebooks for examples.
 
-----------
+
 Installing
 ----------
 
@@ -21,13 +28,13 @@ Installing
 
     pip install --upgrade git+https://github.com/LuisScoccola/persistable.git
 
--------
+
 Authors
 -------
 
 Luis Scoccola and Alexander Rolle.
 
-----------
+
 References
 ----------
 
@@ -39,7 +46,7 @@ References
 
     [4] hdbscan: Hierarchical density based clustering. L. McInnes, J. Healy, S. Astels. Journal of Open Source Software, The Open Journal, volume 2, number 11. 2017
 
--------
+
 License
 -------
 

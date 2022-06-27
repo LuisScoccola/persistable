@@ -13,7 +13,6 @@ from scipy.spatial.distance import squareform
 
 _TOL = 1e-8
 _INF = 1e15
-
 _DEFAULT_FINAL_K = 0.2
 
 class Persistable :
@@ -67,61 +66,6 @@ class Persistable :
             return cl[0], labels
         else:
             return cl
-
-#    def __init__(self, X, measure = None, k0="auto", leaf_size = 40, p = 2) :
-#        self._data = X
-#        self._p = p
-#        self._mpspace = _MetricProbabilitySpace(X, 'minkowski', measure, leaf_size, self._p)
-#        if k0 == "auto":
-#            #self.k0 = min((np.log10(self._mpspace._size) * 30)/self._mpspace._size, 1)
-#            self.k0 = 0.05
-#        # to do: the following was to be changed when the weights are not uniform!
-#        self._maxk = int(self.k0 * self._mpspace._size)+1
-#        self._mpspace.fit(maxk=self._maxk)
-#        self._connection_radius = self._mpspace.connection_radius()
-
-#    def parameter_selection(self, k0 = "auto", ss = "auto", n_parameters=50, color_firstn=10, k_indexed=True):
-#        if k0 == "auto":
-#            k0 = self.k0
-#
-#        if ss == "auto":
-#            m = self._mpspace.connection_radius(percentiles=0.5)
-#            s1, s2 = m, m*10
-#        else :
-#            s1, s2 = ss
-#        parameters = np.logspace(np.log10(s1), np.log10(s2), num=n_parameters)
-#        sks = [ (s, k0) for s in parameters ]
-#        pds = self._mpspace.lambda_linkage_prominence_vineyard(sks,k_indexed)
-#
-#        fig, ax = plt.subplots(figsize=(10,3))
-#        plt.xscale("log")
-#        plt.yscale("log")
-#
-#        vineyard = _ProminenceVineyard(parameters,pds)
-#        vineyard.plot_prominence_vineyard(ax, color_firstn=color_firstn)
-#        vv = np.array(vineyard._values)
-#        vv = vv[vv>=_TOL]
-#
-#        plt.ylim([np.quantile(vv,0.05),max(vineyard._values)])
-#        plt.show()
-#
-#    def cluster(self, num_clusters, s0, k0="auto",cluster_all=False,cluster_all_k=5):
-#        if k0 == "auto":
-#            k0 = self.k0
-#        cl = self._mpspace.lambda_linkage(s0,k0).persistence_based_flattening(num_clusters)
-#
-#        def _post_processing(dataset, labels, k) :
-#            neigh = KNeighborsClassifier(n_neighbors=k, p=self._p)
-#            neigh.fit(dataset[labels!=-1], labels[labels!=-1])
-#            res = labels.copy()
-#            res[labels==-1] = neigh._predict(dataset[labels==-1,:])
-#            return res
-#        
-#        if cluster_all:
-#            labels = _post_processing(self._data, cl[1], k=cluster_all_k)
-#            return cl[0], labels
-#        else:
-#            return cl
 
 class _MetricProbabilitySpace :
     """Implements a finite metric probability space that can compute \
@@ -571,7 +515,6 @@ class _HierarchicalClustering :
         non_trivial_points = np.abs(trimmed_pers_diag[:,0] - trimmed_pers_diag[:,1]) > _TOL
         return trimmed_pers_diag[non_trivial_points], np.array(non_empty_indices)[non_trivial_points]
 
-### PROMINENCE VINEYARD
 class _ProminenceVineyard :
     
     def __init__(self, parameters, prominence_diagrams) :
