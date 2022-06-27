@@ -4,7 +4,9 @@ Persistable: persistent and stable clustering (v0.2)
 
 Implements the lambda-linkage hierarchical clustering algorithm and the persistence-based flattening of [1].
 The algorithm generalizes the HDBSCAN algorithm [2] and other standard density-based hierarchical clustering algorithms, and enjoys better stability properties (see [1, Sections 3 and 5]).
-Please see the Jupyter notebooks for examples.
+
+We are currently working on the documentation.
+For now, please see the Jupyter notebooks for examples.
 
 ----------
 Installing
@@ -12,7 +14,7 @@ Installing
 
 .. code:: bash
 
-    pip install --upgrade git+https://github.com/LuisScoccola/persistable.git@fast-mst
+    pip install --upgrade git+https://github.com/LuisScoccola/gamma-linkage.git@fast-mst
 
 -------
 Authors
