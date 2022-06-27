@@ -1,6 +1,7 @@
+from persistable.plot import StatusbarHoverManager
+from persistable.borrowed._hdbscan_boruvka import KDTreeBoruvkaAlgorithm, BallTreeBoruvkaAlgorithm
+from persistable.aux import lazy_intersection
 import numpy as np
-import scipy as sp
-import random
 import warnings
 import matplotlib.pyplot as plt
 from sklearn.neighbors import KDTree, BallTree
@@ -9,9 +10,6 @@ from sklearn.neighbors import KNeighborsClassifier
 from scipy.cluster.hierarchy import DisjointSet
 from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
-from linkage.plot import StatusbarHoverManager
-from linkage.borrowed._hdbscan_boruvka import KDTreeBoruvkaAlgorithm, BallTreeBoruvkaAlgorithm
-from linkage.aux import lazy_intersection
 
 _TOL = 1e-8
 _INF = 1e15
