@@ -1,6 +1,6 @@
-====================================================
-Persistable: persistent and stable clustering (v0.2)
-====================================================
+=============================================
+Persistable: persistent and stable clustering
+=============================================
 
 High performance implementation of the lambda-linkage hierarchical clustering algorithm and the persistence-based flattening of [1].
 The algorithm generalizes the HDBSCAN algorithm [2] and other standard density-based hierarchical clustering algorithms, and enjoys better stability properties (see [1, Sections 3 and 5]).
