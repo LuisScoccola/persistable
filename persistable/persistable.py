@@ -11,8 +11,8 @@ from scipy.cluster.hierarchy import DisjointSet
 from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
 
-_TOL = 1e-8
-_INF = 1e15
+_TOL = 1e-08
+#_INF = 1e15
 _DEFAULT_FINAL_K = 0.2
 
 class Persistable :
@@ -40,18 +40,29 @@ class Persistable :
         plt.ylim([np.quantile(np.array(vineyard._values),0.1),max(vineyard._values)])
         plt.show()
 
-    def cluster(self,num_clusters,k,s=None,cluster_all=False,cluster_all_k=5):
-        if s == None:
-            s = self._connection_radius
-        hc = self._mpspace.lambda_linkage(s,k)
-        bd = hc.persistence_diagram()[0]
+    def persistence_diagram(self, s0, k0):
+        hc = self._mpspace.lambda_linkage(s0,k0)
+        return hc.persistence_diagram()
+
+    def cluster(self,num_clusters,s0=None,k0=0.2,cluster_all=False,cluster_all_k=5):
+        if num_clusters <= 1:
+            warnings.warn("num_clusters must be greater than 1.")
+            return
+        if s0 == None:
+            s0 = self._connection_radius
+        hc = self._mpspace.lambda_linkage(s0,k0)
+        #bd = hc.persistence_diagram()[0]
+        bd = hc.persistence_diagram()
         pers = np.abs(bd[:,0] - bd[:,1])
+        spers = np.sort(pers)
         if num_clusters >= bd.shape[0] :
-            spers = np.sort(pers)
             threshold = spers[0] / 2
         else :
-            spers = np.sort(pers)
+            #print(np.abs(spers[-num_clusters] - spers[-(num_clusters+1)]))
+            if np.abs(spers[-num_clusters] - spers[-(num_clusters+1)]) < _TOL:
+                warnings.warn("The gap selected is too small to produce a reliable clustering.")
             threshold = (spers[-num_clusters] + spers[-(num_clusters+1)])/2
+            #print(threshold)
         cl = hc.persistence_based_flattening(threshold)
 
         def _post_processing(dataset, labels, k) :
@@ -62,8 +73,9 @@ class Persistable :
             return res
         
         if cluster_all:
-            labels = _post_processing(self._data, cl[1], k=cluster_all_k)
-            return cl[0], labels
+            #labels = _post_processing(self._data, cl[1], k=cluster_all_k)
+            labels = _post_processing(self._data, cl, k=cluster_all_k)
+            return labels
         else:
             return cl
 
@@ -191,7 +203,7 @@ class _MetricProbabilitySpace :
 
     def lambda_linkage(self, s0, k0) :
         indices = np.arange(self._size)
-        core_scales = self.core_distance(indices, s0, k0)
+        core_scales = np.minimum(s0,self.core_distance(indices, s0, k0))
         if self._metric in BallTree.valid_metrics:
             sl = BallTreeBoruvkaAlgorithm(self._tree, core_scales, self._nn_indices, leaf_size=self._leaf_size // 3).spanning_tree()
         elif self._metric in KDTree.valid_metrics:
@@ -199,10 +211,10 @@ class _MetricProbabilitySpace :
         else:
             print("TO DO: non-fast metrics.")
         merges = sl[:,0:2].astype(int)
-        merges_heights = sl[:,2]
+        merges_heights = np.minimum(s0,sl[:,2])
         #merges_heights[merges_heights >= _INF*2] = np.inf
-        merges_heights[merges_heights <= _TOL*2] = 0
-        return _HierarchicalClustering(self._points, core_scales, merges, merges_heights, s0)
+        #merges_heights[merges_heights <= _TOL*2] = 0
+        return _HierarchicalClustering(core_scales, merges, merges_heights, s0)
 
     def lambda_linkage_prominence_vineyard(self, sks, k_indexed) :
 
@@ -213,7 +225,8 @@ class _MetricProbabilitySpace :
         for sk in sks :
             s0, k0 = sk
             hc = self.lambda_linkage(s0, k0)
-            persistence_diagram = hc.persistence_diagram()[0]
+            #persistence_diagram = hc.persistence_diagram()[0]
+            persistence_diagram = hc.persistence_diagram()
             if k_indexed:
                 mu = k0/s0
                 s_to_k = lambda x : k0 - mu * x
@@ -231,58 +244,68 @@ class _MetricProbabilitySpace :
         
 class _HierarchicalClustering :
 
-    def __init__(self, X, heights, merges, merges_heights, maxr) :
-        self._points = X
-        #self._covariant = covariant
-        #self.dend = dend
+    def __init__(self, heights, merges, merges_heights, maxr) :
         self._merges = merges
         self._merges_heights = merges_heights
         self._heights = heights
         self._maxr = maxr
-        #self._minr = minr
 
     def persistence_based_flattening(self, threshold) :
-        #if threshold == None and num_clusters == None :
-        #    raise Exception("Either threshold or num_clusters must be given.")
-        #if threshold != None and num_clusters != None :
-        #    warnings.warn("Both threshold and num_clusters given, using threshold.")
-        #elif threshold == None :
-        heights = self._heights.copy()
-        merges_heights = self._merges_heights.copy()
-        #if not self._covariant :
-        #    heights = -heights - _TOL
-        #    merges_heights = -merges_heights
-        #else :
-        #    heights = heights - _TOL
-        heights = heights - _TOL
-        # for numerical reasons, it may be that a point is merged before it appears,
-        # we subtract _TOL, above, to make sure this doesn't happen
+        end = self._maxr
+        heights = self._heights
+        merges = self._merges
+        merges_heights = self._merges_heights
+        n_points = heights.shape[0]
+        n_merges = merges.shape[0]
+        # this orders the point by appearance
         appearances = np.argsort(heights)
         uf = DisjointSet()
+        # contains the birth time of clusters that are alive
         clusters_birth = {}
         clusters_died = {}
+        # contains the flat clusters
         clusters = []
+        # height index
         hind = 0
+        # merge index
         mind = 0
-        n_points = heights.shape[0]
+        # for numerical reasons, it may be that a point is merged before it appears,
+        # we subtract _TOL to make sure this doesn't happen
+        current_appearence_height = heights[appearances[0]]
+        current_merge_height = merges_heights[0]
         while True :
-            while hind < n_points and heights[appearances[hind]] <= merges_heights[mind] :
+            # while there is no merge
+            while hind < n_points and heights[appearances[hind]] - _TOL <= current_merge_height and heights[appearances[hind]] < end :
+                # add all points that are born as new clusters
                 uf.add(appearances[hind])
                 clusters_birth[appearances[hind]] = heights[appearances[hind]]
                 hind += 1
-            if hind == n_points :
-                current_height = np.infty
-            else :
-                current_height = heights[appearances[hind]]
-            while mind < merges_heights.shape[0] and merges_heights[mind] < current_height :
-                xy = self._merges[mind]
+                if hind == n_points :
+                    current_appearence_height = end
+                else :
+                    current_appearence_height = heights[appearances[hind]]
+            # while there is no cluster being born
+            while mind < n_merges and merges_heights[mind] < current_appearence_height and merges_heights[mind] < end :
+                xy = merges[mind]
                 x, y = xy
                 rx = uf.__getitem__(x)
                 ry = uf.__getitem__(y)
+                # if both clusters are alive
                 if rx not in clusters_died and ry not in clusters_died :
                     bx = clusters_birth[rx]
                     by = clusters_birth[ry]
-                    if bx > merges_heights[mind] - threshold or by > merges_heights[mind] - threshold :
+                    # if both have lived for more than the threshold, have them as flat clusters
+                    if bx + threshold <= merges_heights[mind] and by + threshold <= merges_heights[mind]:
+                        clusters.append(list(uf.subset(x)))
+                        clusters.append(list(uf.subset(y)))
+                        uf.merge(x,y)
+                        uf.add(mind + n_points)
+                        uf.merge(x,mind + n_points)
+                        rxy = uf.__getitem__(x)
+                        clusters_died[rxy] = True
+                    # otherwise, merge them
+                    else :
+                        # then merge them
                         del clusters_birth[rx]
                         del clusters_birth[ry]
                         uf.merge(x,y)
@@ -290,50 +313,43 @@ class _HierarchicalClustering :
                         uf.merge(x,mind + n_points)
                         rxy = uf.__getitem__(x)
                         clusters_birth[rxy] = min(bx, by)
-                    else :
-                        # they both must die
-                        if clusters_birth[rx] + threshold <= merges_heights[mind] :
-                            clusters.append(list(uf.subset(x)))
-                        if clusters_birth[ry] + threshold <= merges_heights[mind] :
-                            clusters.append(list(uf.subset(y)))
-                        uf.merge(x,y)
-                        uf.add(mind + n_points)
-                        uf.merge(x,mind + n_points)
-                        rxy = uf.__getitem__(x)
-                        clusters_died[rxy] = True
+                # if both clusters are already dead, just merge them into a dead cluster
                 elif rx in clusters_died and ry in clusters_died :
-                    # both of them are dead
                     uf.merge(x,y)
                     uf.add(mind + n_points)
                     uf.merge(x,mind + n_points)
                     rxy = uf.__getitem__(x)
                     clusters_died[rxy] = True
+                # if only one of them is dead
                 else :
+                    # we make it so that ry already died and rx just died
                     if rx in clusters_died :
                         x, y = y, x
                         rx, ry = ry, rx
-                    # ry already died and rx just died
+                    # if x has lived for longer than the threshold, have it as a flat cluster
                     if clusters_birth[rx] + threshold <= merges_heights[mind] :
                         clusters.append(list(uf.subset(x)))
+                    # then merge the clusters into a dead cluster
                     uf.merge(x,y)
                     uf.add(mind + n_points)
                     uf.merge(x,mind + n_points)
                     rxy = uf.__getitem__(x)
                     clusters_died[rxy] = True
                 mind += 1
-            if mind == merges_heights.shape[0] :
+                if mind == n_merges:
+                    current_merge_height = end
+                else :
+                    current_merge_height = merges_heights[mind]
+            if (hind == n_points or heights[appearances[hind]] >= end) and (mind == n_merges or merges_heights[mind] >= end) :
                 break
-        death = np.inf
-        #if self._covariant :
-        #    death = np.inf
-        #else :
-        #    death = -self._minr
+        # go through all clusters that have been born but haven't been merged
         for x in range(n_points) :
-            rx = uf.__getitem__(x)
-            if rx not in clusters_died :
-                if clusters_birth[rx] + threshold <= death :
-                    clusters.append(list(uf.subset(x)))
-                clusters_died[rx] = True
+            if x in uf._indices:
+                rx = uf.__getitem__(x)
+                if rx not in clusters_died :
+                    if clusters_birth[rx] + threshold <= end:
+                        clusters.append(list(uf.subset(x)))
+                    clusters_died[rx] = True
         current_cluster = 0
         res = np.full(n_points, -1)
         for cl in clusters :
@@ -341,26 +357,14 @@ class _HierarchicalClustering :
                 if x < n_points :
                     res[x] = current_cluster
             current_cluster += 1
-        return current_cluster, res
+        return res
 
     def persistence_diagram(self) :
-        # ti is the terminal index:
-        # a point in the pd that never dies will have ti as its death index.
-        #heights = self._heights.copy()
         heights = self._heights
         merges = self._merges
         merges_heights = self._merges_heights
-        #covariant = self._covariant
-        #if end == "infinity" :
-        #    if covariant :
-        #        ti = _INF
-        #    else :
-        #        ti = _TOL
-        #else :
-        #    if covariant :
-        #        ti = self._maxr
-        #    else :
-        #        ti = self._minr
+        # ti is the terminal index:
+        # a point in the pd that never dies will have ti as its death index.
         ti = self._maxr
         num_points = heights.shape[0]
         num_merges = merges.shape[0]
@@ -376,19 +380,6 @@ class _HierarchicalClustering :
         # cluster_reps[i] is a datapoint in that cluster
         cluster_reps = np.empty(shape=num_points + num_merges, dtype=np.int64)
         cluster_reps.fill(-1)
-        # if the dendrogram is contravariant, 
-        # we reindex by taking the reciprocal
-        #if covariant == False:
-        #    heights = np.reciprocal(heights)
-        #    merges_heights[merges_heights < _TOL] = _TOL
-        #    merges_heights[merges_heights > _INF] = _INF
-        #    merges_heights = np.reciprocal(merges_heights)
-        #    if ti <= _TOL:
-        #        ti = _INF
-        #    elif ti >= _INF :
-        #        ti = _TOL
-        #    else:
-        #        ti = np.reciprocal(ti)
         for i in range(num_merges):
             cluster_0 = merges[i, 0]
             cluster_1 = merges[i, 1]
@@ -495,25 +486,13 @@ class _HierarchicalClustering :
             if pers_diag[i, 0] > -1:
                 non_empty_indices.append(i)
         trimmed_pers_diag = np.empty(shape=(len(non_empty_indices), 2), dtype=np.float64)
-        #representatives = np.empty(shape=(len(non_empty_indices), 1), dtype=np.int32)
         for i in range(len(non_empty_indices)):
             trimmed_pers_diag[i, 0] = pers_diag[non_empty_indices[i], 0]
             trimmed_pers_diag[i, 1] = pers_diag[non_empty_indices[i], 1]
-        #if covariant == False:
-        #    trimmed_pers_diag[:, [0, 1]] = np.reciprocal(trimmed_pers_diag[:, [0, 1]])
-        trimmed_pers_diag[trimmed_pers_diag <= _TOL*2] = 0
-        trimmed_pers_diag[trimmed_pers_diag >= _INF/2] = np.infty
-        # set the death of the first born point to -infinity
-        #if covariant == False and end == "infinity" :
-        #    #trimmed_pers_diag[np.argmax(trimmed_pers_diag[:,0]),1] = -np.infty
-        #    first_birth = np.max(trimmed_pers_diag[:,0])
-        #    first_born = np.argwhere(trimmed_pers_diag[:,0] > first_birth - _TOL).flatten()
-        #    # of the first born, take the last to die
-        #    most_persistent = np.argmin(trimmed_pers_diag[first_born,1])
-        #    index = first_born[most_persistent]
-        #    trimmed_pers_diag[index,1] = -np.infty
+        #trimmed_pers_diag[trimmed_pers_diag <= _TOL*2] = 0
+        #trimmed_pers_diag[trimmed_pers_diag >= _INF/2] = np.infty
         non_trivial_points = np.abs(trimmed_pers_diag[:,0] - trimmed_pers_diag[:,1]) > _TOL
-        return trimmed_pers_diag[non_trivial_points], np.array(non_empty_indices)[non_trivial_points]
+        return trimmed_pers_diag[non_trivial_points] #, np.array(non_empty_indices)[non_trivial_points]
 
 class _ProminenceVineyard :
     
