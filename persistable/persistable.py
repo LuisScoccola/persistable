@@ -40,6 +40,22 @@ class Persistable :
         plt.ylim([np.quantile(np.array(vineyard._values),0.1),max(vineyard._values)])
         plt.show()
 
+    def parameter_selection_s(self, n_parameters=50, color_firstn=10, fig_size=(10,3)):
+        k0 = 0.02
+        s1,s2 = self._mpspace.connection_radius([0.75,0.95])
+        parameters = np.logspace(np.log10(s2), np.log10(s2*2), num=n_parameters)
+        sks = [ (s,k0) for s in parameters ]
+        pds = self._mpspace.lambda_linkage_prominence_vineyard(sks,k_indexed=True)
+        _, ax = plt.subplots(figsize=fig_size)
+        plt.xscale("log")
+        plt.yscale("log")
+        vineyard = _ProminenceVineyard(parameters,pds)
+        vineyard.plot_prominence_vineyard(ax, color_firstn=color_firstn)
+        plt.ylim([np.quantile(np.array(vineyard._values),0.1),max(vineyard._values)])
+        plt.show()
+
+
+
     def persistence_diagram(self, s0, k0):
         hc = self._mpspace.lambda_linkage(s0,k0)
         return hc.persistence_diagram()
@@ -56,6 +72,7 @@ class Persistable :
         pers = np.abs(bd[:,0] - bd[:,1])
         spers = np.sort(pers)
         if num_clusters >= bd.shape[0] :
+            warnings.warn("num_clusters is larger than the number of gaps.")
             threshold = spers[0] / 2
         else :
             #print(np.abs(spers[-num_clusters] - spers[-(num_clusters+1)]))
@@ -246,8 +263,8 @@ class _HierarchicalClustering :
 
     def __init__(self, heights, merges, merges_heights, maxr) :
         self._merges = merges
-        self._merges_heights = merges_heights
-        self._heights = heights
+        self._merges_heights = np.minimum(maxr,merges_heights)
+        self._heights = np.minimum(maxr,heights)
         self._maxr = maxr
 
     def persistence_based_flattening(self, threshold) :
