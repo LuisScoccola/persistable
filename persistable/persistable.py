@@ -198,21 +198,33 @@ class _MetricProbabilitySpace :
         return self.kde_at_index_width(point_index,pos,width), out_of_range
 
     def core_distance(self, point_index, s0, k0) :
-        mu = s0/k0
-        k_to_s = lambda y : s0 - mu * y
         i_indices = []
-        for p in point_index :
-            i_indices.append(lazy_intersection(self._kernel_estimate[p], self._nn_distance[p], s0, k0))
-        i_indices = np.array(i_indices)
-        out_of_range = i_indices[:,1]
-        if np.any(out_of_range) :
-            # to do: better message for second condition
-            warnings.warn("Don't have enough neighbors to properly compute core scale, or point takes too long to appear.")
-        i_indices = i_indices[:,0]
-        op = lambda p, i : np.where(k_to_s(self._kernel_estimate[p,i-1]) <= self._nn_distance[p,i],\
-                k_to_s(self._kernel_estimate[p,i-1]),
-                self._nn_distance[p,i])
-        return np.where(i_indices == 0, 0, op(point_index,i_indices))
+        if s0 != np.inf:
+            mu = s0/k0
+            k_to_s = lambda y : s0 - mu * y
+            for p in point_index:
+                i_indices.append(lazy_intersection(self._kernel_estimate[p], self._nn_distance[p], s0, k0))
+            i_indices = np.array(i_indices)
+            out_of_range = i_indices[:,1]
+            if np.any(out_of_range) :
+                # to do: better message for second condition
+                warnings.warn("Don't have enough neighbors to properly compute core scale, or point takes too long to appear.")
+            i_indices = i_indices[:,0]
+            op = lambda p, i : np.where(k_to_s(self._kernel_estimate[p,i-1]) <= self._nn_distance[p,i],\
+                    k_to_s(self._kernel_estimate[p,i-1]),
+                    self._nn_distance[p,i])
+            return np.where(i_indices == 0, 0, op(point_index,i_indices))
+        else :
+            for p in point_index :
+                i_indices.append(np.searchsorted(self._kernel_estimate[p], k0, side = 'left'))
+            i_indices = np.array(i_indices)
+            if self._maxk < self._size :
+                out_of_range = np.where((i_indices >=\
+                    np.apply_along_axis(len,-1,self._nn_indices[point_index])) &\
+                    (np.apply_along_axis(len,-1,self._nn_indices[point_index]) < self._size), True, False)
+                if np.any(out_of_range) :
+                    warnings.warn("Don't have enough neighbors to properly compute core scale.")
+            return self._nn_distance[(point_index, i_indices)]
 
     def lambda_linkage(self, s0, k0) :
         indices = np.arange(self._size)

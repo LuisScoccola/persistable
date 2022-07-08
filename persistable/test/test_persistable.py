@@ -20,6 +20,39 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         for _ in range(self._number_different_weights):
             self._different_weights.append(np.random.random_sample(self._n))
 
+    def test_core_distances(self):
+        n = 4
+        X = np.array([[0,0],[1,0],[1,1],[3,0]])
+        mps = _MetricProbabilitySpace(X)
+        mps.fit()
+
+        s0 = 2
+        k0 = 0.5
+        res = np.array([1,1,1,1])
+        np.testing.assert_almost_equal(mps.core_distance(np.arange(n),s0,k0), res)
+
+        s0 = 1
+        k0 = 0.5
+        res = np.array([1/2,1/2,1/2,1/2])
+        np.testing.assert_almost_equal(mps.core_distance(np.arange(n),s0,k0), res)
+
+        s0 = np.infty 
+        k0 = 1
+        res = np.array([3,2,np.sqrt(5),3])
+        np.testing.assert_almost_equal(mps.core_distance(np.arange(n),s0,k0), res)
+
+        s0 = np.infty 
+        k0 = 0.5
+        res = np.array([1,1,1,2])
+        np.testing.assert_almost_equal(mps.core_distance(np.arange(n),s0,k0), res)
+
+        mps = _MetricProbabilitySpace(X, measure=np.array([0.5,0.5,0.5,0.5]))
+        mps.fit()
+        s0 = np.infty 
+        k0 = 0.6
+        res = np.array([1,1,1,2])
+        np.testing.assert_almost_equal(mps.core_distance(np.arange(n),s0,k0), res)
+
     def test_same_core_distances(self):
         for w in self._different_weights:
             for p in self._ps:
@@ -44,9 +77,6 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                         hc2 = mps2.lambda_linkage(s0,k0)
                         #np.testing.assert_array_equal(hc1._merges, hc2._merges)
                         np.testing.assert_almost_equal(hc1._merges_heights, hc2._merges_heights)
-
-
-
 
 class TestHierarchicalClustering(unittest.TestCase):
 
