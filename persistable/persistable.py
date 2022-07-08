@@ -35,7 +35,7 @@ class Persistable :
         _, ax = plt.subplots(figsize=fig_size)
         plt.xscale("log")
         plt.yscale("log")
-        vineyard = _ProminenceVineyard(parameters,pds)
+        vineyard = _ProminenceVineyard(parameters,self._connection_radius,pds,k_varying=True)
         vineyard.plot_prominence_vineyard(ax, color_firstn=color_firstn)
         plt.ylim([np.quantile(np.array(vineyard._values),0.1),max(vineyard._values)])
         plt.show()
@@ -49,7 +49,7 @@ class Persistable :
         _, ax = plt.subplots(figsize=fig_size)
         plt.xscale("log")
         plt.yscale("log")
-        vineyard = _ProminenceVineyard(parameters,pds)
+        vineyard = _ProminenceVineyard(parameters,k0,pds,k_varying=False)
         vineyard.plot_prominence_vineyard(ax, color_firstn=color_firstn)
         plt.ylim([np.quantile(np.array(vineyard._values),0.1),max(vineyard._values)])
         plt.show()
@@ -509,10 +509,12 @@ class _HierarchicalClustering :
 
 class _ProminenceVineyard :
     
-    def __init__(self, parameters, prominence_diagrams) :
-        self._parameters = parameters
+    def __init__(self, varying_parameters, fixed_parameter, prominence_diagrams, k_varying = True) :
+        self._parameters = varying_parameters
         self._prominence_diagrams = prominence_diagrams
         self._values = []
+        self._fixed_parameter = fixed_parameter
+        self.k_varying = k_varying
 
     def _vineyard_to_vines(self):
         times = self._parameters
@@ -574,7 +576,10 @@ class _ProminenceVineyard :
             colors = list(cscheme(np.linspace(0, 1, color_firstn)[::-1]))
             last = colors[-1]
             colors.extend([last for _ in range(num_vines-color_firstn)])
-        shm = StatusbarHoverManager(ax, "parameter", "prominence")
+        if self.k_varying:
+            shm = StatusbarHoverManager(ax, "s0 = {:.3e}".format(self._fixed_parameter) + ", k0 = {:.3e}")
+        else :
+            shm = StatusbarHoverManager(ax, "s0 = {:.3e}, " +  ("k0 = {:.3e}".format(self._fixed_parameter)))
         if areas:
             for i in range(len(vines)-1):
                 artist = ax.fill_between(times, vines[i][1], vines[i+1][1], color = colors[i])
@@ -586,8 +591,8 @@ class _ProminenceVineyard :
             for vine_part, time_part in _vine_parts(times,vine) :
                 if interpolate:
                     artist = ax.plot(time_part,vine_part, c="black")
-                    shm.add_artist_labels(artist, "vine " + str(i+1))
+                    #shm.add_artist_labels(artist, "vine " + str(i+1))
                 if points:
                     artist = ax.plot(time_part,vine_part, "o", c="black")
-                    shm.add_artist_labels(artist, "vine " + str(i+1))
+                    #shm.add_artist_labels(artist, "vine " + str(i+1))
                 self._values.extend(vine_part)

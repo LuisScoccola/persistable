@@ -11,7 +11,7 @@ import matplotlib as mpl
 # https://stackoverflow.com/a/36335048/7128154
 class StatusbarHoverManager:
 
-    def __init__(self, ax, xlabel, ylabel):
+    def __init__(self, ax, label):
         assert isinstance(ax, mpl.axes.Axes)
 
         def hover(event):
@@ -25,8 +25,7 @@ class StatusbarHoverManager:
         self.cid = cid
         self.artists = []
         self.labels = []
-        self.xlabel = xlabel
-        self.ylabel = ylabel
+        self.label = label
 
     def add_artist_labels(self, artist, label):
         if isinstance(artist, list):
@@ -40,7 +39,7 @@ class StatusbarHoverManager:
             if event.inaxes != self.ax:
                 return
             #info = (str(self.xlabel)+'={:.3e}, ' + str(self.ylabel)+'={:.3e}').format(event.xdata, event.ydata)
-            info = (str(self.xlabel)+'={:.3e}').format(event.xdata)
+            info = self.label.format(event.xdata)
             for aa, artist in enumerate(self.artists):
                 cont, dct = artist.contains(event)
                 if not cont:
