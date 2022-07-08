@@ -33,6 +33,9 @@ aux = Extension('persistable.aux', sources=['persistable/aux.pyx'], define_macro
 relabel_dendrogram = Extension('persistable.borrowed.relabel_dendrogram',
                              sources=['persistable/borrowed/relabel_dendrogram.pyx'],
                              define_macros=[('CYTHON_TRACE', '1')])
+dense_mst = Extension('persistable.borrowed.dense_mst',
+                             sources=['persistable/borrowed/dense_mst.pyx'],
+                             define_macros=[('CYTHON_TRACE', '1')])
 dist_metrics = Extension('persistable.borrowed.dist_metrics',
                          sources=['persistable/borrowed/dist_metrics.pyx'],
                              define_macros=[('CYTHON_TRACE', '1')])
@@ -52,7 +55,7 @@ setup(
    maintainer_email='luis.scoccola@gmail.com',
    packages=['persistable'],
    install_requires=requirements(),
-   ext_modules=[relabel_dendrogram, aux, dist_metrics, _hdbscan_boruvka],
+   ext_modules=[relabel_dendrogram, aux, dense_mst, dist_metrics, _hdbscan_boruvka],
    cmdclass={'build_ext': CustomBuildExtCommand},
    data_files=('persistable/borrowed/dist_metrics.pxd',),
 )

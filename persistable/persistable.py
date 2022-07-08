@@ -1,5 +1,6 @@
 from persistable.plot import StatusbarHoverManager
 from persistable.borrowed._hdbscan_boruvka import KDTreeBoruvkaAlgorithm, BallTreeBoruvkaAlgorithm
+from persistable.borrowed.dense_mst import stepwise_dendrogram_with_core_distances
 from persistable.aux import lazy_intersection
 import numpy as np
 import warnings
@@ -12,15 +13,14 @@ from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
 
 _TOL = 1e-08
-#_INF = 1e15
 _DEFAULT_FINAL_K = 0.2
 
 class Persistable :
 
-    def __init__(self, X, measure = None, maxk = None, leaf_size = 40, p = 2) :
+    def __init__(self, X, metric = "minkowski", measure = None, maxk = None, leaf_size = 40, p = 2) :
         self._data = X
         self._p = p
-        self._mpspace = _MetricProbabilitySpace(X, 'minkowski', measure, leaf_size, self._p)
+        self._mpspace = _MetricProbabilitySpace(X, metric, measure, leaf_size, self._p)
         if maxk == None:
             maxk = int(_DEFAULT_FINAL_K * X.shape[0]) + 1
         self._maxk = maxk
@@ -119,7 +119,6 @@ class _MetricProbabilitySpace :
         self._fitted_density_estimates = False
         self._nn_distance = None
         self._nn_indices = None
-        self._square_kernel_estimate = None
         self._kernel_estimate = None
         self._maxk = None
         self._maxs = None
@@ -128,8 +127,8 @@ class _MetricProbabilitySpace :
             self._tree = BallTree(X, metric=metric, leaf_size=leaf_size, p = p)
         elif metric in KDTree.valid_metrics:
             self._tree = KDTree(X, metric=metric, leaf_size=leaf_size, p = p)
-        #elif metric == 'precomputed':
-        #    self.dist_mat = X
+        elif metric == 'precomputed':
+            self._dist_mat = X
         else :
             raise Exception("Metric given is not supported.")
 
@@ -152,25 +151,24 @@ class _MetricProbabilitySpace :
             neighbors = k_neighbors[0]
             _nn_distance = k_neighbors[1]
         else :
-            warnings.warn("For now, for distance matrix we assume maxk = number of points.")
+            #warnings.warn("For now, for distance matrix we assume maxk = number of points.")
             self._maxk = self._size
             self._maxs = 0
-            neighbors = np.argsort(self.dist_mat)
-            _nn_distance = self.dist_mat[np.arange(len(self.dist_mat)), neighbors.transpose()].transpose()
+            neighbors = np.argsort(self._dist_mat)
+            _nn_distance = self._dist_mat[np.arange(len(self._dist_mat)), neighbors.transpose()].transpose()
         self._nn_indices = np.array(neighbors)
         self._nn_distance = np.array(_nn_distance)
         self._fitted_nn = True
 
     def fit_density_estimates(self) :
         self._fitted_density_estimates = True
-        self._square_kernel_estimate = np.cumsum(self._measure[self._nn_indices], axis = 1)
-        self._kernel_estimate = self._square_kernel_estimate
+        self._kernel_estimate = np.cumsum(self._measure[self._nn_indices], axis = 1)
 
     def kde_at_index_width(self, point_index, neighbor_index, width = None) :
         # to do: check input
         if width is None :
             width = self._nn_distance[point_index][neighbor_index]
-        return self._square_kernel_estimate[point_index][neighbor_index]
+        return self._kernel_estimate[point_index][neighbor_index]
 
     def kde(self, point_index, width) :
         # to do: check input (in particular that the index is in bound)
@@ -220,15 +218,13 @@ class _MetricProbabilitySpace :
         indices = np.arange(self._size)
         core_scales = np.minimum(s0,self.core_distance(indices, s0, k0))
         if self._metric in BallTree.valid_metrics:
-            sl = BallTreeBoruvkaAlgorithm(self._tree, core_scales, self._nn_indices, leaf_size=self._leaf_size // 3).spanning_tree()
+            sl = BallTreeBoruvkaAlgorithm(self._tree, core_scales, self._nn_indices, leaf_size=self._leaf_size // 3, metric = self._metric, p = self._p).spanning_tree()
         elif self._metric in KDTree.valid_metrics:
-            sl = KDTreeBoruvkaAlgorithm(self._tree, core_scales, self._nn_indices, leaf_size=self._leaf_size // 3).spanning_tree()
+            sl = KDTreeBoruvkaAlgorithm(self._tree, core_scales, self._nn_indices, leaf_size=self._leaf_size // 3, metric = self._metric, p = self._p).spanning_tree()
         else:
-            print("TO DO: non-fast metrics.")
+            sl = stepwise_dendrogram_with_core_distances(self._size, self._dist_mat, core_scales)
         merges = sl[:,0:2].astype(int)
         merges_heights = np.minimum(s0,sl[:,2])
-        #merges_heights[merges_heights >= _INF*2] = np.inf
-        #merges_heights[merges_heights <= _TOL*2] = 0
         return _HierarchicalClustering(core_scales, merges, merges_heights, s0)
 
     def lambda_linkage_prominence_vineyard(self, sks, k_indexed) :
@@ -252,9 +248,11 @@ class _MetricProbabilitySpace :
 
     def connection_radius(self,percentiles=1) :
         if self._metric in BallTree.valid_metrics:
-            mst = BallTreeBoruvkaAlgorithm(self._tree, np.zeros(len(self._points)), self._nn_indices, leaf_size=self._leaf_size // 3).spanning_tree()
+            mst = BallTreeBoruvkaAlgorithm(self._tree, np.zeros(self._size), self._nn_indices, leaf_size=self._leaf_size // 3, metric = self._metric, p = self._p).spanning_tree()
         elif self._metric in KDTree.valid_metrics:
-            mst = KDTreeBoruvkaAlgorithm(self._tree, np.zeros(len(self._points)), self._nn_indices, leaf_size=self._leaf_size // 3).spanning_tree()
+            mst = KDTreeBoruvkaAlgorithm(self._tree, np.zeros(self._size), self._nn_indices, leaf_size=self._leaf_size // 3, metric = self._metric, p = self._p).spanning_tree()
+        elif self._metric == "precomputed":
+            mst = stepwise_dendrogram_with_core_distances(self._size, self._dist_mat, np.zeros(self._size))
         return np.quantile(mst[:,2],percentiles)
         
 class _HierarchicalClustering :
