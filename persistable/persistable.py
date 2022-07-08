@@ -54,8 +54,6 @@ class Persistable :
         plt.ylim([np.quantile(np.array(vineyard._values),0.1),max(vineyard._values)])
         plt.show()
 
-
-
     def persistence_diagram(self, s0, k0):
         hc = self._mpspace.lambda_linkage(s0,k0)
         return hc.persistence_diagram()
@@ -286,13 +284,11 @@ class _HierarchicalClustering :
         hind = 0
         # merge index
         mind = 0
-        # for numerical reasons, it may be that a point is merged before it appears,
-        # we subtract _TOL to make sure this doesn't happen
         current_appearence_height = heights[appearances[0]]
         current_merge_height = merges_heights[0]
         while True :
             # while there is no merge
-            while hind < n_points and heights[appearances[hind]] - _TOL <= current_merge_height and heights[appearances[hind]] < end :
+            while hind < n_points and heights[appearances[hind]] <= current_merge_height and heights[appearances[hind]] < end :
                 # add all points that are born as new clusters
                 uf.add(appearances[hind])
                 clusters_birth[appearances[hind]] = heights[appearances[hind]]
