@@ -1,4 +1,3 @@
-from setuptools import setup
 import warnings
 
 try:

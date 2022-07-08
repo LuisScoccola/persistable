@@ -26,7 +26,7 @@ Installing
 
 .. code:: bash
 
-    pip install --upgrade git+https://github.com/LuisScoccola/persistable.git
+    pip install git+https://github.com/LuisScoccola/persistable.git
 
 
 Authors
