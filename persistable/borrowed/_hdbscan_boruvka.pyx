@@ -294,22 +294,14 @@ cdef class KDTreeBoruvkaAlgorithm (object):
     cdef np.ndarray candidate_neighbor_arr
     cdef np.ndarray candidate_distance_arr
 
-    ####me
+    ####
     cdef public np.int_t[:, ::1] nn
-    # what I had before:# cdef public list nn
-    #cdef np.int_t *nn_ptr
-    #cdef np.ndarray nn_arr
     ####
 
     def __init__(self, tree, core_distance, nn, metric='euclidean', leaf_size=20,
                  alpha=1.0, approx_min_span_tree=False, **kwargs):
 
-        ##me
-        #self.core_dist_tree = tree
-        ##
         self.tree = tree
-        #KDTree(tree.data, metric=metric, leaf_size=leaf_size,
-        #                   **kwargs)
         self._data = np.array(self.tree.data)
         self._raw_data = self.tree.data
         self.node_bounds = self.tree.node_bounds
@@ -320,12 +312,11 @@ cdef class KDTreeBoruvkaAlgorithm (object):
         self.num_features = self.tree.data.shape[1]
         self.num_nodes = self.tree.node_data.shape[0]
 
-        ####me
+        ####
         self.core_distance_arr = np.asarray(core_distance,dtype=np.double).copy()
         self.core_distance = (<np.double_t[:self.num_points:1]> (
             <np.double_t *> self.core_distance_arr.data))
 
-        # what I had before:# self.nn = list(nn)
         self.nn = nn
         ####
 
@@ -390,56 +381,6 @@ cdef class KDTreeBoruvkaAlgorithm (object):
         cdef np.intp_t i
         cdef np.intp_t m
 
-        ####me
-        ####cdef np.ndarray[np.double_t, ndim=2] knn_dist
-        ####cdef np.ndarray[np.intp_t, ndim=2] knn_indices
-        ####
-
-        ####me
-        ##### A shortcut: if we have a lot of points then we can split the points
-        ##### into four piles and query them in parallel. On multicore systems
-        ##### (most systems) this amounts to a 2x-3x wall clock improvement.
-        ####if self.tree.data.shape[0] > 16384 and self.n_jobs > 1:
-        ####    split_cnt = self.num_points // self.n_jobs
-        ####    datasets = []
-        ####    for i in range(self.n_jobs):
-        ####        if i == self.n_jobs - 1:
-        ####            datasets.append(np.asarray(self.tree.data[i*split_cnt:]))
-        ####        else:
-        ####            datasets.append(np.asarray(self.tree.data[i*split_cnt:(i+1)*split_cnt]))
-        ####    knn_data = Parallel(n_jobs=self.n_jobs)(
-        ####        delayed(_core_dist_query,
-        ####                check_pickle=False)
-        ####        (self.core_dist_tree, points,
-        ####         self.min_samples + 1)
-        ####        for points in datasets)
-        ####    knn_dist = np.vstack([x[0] for x in knn_data])
-        ####    knn_indices = np.vstack([x[1] for x in knn_data])
-        ####else:
-        ####    knn_dist, knn_indices = self.core_dist_tree.query(
-        ####        self.tree.data,
-        ####        k=self.min_samples + 1,
-        ####        dualtree=True,
-        ####        breadth_first=True)
-        ####
-
-
-        ####me
-        ####knn_dist, knn_indices = self.core_dist_tree.query(
-        ####    self.tree.data,
-        ####    k=self.min_samples + 1,
-        ####    dualtree=True,
-        ####    breadth_first=True)
-        ####
-
-
-        ####me
-        ####self.core_distance_arr = knn_dist[:, self.min_samples].copy()
-        ####self.core_distance = (<np.double_t[:self.num_points:1]> (
-        ####    <np.double_t *> self.core_distance_arr.data))
-        ####print(self.core_distance_arr)
-        ####
-
         # Since we do everything in terms of rdist to free up the GIL
         # we need to convert all the core distances beforehand
         # to make comparison feasible.
@@ -453,7 +394,7 @@ cdef class KDTreeBoruvkaAlgorithm (object):
         # issues, but we'll get quite a few, and they are the hard ones to
         # get, so fill in any we can and then run update components.
         for n, nns in enumerate(self.nn):
-            ####me
+            ####
             for m in nns:
             ####
                 if self.core_distance[m] <= self.core_distance[n]:
@@ -847,12 +788,9 @@ cdef class KDTreeBoruvkaAlgorithm (object):
 
         cdef int num_components = self.tree.data.shape[0]
         cdef int num_nodes = self.tree.node_data.shape[0]
-        #cdef int iteration = 0
         while num_components > 1:
             self.dual_tree_traversal(0, 0)
             num_components = self.update_components()
-            #iteration += 1
-        #print(iteration)
 
         order = np.argsort(self.edges[:, 2], kind='mergesort')
         self.dendrogram = self.edges[order]
@@ -912,8 +850,6 @@ cdef class BallTreeBoruvkaAlgorithm (object):
                  **kwargs):
 
         self.tree = tree
-        #BallTree(tree.data, metric=metric, leaf_size=leaf_size,
-        #                     **kwargs)
         self._data = np.array(self.tree.data)
         self._raw_data = self.tree.data
         self.alpha = alpha
@@ -923,12 +859,11 @@ cdef class BallTreeBoruvkaAlgorithm (object):
         self.num_features = self.tree.data.shape[1]
         self.num_nodes = self.tree.node_data.shape[0]
 
-        ####me
+        ####
         self.core_distance_arr = np.asarray(core_distance,dtype=np.double).copy()
         self.core_distance = (<np.double_t[:self.num_points:1]> (
             <np.double_t *> self.core_distance_arr.data))
 
-        # what I had before:# self.nn = list(nn)
         self.nn = nn
         ####
 
@@ -990,43 +925,13 @@ cdef class BallTreeBoruvkaAlgorithm (object):
         cdef np.intp_t i
         cdef np.intp_t m
 
-        #cdef np.ndarray[np.double_t, ndim=2] knn_dist
-        #cdef np.ndarray[np.intp_t, ndim=2] knn_indices
-
-        #if self.tree.data.shape[0] > 16384 and self.n_jobs > 1:
-        #    split_cnt = self.num_points // self.n_jobs
-        #    datasets = []
-        #    for i in range(self.n_jobs):
-        #        if i == self.n_jobs - 1:
-        #            datasets.append(np.asarray(self.tree.data[i*split_cnt:]))
-        #        else:
-        #            datasets.append(np.asarray(self.tree.data[i*split_cnt:(i+1)*split_cnt]))
-
-        #    knn_data = Parallel(n_jobs=self.n_jobs, max_nbytes=None)(
-        #        delayed(_core_dist_query)
-        #        (self.core_dist_tree, points,
-        #         self.min_samples + 1)
-        #        for points in datasets)
-        #    knn_dist = np.vstack([x[0] for x in knn_data])
-        #    knn_indices = np.vstack([x[1] for x in knn_data])
-        #else:
-        #    knn_dist, knn_indices = self.core_dist_tree.query(
-        #        self.tree.data,
-        #        k=self.min_samples + 1,
-        #        dualtree=True,
-        #        breadth_first=True)
-
-        #self.core_distance_arr = knn_dist[:, self.min_samples].copy()
-        #self.core_distance = (<np.double_t[:self.num_points:1]> (
-        #    <np.double_t *> self.core_distance_arr.data))
-
         # Since we already computed NN distances for the min_samples closest
         # points we can use this to do the first round of boruvka -- we won't
         # get every point due to core_distance/mutual reachability distance
         # issues, but we'll get quite a few, and they are the hard ones to get,
         # so fill in any we can and then run update components.
         for n, nns in enumerate(self.nn):
-            ####me
+            ####
             for m in nns:
             ####
                 if self.core_distance[m] <= self.core_distance[n]:
