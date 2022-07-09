@@ -88,17 +88,44 @@ class TestHierarchicalClustering(unittest.TestCase):
                     mat[i,j] = 0
         return mat
 
-    def test_persistence_diagram_simple_hierarchy(self):
-        heights = np.array([0,1,3])
-        merges = np.array([[0,1],[2,3]])
+    def test_persistence_diagram(self):
+        heights = np.array([0,1,3,2])
+        merges = np.array([[0,1],[2,4]])
         merges_heights = np.array([2,6])
         end = 10
         hc = _HierarchicalClustering(heights, merges, merges_heights, end)
         pd = hc.persistence_diagram()
-        res = np.array([[0,10],[1,2],[3,6]])
-        np.testing.assert_almost_equal(np.sort(pd, axis=0), np.sort(res,axis=0))
+        res = np.array([[0,10],[1,2],[3,6],[2,10]])
+        np.testing.assert_array_equal( pd[np.lexsort(pd.T[::-1])], res[np.lexsort(res.T[::-1])])
 
-    def test_flattening_simple_hierarchy(self):
+        heights = np.array([0,1,3,2,4])
+        merges = np.array([[0,1],[3,5],[2,6]])
+        merges_heights = np.array([2,4,6])
+        end = 10
+        hc = _HierarchicalClustering(heights, merges, merges_heights, end)
+        pd = hc.persistence_diagram()
+        res = np.array([[0,10],[1,2],[2,4],[3,6],[4,10]])
+        np.testing.assert_array_equal( pd[np.lexsort(pd.T[::-1])], res[np.lexsort(res.T[::-1])])
+
+        heights = np.array([0.5,1,2,0])
+        merges = np.array([[0,1],[2,4],[3,5]])
+        merges_heights = np.array([2,4,6])
+        end = 10
+        hc = _HierarchicalClustering(heights, merges, merges_heights, end)
+        pd = hc.persistence_diagram()
+        res = np.array([[0.5,6],[1,2],[2,4],[0,10]])
+        np.testing.assert_array_equal( pd[np.lexsort(pd.T[::-1])], res[np.lexsort(res.T[::-1])])
+
+        heights = np.array([0,1])
+        merges = np.array([[0,1]])
+        merges_heights = np.array([1])
+        end = 10
+        hc = _HierarchicalClustering(heights, merges, merges_heights, end)
+        pd = hc.persistence_diagram()
+        res = np.array([[0,10]])
+        np.testing.assert_array_equal( pd[np.lexsort(pd.T[::-1])], res[np.lexsort(res.T[::-1])])
+
+    def test_flattening(self):
         heights = np.array([0,1,3,8])
         merges = np.array([[0,1],[2,4]])
         merges_heights = np.array([2,6])

@@ -28,19 +28,19 @@ class Persistable :
         self._mpspace.fit(maxk=maxk)
         self._connection_radius = self._mpspace.connection_radius()
 
-    def parameter_selection(self, initial_k = 0.02, final_k = _DEFAULT_FINAL_K, n_parameters=50, color_firstn=10, fig_size=(10,3)):
+    def parameter_selection(self, initial_k = 0.02, final_k = _DEFAULT_FINAL_K, n_parameters=50, firstn=10, fig_size=(10,3)):
         parameters = np.logspace(np.log10(initial_k), np.log10(final_k), num=n_parameters)
         sks = [ (self._connection_radius,k) for k in parameters ]
         pds = self._mpspace.lambda_linkage_prominence_vineyard(sks,k_indexed=True)
         _, ax = plt.subplots(figsize=fig_size)
         plt.xscale("log")
         plt.yscale("log")
-        vineyard = _ProminenceVineyard(parameters,self._connection_radius,pds,k_varying=True)
-        vineyard.plot_prominence_vineyard(ax, color_firstn=color_firstn)
+        vineyard = _ProminenceVineyard(parameters,self._connection_radius,pds,k_varying=True, firstn=firstn)
+        vineyard.plot_prominence_vineyard(ax)
         plt.ylim([np.quantile(np.array(vineyard._values),0.1),max(vineyard._values)])
         plt.show()
 
-    def parameter_selection_s(self, n_parameters=50, color_firstn=10, fig_size=(10,3)):
+    def parameter_selection_s(self, n_parameters=50, firstn=10, fig_size=(10,3)):
         k0 = 0.02
         s1,s2 = self._mpspace.connection_radius([0.75,0.95])
         parameters = np.logspace(np.log10(s2), np.log10(s2*2), num=n_parameters)
@@ -49,8 +49,8 @@ class Persistable :
         _, ax = plt.subplots(figsize=fig_size)
         plt.xscale("log")
         plt.yscale("log")
-        vineyard = _ProminenceVineyard(parameters,k0,pds,k_varying=False)
-        vineyard.plot_prominence_vineyard(ax, color_firstn=color_firstn)
+        vineyard = _ProminenceVineyard(parameters,k0,pds,k_varying=False,firstn=firstn)
+        vineyard.plot_prominence_vineyard(ax)
         plt.ylim([np.quantile(np.array(vineyard._values),0.1),max(vineyard._values)])
         plt.show()
 
@@ -284,6 +284,7 @@ class _HierarchicalClustering :
         n_merges = merges.shape[0]
         # this orders the point by appearance
         appearances = np.argsort(heights)
+        # contains the current clusters
         uf = DisjointSet()
         # contains the birth time of clusters that are alive
         clusters_birth = {}
@@ -382,146 +383,74 @@ class _HierarchicalClustering :
             current_cluster += 1
         return res
 
-    def persistence_diagram(self) :
+    def persistence_diagram(self, tol = _TOL) :
+        end = self._maxr
         heights = self._heights
         merges = self._merges
         merges_heights = self._merges_heights
-        # ti is the terminal index:
-        # a point in the pd that never dies will have ti as its death index.
-        ti = self._maxr
-        num_points = heights.shape[0]
-        num_merges = merges.shape[0]
-        # initialize persistence diagram
-        # in the end, pers_diag[i, 0] will be the birth,
-        # and pers_diag[i, 1] will be the death
-        # of the point represented by the datapoint i.
-        # if pers_diag[i, :] = [-1, -1] at the end, we ignore it.
-        pers_diag = np.empty(shape=(num_points, 2), dtype=np.float64)
-        pers_diag.fill(-1)
-        # initialize an array of cluster representatives
-        # for the cluster i in the stepwise dendrogram,
-        # cluster_reps[i] is a datapoint in that cluster
-        cluster_reps = np.empty(shape=num_points + num_merges, dtype=np.int64)
-        cluster_reps.fill(-1)
-        for i in range(num_merges):
-            cluster_0 = merges[i, 0]
-            cluster_1 = merges[i, 1]
-            # if both clusters are singletons
-            if cluster_0 < num_points and cluster_1 < num_points:
-                height_0 = heights[cluster_0]
-                height_1 = heights[cluster_1]
-                current_height = merges_heights[i]
-                # if cluster_0 was just born, but cluster_1 was already alive
-                if np.abs(height_0 - current_height) < _TOL and np.abs(height_1 - current_height) >= _TOL:
-                    pers_diag[cluster_1, :] = [height_1, ti]
-                    cluster_reps[num_points + i] = cluster_1
-                # if cluster_1 was just born, but cluster_0 was already alive
-                if np.abs(height_1 - current_height) < _TOL and np.abs(height_0 - current_height) >= _TOL:
-                    pers_diag[cluster_0, :] = [height_0, ti]
-                    cluster_reps[num_points + i] = cluster_0
-                # if cluster_0 and cluster_1 were just born
-                if np.abs(height_0 - current_height) < _TOL and np.abs(height_1 - current_height) < _TOL:
-                    pers_diag[cluster_0, :] = [height_0, ti]
-                    cluster_reps[num_points + i] = cluster_0
-                # if cluster_0 and cluster_1 were both already alive
-                if np.abs(height_0 - current_height) >= _TOL and np.abs(height_1 - current_height) >= _TOL:
-                    # if cluster_1 is born first
-                    if height_0 >= height_1:
-                        pers_diag[cluster_0, :] = [height_0, current_height]
-                        pers_diag[cluster_1, :] = [height_1, ti]
-                        cluster_reps[num_points + i] = cluster_1
-                    # if cluster_0 is born first
-                    if height_0 < height_1:
-                        pers_diag[cluster_0, :] = [height_0, ti]
-                        pers_diag[cluster_1, :] = [height_1, current_height]
-                        cluster_reps[num_points + i] = cluster_0                     
-            # if cluster_0 is a singleton and cluster_1 is not
-            if cluster_0 < num_points and cluster_1 >= num_points:
-                height_0 = heights[cluster_0]
-                rep_1 = cluster_reps[cluster_1]
-                height_1 = pers_diag[rep_1, 0]
-                current_height = merges_heights[i]
-                # if cluster_0 was just born
-                if np.abs(height_0 - current_height) < _TOL:
-                    cluster_reps[num_points + i] = rep_1
-                # if cluster_0 was already alive
-                if np.abs(height_0 - current_height) >= _TOL:
-                    # the singleton is younger than the cluster
-                    if height_0 >= height_1:
-                        pers_diag[cluster_0, :] = [height_0, current_height]
-                        cluster_reps[num_points + i] = rep_1
-                    # the singleton is older than the cluster
-                    if height_0 < height_1:
-                        pers_diag[cluster_0, :] = [height_0, ti]
-                        pers_diag[rep_1, 1] = current_height
-                        cluster_reps[num_points + i] = cluster_0
-            # if cluster_1 is a singleton and cluster_0 is not
-            if cluster_1 < num_points and cluster_0 >= num_points:
-                height_1 = heights[cluster_1]
-                rep_0 = cluster_reps[cluster_0]
-                height_0 = pers_diag[rep_0, 0]
-                current_height = merges_heights[i]
-                # if cluster_1 was just born
-                if np.abs(height_1 - current_height) < _TOL:
-                    cluster_reps[num_points + i] = rep_0
-                # if cluster_1 was already alive
-                if np.abs(height_1 - current_height) >= _TOL:
-                    # the singleton is younger than the cluster
-                    if height_1 >= height_0:
-                        pers_diag[cluster_1, :] = [height_1, current_height]
-                        cluster_reps[num_points + i] = rep_0
-                    # the singleton is older than the cluster
-                    if height_1 < height_0:
-                        pers_diag[cluster_1, :] = [height_1, ti]
-                        pers_diag[rep_0, 1] = current_height
-                        cluster_reps[num_points + i] = cluster_1
-            # if neither cluster is a singleton
-            if cluster_0 >= num_points and cluster_1 >= num_points:
-                rep_0 = cluster_reps[cluster_0]
-                height_0 = pers_diag[rep_0, 0]
-                rep_1 = cluster_reps[cluster_1]
-                height_1 = pers_diag[rep_1, 0]
-                current_height = merges_heights[i]
-                # cluster_0 is younger than cluster_1 
-                if height_0 >= height_1:
-                    pers_diag[rep_0, 1] = current_height
-                    cluster_reps[num_points + i] = rep_1
-                # cluster_1 is younger than cluster_0 
-                if height_0 < height_1:
-                    pers_diag[rep_1, 1] = current_height
-                    cluster_reps[num_points + i] = rep_0
-        # check if there are points in the dataset 
-        # that never appeared in the dendrogram    
-        appeared = np.zeros(shape=num_points, dtype=np.int64)
-        for i in range(num_merges):
-            cluster_0 = merges[i, 0]
-            cluster_1 = merges[i, 1]
-            if cluster_0 < num_points:
-                appeared[cluster_0] = 1
-            if cluster_1 < num_points:
-                appeared[cluster_1] = 1
-        for i in range(num_points):
-            if appeared[i] == 0:
-                pers_diag[i, :] = [heights[i], ti]
-        # remove all rows from the persistence diagram that were never modified
-        non_empty_indices = []
-        for i in range(num_points):
-            if pers_diag[i, 0] > -1:
-                non_empty_indices.append(i)
-        trimmed_pers_diag = np.empty(shape=(len(non_empty_indices), 2), dtype=np.float64)
-        for i in range(len(non_empty_indices)):
-            trimmed_pers_diag[i, 0] = pers_diag[non_empty_indices[i], 0]
-            trimmed_pers_diag[i, 1] = pers_diag[non_empty_indices[i], 1]
-        #trimmed_pers_diag[trimmed_pers_diag <= _TOL*2] = 0
-        #trimmed_pers_diag[trimmed_pers_diag >= _INF/2] = np.infty
-        non_trivial_points = np.abs(trimmed_pers_diag[:,0] - trimmed_pers_diag[:,1]) > _TOL
-        return trimmed_pers_diag[non_trivial_points] #, np.array(non_empty_indices)[non_trivial_points]
+        n_points = heights.shape[0]
+        n_merges = merges.shape[0]
+        # this orders the point by appearance
+        appearances = np.argsort(heights)
+        # contains representative points for the clusters that are alive
+        cluster_reps = np.full(heights.shape[0] + merges.shape[0], -1)
+        # contains the persistence diagram
+        pd = []
+        # height index
+        hind = 0
+        # merge index
+        mind = 0
+        current_appearence_height = heights[appearances[0]]
+        current_merge_height = merges_heights[0]
+        while True :
+            # while there is no merge
+            while hind < n_points and heights[appearances[hind]] <= current_merge_height and heights[appearances[hind]] < end :
+                # add all points that are born as new clusters
+                cluster_reps[appearances[hind]] = appearances[hind]
+                hind += 1
+                if hind == n_points :
+                    current_appearence_height = end
+                else :
+                    current_appearence_height = heights[appearances[hind]]
+            # while there is no cluster being born
+            while mind < n_merges and merges_heights[mind] < current_appearence_height and merges_heights[mind] < end :
+                xy = merges[mind]
+                x, y = xy
+                rx = cluster_reps[x]
+                ry = cluster_reps[y]
+                bx = heights[rx]
+                by = heights[ry]
+                # assume x was born before y
+                if bx > by:
+                    x, y = y, x
+                    bx, by = by, bx
+                    rx, ry = ry, rx
+                pd.append([by,merges_heights[mind]])
+                cluster_reps[mind + n_points] = rx
+                cluster_reps[ry] = -1
+                mind += 1
+                if mind == n_merges:
+                    current_merge_height = end
+                else :
+                    current_merge_height = merges_heights[mind]
+            if (hind == n_points or heights[appearances[hind]] >= end) and (mind == n_merges or merges_heights[mind] >= end) :
+                break
+        # go through all clusters that are still alive
+        for i in range(heights.shape[0]):
+            if cluster_reps[i] == i:
+                pd.append([heights[i],end])
+        pd = np.array(pd)
+        return pd[np.abs(pd[:,0]-pd[:,1]) > tol]
 
 class _ProminenceVineyard :
     
-    def __init__(self, varying_parameters, fixed_parameter, prominence_diagrams, k_varying = True) :
+    def __init__(self, varying_parameters, fixed_parameter, prominence_diagrams, k_varying = True, firstn = 20) :
+        if firstn == None:
+            self._firstn = -1
+        else:
+            self._firstn = firstn
         self._parameters = varying_parameters
-        self._prominence_diagrams = prominence_diagrams
+        self._prominence_diagrams = [pd[:firstn] for pd in prominence_diagrams]
         self._values = []
         self._fixed_parameter = fixed_parameter
         self.k_varying = k_varying
@@ -535,7 +464,7 @@ class _ProminenceVineyard :
             padded_prominence_diagrams[i,:len(prominence_diagrams[i])] = prominence_diagrams[i]
         return [ (times,padded_prominence_diagrams[:,j]) for j in range(num_vines) ]
 
-    def plot_prominence_vineyard(self, ax, color_firstn = 10, interpolate=True, areas=True, points=False):
+    def plot_prominence_vineyard(self, ax, interpolate=True, areas=True, points=False):
 
         def _vine_parts(times, prominences, tol = 1e-8):
             parts = []
@@ -580,12 +509,12 @@ class _ProminenceVineyard :
         vines = self._vineyard_to_vines()
         num_vines = len(vines)
         cscheme = lambda x : plt.cm.viridis(x)
-        if color_firstn == None :
+        if self._firstn == -1 :
             colors = cscheme(np.linspace(0, 1, num_vines)[::-1])
         else :
-            colors = list(cscheme(np.linspace(0, 1, color_firstn)[::-1]))
+            colors = list(cscheme(np.linspace(0, 1, self._firstn)[::-1]))
             last = colors[-1]
-            colors.extend([last for _ in range(num_vines-color_firstn)])
+            colors.extend([last for _ in range(num_vines-self._firstn)])
         if self.k_varying:
             shm = StatusbarHoverManager(ax, "s0 = {:.3e}".format(self._fixed_parameter) + ", k0 = {:.3e}")
         else :
