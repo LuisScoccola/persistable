@@ -10,15 +10,15 @@ import matplotlib as mpl
 # https://stackoverflow.com/questions/36730261/matplotlib-path-contains-point
 # https://stackoverflow.com/a/36335048/7128154
 class StatusbarHoverManager:
-
     def __init__(self, ax, label):
         assert isinstance(ax, mpl.axes.Axes)
 
         def hover(event):
             if event.inaxes != ax:
                 return
-            info = 'x={:.2f}, y={:.2f}'.format(event.xdata, event.ydata)
+            info = "x={:.2f}, y={:.2f}".format(event.xdata, event.ydata)
             ax.format_coord = lambda x, y: info
+
         cid = ax.figure.canvas.mpl_connect("motion_notify_event", hover)
 
         self.ax = ax
@@ -38,18 +38,17 @@ class StatusbarHoverManager:
         def hover(event):
             if event.inaxes != self.ax:
                 return
-            #info = (str(self.xlabel)+'={:.3e}, ' + str(self.ylabel)+'={:.3e}').format(event.xdata, event.ydata)
+            # info = (str(self.xlabel)+'={:.3e}, ' + str(self.ylabel)+'={:.3e}').format(event.xdata, event.ydata)
             info = self.label.format(event.xdata)
             for aa, artist in enumerate(self.artists):
                 cont, dct = artist.contains(event)
                 if not cont:
                     continue
-                inds = dct.get('ind')
+                inds = dct.get("ind")
                 lbl = self.labels[aa]
-                info += ';   ' + str(lbl)
+                info += ";   " + str(lbl)
 
             self.ax.format_coord = lambda x, y: info
 
         self.ax.figure.canvas.mpl_disconnect(self.cid)
-        self.cid = self.ax.figure.canvas.mpl_connect(
-            "motion_notify_event", hover)
+        self.cid = self.ax.figure.canvas.mpl_connect("motion_notify_event", hover)
