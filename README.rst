@@ -19,6 +19,8 @@ Usage
 
 We are currently working on the documentation.
 For now, please see the Jupyter notebooks for examples.
+Please keep in mind that this is a beta version and the user interface may
+change with the stable release.
 
 
 Installing
