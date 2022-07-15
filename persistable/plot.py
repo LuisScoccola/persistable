@@ -1,4 +1,31 @@
+import numpy as np
 import matplotlib as mpl
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from matplotlib import cm
+
+
+def plot_hilbert_function(xs, ys, max_dim, dimensions, logscale=True):
+    normalized_dimensions = np.minimum(max_dim, dimensions) / max_dim
+    # normalized_dimensions = normalized_dimensions[:,::-1]
+    colormap = cm.binary
+
+    _, ax = plt.subplots()
+    ax.set_xlim((xs[0], xs[-1]))
+    ax.set_ylim((ys[0], ys[-1]))
+
+    for i in range(xs.shape[0] - 1):
+        for j in range(ys.shape[0] - 1):
+            rect = patches.Rectangle(
+                (xs[i], ys[j]),
+                xs[i + 1] - xs[i],
+                ys[j + 1] - ys[j],
+                facecolor=colormap(normalized_dimensions[j, i]),
+            )
+            ax.add_patch(rect)
+    if logscale:
+        ax.set_xscale("log")
+    return ax
 
 
 # a combination of:

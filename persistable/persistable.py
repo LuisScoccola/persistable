@@ -1,4 +1,4 @@
-from persistable.plot import StatusbarHoverManager
+from persistable.plot import StatusbarHoverManager, plot_hilbert_function
 from persistable.borrowed._hdbscan_boruvka import (
     KDTreeBoruvkaAlgorithm,
     BallTreeBoruvkaAlgorithm,
@@ -75,6 +75,27 @@ class Persistable:
     def persistence_diagram(self, s0, k0):
         hc = self._mpspace.lambda_linkage(s0, k0)
         return hc.persistence_diagram()
+
+    def hilbert_function(self, max_k=0.2, granularity=50, logscale=True, max_dim=15):
+        # how many more ss than ks (note that getting more ss is very cheap)
+        more_s_than_k = 3
+        if logscale:
+            ss = np.logspace(
+                np.log10(self._connection_radius) - 1,
+                np.log10(self._connection_radius) + 0.5,
+                granularity * more_s_than_k,
+            )
+        else:
+            ss = np.linspace(
+                self._connection_radius / 10,
+                self._connection_radius * (10 ** (0.5)),
+                granularity * more_s_than_k,
+            )
+        ks = np.linspace(0, max_k, granularity)
+        hf = self._mpspace.hilbert_function(ks, ss)
+
+        ax = plot_hilbert_function(ss, ks, max_dim, hf, logscale=logscale)
+        return ax
 
     def cluster(
         self, num_clusters, s0=None, k0=0.2, cluster_all=False, cluster_all_k=5
@@ -325,6 +346,24 @@ class _MetricProbabilitySpace:
             prominence_diagram = _prominences(persistence_diagram)
             prominence_diagrams.append(prominence_diagram)
         return prominence_diagrams
+
+    # TODO: abstract and use the prominence vineyard functionality to implement
+    # the hilbert function
+    def hilbert_function(self, ks, ss):
+        n_s = len(ss)
+        n_k = len(ks)
+        tol = ss[1] - ss[0]
+        pds = []
+        for k in ks[:-1]:
+            pds.append(self.lambda_linkage(np.infty, k).persistence_diagram(tol=tol))
+        hf = np.zeros((n_k - 1, n_s - 1))
+        for i, pd in enumerate(pds):
+            for bar in pd:
+                b, d = bar
+                start = np.searchsorted(ss[:-1], b)
+                end = np.searchsorted(ss[:-1], d)
+                hf[i, start:end] += 1
+        return hf
 
     def connection_radius(self, percentiles=1):
         if self._metric in BallTree.valid_metrics:
