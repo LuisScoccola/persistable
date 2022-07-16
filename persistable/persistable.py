@@ -78,17 +78,17 @@ class Persistable:
 
     def hilbert_function(self, max_k=0.2, granularity=50, logscale=True, max_dim=15):
         # how many more ss than ks (note that getting more ss is very cheap)
-        more_s_than_k = 3
+        more_s_than_k = 4
         if logscale:
             ss = np.logspace(
-                np.log10(self._connection_radius) - 1,
-                np.log10(self._connection_radius) + 0.5,
+                np.log10(self._connection_radius / 2),
+                np.log10(self._connection_radius * 1.5),
                 granularity * more_s_than_k,
             )
         else:
             ss = np.linspace(
-                self._connection_radius / 10,
-                self._connection_radius * (10 ** (0.5)),
+                self._connection_radius / 2,
+                self._connection_radius * 2,
                 granularity * more_s_than_k,
             )
         ks = np.linspace(0, max_k, granularity)
