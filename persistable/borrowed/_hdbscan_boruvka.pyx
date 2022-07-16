@@ -73,7 +73,7 @@ cimport dist_metrics as dist_metrics
 
 from joblib import Parallel, delayed
 
-from relabel_dendrogram import label
+from .relabel_dendrogram import label
 
 
 cdef np.double_t INF = np.inf

@@ -1,19 +1,16 @@
-from persistable.plot import StatusbarHoverManager, plot_hilbert_function
-from persistable.borrowed._hdbscan_boruvka import (
+from .plot import StatusbarHoverManager, plot_hilbert_function
+from .borrowed._hdbscan_boruvka import (
     KDTreeBoruvkaAlgorithm,
     BallTreeBoruvkaAlgorithm,
 )
-from persistable.borrowed.dense_mst import stepwise_dendrogram_with_core_distances
-from persistable.aux import lazy_intersection
+from .borrowed.dense_mst import stepwise_dendrogram_with_core_distances
+from .aux import lazy_intersection
 import numpy as np
 import warnings
 import matplotlib.pyplot as plt
 from sklearn.neighbors import KDTree, BallTree
-from sklearn.metrics import pairwise_distances
 from sklearn.neighbors import KNeighborsClassifier
 from scipy.cluster.hierarchy import DisjointSet
-from scipy.cluster.hierarchy import linkage
-from scipy.spatial.distance import squareform
 
 _TOL = 1e-08
 _DEFAULT_FINAL_K = 0.2
