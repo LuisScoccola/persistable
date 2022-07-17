@@ -1,0 +1,7 @@
+build/*
+*.pyc
+*.c
+*/__pycache__/*
+dist/*
+persistable.egg-info/*
+notebooks/.ipynb_checkpoints/*
