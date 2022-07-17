@@ -7,6 +7,7 @@
 # written for the scikit-learn project
 # modified for HDBSCAN Dual Tree Boruvka algorithm
 # License: BSD
+# Taken from https://github.com/scikit-learn-contrib/hdbscan/commit/47554525ed8966acb8063b2d14282351f15913cb
 
 import numpy as np
 cimport numpy as np

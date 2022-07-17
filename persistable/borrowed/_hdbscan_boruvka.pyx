@@ -8,6 +8,7 @@
 # Authors: Leland McInnes
 # License: 3-clause BSD
 # Modified to be part of Persistable pipeline.
+# taken from: https://github.com/scikit-learn-contrib/hdbscan/commit/8ca70a67855fa0ef3dcc2c09d69d00fc01405942
 
 # Code to implement a Dual Tree Boruvka Minimimum Spanning Tree computation
 # The algorithm is largely tree independent, but fine details of handling
@@ -176,17 +177,13 @@ cdef inline np.double_t kdtree_min_rdist_dual(
 
 cdef class BoruvkaUnionFind (object):
     """Efficient union find implementation.
-
     Parameters
     ----------
-
     size : int
         The total size of the set of objects to
         track via the union find structure.
-
     Attributes
     ----------
-
     is_component : array of bool; shape (size, 1)
         Array specifying whether each element of the
         set is the root node, or identifier for
@@ -246,6 +243,10 @@ cdef class BoruvkaUnionFind (object):
     cdef np.ndarray[np.intp_t, ndim=1] components(self):
         """Return an array of all component roots/identifiers"""
         return self.is_component.nonzero()[0]
+
+
+def _core_dist_query(tree, data, min_samples):
+    return tree.query(data, k=min_samples, dualtree=True, breadth_first=True)
 
 
 cdef class KDTreeBoruvkaAlgorithm (object):
@@ -396,6 +397,8 @@ cdef class KDTreeBoruvkaAlgorithm (object):
         for n, nns in enumerate(self.nn):
             ####
             for m in nns:
+                if n == m:
+                    break
             ####
                 if self.core_distance[m] <= self.core_distance[n]:
                     self.candidate_point[n] = n
@@ -933,6 +936,8 @@ cdef class BallTreeBoruvkaAlgorithm (object):
         for n, nns in enumerate(self.nn):
             ####
             for m in nns:
+                if n == m:
+                    break
             ####
                 if self.core_distance[m] <= self.core_distance[n]:
                     self.candidate_point[n] = n
@@ -1216,7 +1221,8 @@ cdef class BallTreeBoruvkaAlgorithm (object):
             # then propagate the results of that computation
             # up the tree.
             new_bound = min(new_upper_bound,
-                            new_lower_bound + 2 * node1_info.radius)
+                            new_lower_bound + 2 * self.dist._dist_to_rdist(node1_info.radius))
+#                            new_lower_bound + 2 * node1_info.radius)
             if new_bound < self.bounds_ptr[node1]:
                 self.bounds_ptr[node1] = new_bound
 
