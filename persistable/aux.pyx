@@ -1,5 +1,8 @@
 # cython: boundscheck=False, wraparound=False, cdivision=True
 
+# Authors: Luis Scoccola
+# License: 3-clause BSD
+
 import numpy as np
 cimport numpy as np
 np.import_array()

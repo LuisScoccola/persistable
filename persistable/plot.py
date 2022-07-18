@@ -1,3 +1,6 @@
+# Authors: Luis Scoccola
+# License: 3-clause BSD
+
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt

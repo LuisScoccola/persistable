@@ -1,3 +1,6 @@
+# Authors: Luis Scoccola and Alexander Rolle
+# License: 3-clause BSD
+
 from .plot import StatusbarHoverManager, plot_hilbert_function
 from .borrowed._hdbscan_boruvka import (
     KDTreeBoruvkaAlgorithm,
