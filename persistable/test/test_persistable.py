@@ -53,7 +53,6 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         np.testing.assert_almost_equal(mps.core_distance(np.arange(n), s0, k0), res)
 
     def test_hilbert_function(self):
-        n = 4
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
         mps = _MetricProbabilitySpace(X)
         mps.fit()
@@ -70,7 +69,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                 [0, 0, 0, 0, 1, 1, 1, 1],
             ]
         )
-        np.testing.assert_almost_equal(mps.hilbert_function(ks, ss), res)
+        np.testing.assert_almost_equal(mps.hilbert_function(ks, ss, n_jobs=4), res)
 
     def test_same_core_distances(self):
         for w in self._different_weights:
