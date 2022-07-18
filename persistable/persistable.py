@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 from sklearn.neighbors import KDTree, BallTree
 from sklearn.neighbors import KNeighborsClassifier
 from scipy.cluster.hierarchy import DisjointSet
+from joblib import Parallel, delayed
+
 
 _TOL = 1e-08
 _DEFAULT_FINAL_K = 0.2
@@ -75,17 +77,17 @@ class Persistable:
 
     def hilbert_function(self, max_k=0.2, granularity=50, logscale=True, max_dim=15):
         # how many more ss than ks (note that getting more ss is very cheap)
-        more_s_than_k = 4
+        more_s_than_k = 10
         if logscale:
             ss = np.logspace(
-                np.log10(self._connection_radius / 2),
+                np.log10(self._connection_radius / 3),
                 np.log10(self._connection_radius * 1.5),
                 granularity * more_s_than_k,
             )
         else:
             ss = np.linspace(
-                self._connection_radius / 2,
-                self._connection_radius * 2,
+                self._connection_radius / 3,
+                self._connection_radius * 1.5,
                 granularity * more_s_than_k,
             )
         ks = np.linspace(0, max_k, granularity)
@@ -346,13 +348,13 @@ class _MetricProbabilitySpace:
 
     # TODO: abstract and use the prominence vineyard functionality to implement
     # the hilbert function
-    def hilbert_function(self, ks, ss):
+    def hilbert_function(self, ks, ss, n_jobs=4):
         n_s = len(ss)
         n_k = len(ks)
         tol = ss[1] - ss[0]
-        pds = []
-        for k in ks[:-1]:
-            pds.append(self.lambda_linkage(np.infty, k).persistence_diagram(tol=tol))
+        #pds = [ self.lambda_linkage(np.infty, k).persistence_diagram(tol=tol) for k in ks[:-1]]
+        run_in_parallel = lambda k : self.lambda_linkage(np.infty, k).persistence_diagram(tol=tol)
+        pds = Parallel(n_jobs=n_jobs)(delayed(run_in_parallel)(k) for k in ks[:-1])
         hf = np.zeros((n_k - 1, n_s - 1))
         for i, pd in enumerate(pds):
             for bar in pd:

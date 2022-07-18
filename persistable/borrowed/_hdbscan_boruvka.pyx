@@ -245,8 +245,8 @@ cdef class BoruvkaUnionFind (object):
         return self.is_component.nonzero()[0]
 
 
-def _core_dist_query(tree, data, min_samples):
-    return tree.query(data, k=min_samples, dualtree=True, breadth_first=True)
+#def _core_dist_query(tree, data, min_samples):
+#    return tree.query(data, k=min_samples, dualtree=True, breadth_first=True)
 
 
 cdef class KDTreeBoruvkaAlgorithm (object):
@@ -296,10 +296,10 @@ cdef class KDTreeBoruvkaAlgorithm (object):
     cdef np.ndarray candidate_distance_arr
 
     ####
-    cdef public np.int_t[:, ::1] nn
+    cdef const np.int_t[:, ::1] nn
     ####
 
-    def __init__(self, tree, core_distance, nn, metric='euclidean', leaf_size=20,
+    def __init__(self, tree, core_distance, const np.int_t[:, ::1] nn, metric='euclidean', leaf_size=20,
                  alpha=1.0, approx_min_span_tree=False, **kwargs):
 
         self.tree = tree
@@ -846,9 +846,9 @@ cdef class BallTreeBoruvkaAlgorithm (object):
     cdef np.ndarray candidate_neighbor_arr
     cdef np.ndarray candidate_distance_arr
 
-    cdef public np.int_t[:, ::1] nn
+    cdef const np.int_t[:, ::1] nn
 
-    def __init__(self, tree, core_distance, nn, metric='euclidean',
+    def __init__(self, tree, core_distance, const np.int_t[:,::1] nn, metric='euclidean',
                  alpha=1.0, leaf_size=20, approx_min_span_tree=False,
                  **kwargs):
 
