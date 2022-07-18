@@ -22,11 +22,10 @@ _DEFAULT_FINAL_K = 0.2
 
 class Persistable:
     def __init__(
-        self, X, metric="minkowski", measure=None, maxk=None, leaf_size=40, p=2
+        self, X, metric="minkowski", measure=None, maxk=None, leaf_size=40, **kwargs
     ):
         self._data = X
-        self._p = p
-        self._mpspace = _MetricProbabilitySpace(X, metric, measure, leaf_size, self._p)
+        self._mpspace = _MetricProbabilitySpace(X, metric, measure, leaf_size, **kwargs)
         if maxk == None:
             maxk = int(_DEFAULT_FINAL_K * X.shape[0]) + 1
         self._maxk = maxk
@@ -134,11 +133,13 @@ class _MetricProbabilitySpace:
     """Implements a finite metric probability space that can compute \
        its kernel density estimates"""
 
-    def __init__(self, X, metric="minkowski", measure=None, leaf_size=40, p=2):
+    def __init__(self, X, metric="minkowski", measure=None, leaf_size=40, **kwargs):
         # if metric = 'precomputed' then assumes that X is a distance matrix
         # to do: check that input is correct
         self._metric = metric
-        self._p = p
+        self._kwargs = kwargs
+        if metric=="minkowski" and "p" not in kwargs:
+            self._kwargs["p"] = 2
         self._leaf_size = leaf_size
         self._size = X.shape[0]
         if measure is None:
@@ -160,9 +161,9 @@ class _MetricProbabilitySpace:
         self._maxs = None
         self._tol = _TOL
         if metric in KDTree.valid_metrics:
-            self._tree = KDTree(X, metric=metric, leaf_size=leaf_size, p=p)
+            self._tree = KDTree(X, metric=metric, leaf_size=leaf_size, **kwargs)
         elif metric in BallTree.valid_metrics:
-            self._tree = BallTree(X, metric=metric, leaf_size=leaf_size, p=p)
+            self._tree = BallTree(X, metric=metric, leaf_size=leaf_size, **kwargs)
         elif metric == "precomputed":
             self._dist_mat = X
         else:
@@ -184,7 +185,7 @@ class _MetricProbabilitySpace:
                 return_distance=True,
                 sort_results=True,
                 dualtree=True,
-                breadth_first=True,
+                breadth_first=True
             )
             k_neighbors = (np.array(k_neighbors[1]), np.array(k_neighbors[0]))
             maxs_given_by_maxk = np.min(k_neighbors[1][:, -1])
@@ -300,7 +301,7 @@ class _MetricProbabilitySpace:
                 X = self._points
                 if not X.flags["C_CONTIGUOUS"]:
                     X = np.array(X, dtype=np.double, order="C")
-                dist_metric = DistanceMetric.get_metric(self._metric, p=self._p)
+                dist_metric = DistanceMetric.get_metric(self._metric, **self._kwargs)
                 sl = mst_linkage_core_vector(X, core_scales, dist_metric)
             else:
                 sl = KDTreeBoruvkaAlgorithm(
@@ -309,14 +310,15 @@ class _MetricProbabilitySpace:
                     self._nn_indices,
                     leaf_size=self._leaf_size // 3,
                     metric=self._metric,
-                    p=self._p,
+                    #p=self._p,
+                    **self._kwargs
                 ).spanning_tree()
         elif self._metric in BallTree.valid_metrics:
             if self._dimension > 60:
                 X = self._points
                 if not X.flags["C_CONTIGUOUS"]:
                     X = np.array(X, dtype=np.double, order="C")
-                dist_metric = DistanceMetric.get_metric(self._metric, p=self._p)
+                dist_metric = DistanceMetric.get_metric(self._metric, **self._kwargs)
                 sl = mst_linkage_core_vector(X, core_scales, dist_metric)
             else:
                 sl = BallTreeBoruvkaAlgorithm(
@@ -325,7 +327,8 @@ class _MetricProbabilitySpace:
                     self._nn_indices,
                     leaf_size=self._leaf_size // 3,
                     metric=self._metric,
-                    p=self._p,
+                    #p=self._p,
+                    **self._kwargs
                 ).spanning_tree()
         else:
             sl = stepwise_dendrogram_with_core_distances(
