@@ -2,6 +2,7 @@ import unittest
 from persistable import Persistable
 from persistable.persistable import _HierarchicalClustering, _MetricProbabilitySpace
 from scipy.spatial import distance_matrix
+from scipy.spatial.distance import cdist
 from sklearn import datasets
 import numpy as np
 
@@ -92,16 +93,48 @@ class TestMetricProbabilitySpace(unittest.TestCase):
     def test_same_hierarchy(self):
         # test Boruvka, Prim, and dense Prim
         for w in self._different_weights:
+            V = np.ones(self._X.shape[1])
+            # will use BallTree and Boruvka
+            mps1 = _MetricProbabilitySpace(self._X, metric="seuclidean", measure=w, V=V)
+            # will use dense MST
+            mps2 = _MetricProbabilitySpace(
+                cdist(self._X, self._X, metric="seuclidean", V=V),
+                metric="precomputed",
+                measure=w,
+            )
+            num_components = 1000
+            big_X = np.zeros((self._X.shape[0], num_components))
+            big_X[:, : self._X.shape[1]] = self._X
+            # will use BallTree and Prim
+            V2 = np.ones(big_X.shape[1])
+            mps3 = _MetricProbabilitySpace(big_X, metric="seuclidean", measure=w, V=V2)
+            mps1.fit()
+            mps2.fit()
+            mps3.fit()
+            for s0 in self._s0s:
+                for k0 in self._k0s:
+                    hc1 = mps1.lambda_linkage(s0, k0)
+                    hc2 = mps2.lambda_linkage(s0, k0)
+                    hc3 = mps3.lambda_linkage(s0, k0)
+                    np.testing.assert_almost_equal(
+                        hc1._merges_heights, hc2._merges_heights
+                    )
+                    np.testing.assert_almost_equal(
+                        hc2._merges_heights, hc3._merges_heights
+                    )
             for p in self._ps:
+                # will use KDTree and Boruvka
                 mps1 = _MetricProbabilitySpace(self._X, p=p, measure=w)
+                # will use dense MST
                 mps2 = _MetricProbabilitySpace(
                     distance_matrix(self._X, self._X, p=p),
                     metric="precomputed",
                     measure=w,
                 )
-                num_components=1000
-                big_X = np.zeros((self._X.shape[0],num_components))
-                big_X[:,:self._X.shape[1]] = self._X
+                num_components = 1000
+                big_X = np.zeros((self._X.shape[0], num_components))
+                big_X[:, : self._X.shape[1]] = self._X
+                # will use KDTree and Prim
                 mps3 = _MetricProbabilitySpace(big_X, p=p, measure=w)
                 mps1.fit()
                 mps2.fit()
@@ -110,7 +143,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                     for k0 in self._k0s:
                         hc1 = mps1.lambda_linkage(s0, k0)
                         hc2 = mps2.lambda_linkage(s0, k0)
-                        hc3 = mps2.lambda_linkage(s0, k0)
+                        hc3 = mps3.lambda_linkage(s0, k0)
                         np.testing.assert_almost_equal(
                             hc1._merges_heights, hc2._merges_heights
                         )
