@@ -338,16 +338,18 @@ class _MetricProbabilitySpace:
         merges_heights = np.minimum(s0, sl[:, 2])
         return _HierarchicalClustering(core_scales, merges, merges_heights, s0)
 
-    def lambda_linkage_prominence_vineyard(self, sks, k_indexed):
+    def lambda_linkage_vineyard(self, sks, n_jobs, tol = _TOL):
+        run_in_parallel = lambda sk: self.lambda_linkage(sk[0], sk[1]).persistence_diagram(tol=tol)
+        return Parallel(n_jobs=n_jobs)(delayed(run_in_parallel)(sk) for sk in sks )
+
+    def lambda_linkage_prominence_vineyard(self, sks, k_indexed, n_jobs = 4, tol = _TOL):
         def _prominences(bd):
             return np.sort(np.abs(bd[:, 0] - bd[:, 1]))[::-1]
 
+        pds = self.lambda_linkage_vineyard(sks, n_jobs, tol=tol)
         prominence_diagrams = []
-        for sk in sks:
+        for persistence_diagram, sk in zip(pds,sks):
             s0, k0 = sk
-            hc = self.lambda_linkage(s0, k0)
-            # persistence_diagram = hc.persistence_diagram()[0]
-            persistence_diagram = hc.persistence_diagram()
             if k_indexed:
                 mu = k0 / s0
                 s_to_k = lambda x: k0 - mu * x
@@ -356,17 +358,12 @@ class _MetricProbabilitySpace:
             prominence_diagrams.append(prominence_diagram)
         return prominence_diagrams
 
-    # TODO: abstract and use the prominence vineyard functionality to implement
-    # the hilbert function
-    def hilbert_function(self, ks, ss, n_jobs):
+    def hilbert_function(self, ks, ss, n_jobs, tol = _TOL):
         n_s = len(ss)
         n_k = len(ks)
         tol = ss[1] - ss[0]
-        # pds = [ self.lambda_linkage(np.infty, k).persistence_diagram(tol=tol) for k in ks[:-1]]
-        run_in_parallel = lambda k: self.lambda_linkage(
-            np.infty, k
-        ).persistence_diagram(tol=tol)
-        pds = Parallel(n_jobs=n_jobs)(delayed(run_in_parallel)(k) for k in ks[:-1])
+        sks = [ (np.infty, k) for k in ks[:-1] ]
+        pds = self.lambda_linkage_vineyard(sks, n_jobs=n_jobs, tol=tol)
         hf = np.zeros((n_k - 1, n_s - 1))
         for i, pd in enumerate(pds):
             for bar in pd:
