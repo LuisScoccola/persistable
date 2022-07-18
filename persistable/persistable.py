@@ -3,7 +3,7 @@ from .borrowed._hdbscan_boruvka import (
     KDTreeBoruvkaAlgorithm,
     BallTreeBoruvkaAlgorithm,
 )
-from .borrowed.prim_mst import PrimMst
+from .borrowed.prim_mst import mst_linkage_core_vector
 from .borrowed.dense_mst import stepwise_dendrogram_with_core_distances
 from .borrowed.dist_metrics import DistanceMetric
 from .aux import lazy_intersection
@@ -304,7 +304,7 @@ class _MetricProbabilitySpace:
                 if not X.flags["C_CONTIGUOUS"]:
                     X = np.array(X, dtype=np.double, order="C")
                 dist_metric = DistanceMetric.get_metric(self._metric, p=self._p)
-                sl = PrimMst(X, core_scales, dist_metric).mst_linkage_core_vector()
+                sl = mst_linkage_core_vector(X, core_scales, dist_metric)
             else:
                 sl = BallTreeBoruvkaAlgorithm(
                     self._tree,
@@ -320,7 +320,7 @@ class _MetricProbabilitySpace:
                 if not X.flags["C_CONTIGUOUS"]:
                     X = np.array(X, dtype=np.double, order="C")
                 dist_metric = DistanceMetric.get_metric(self._metric, p=self._p)
-                sl = PrimMst(X, core_scales, dist_metric).mst_linkage_core_vector()
+                sl = mst_linkage_core_vector(X, core_scales, dist_metric)
             else:
                 sl = KDTreeBoruvkaAlgorithm(
                     self._tree,
