@@ -137,8 +137,6 @@ class _MetricProbabilitySpace:
        its kernel density estimates"""
 
     def __init__(self, X, metric="minkowski", measure=None, leaf_size=40, **kwargs):
-        # if metric = 'precomputed' then assumes that X is a distance matrix
-        # to do: check that input is correct
         self._metric = metric
         self._kwargs = kwargs
         if metric=="minkowski" and "p" not in kwargs:
@@ -177,7 +175,6 @@ class _MetricProbabilitySpace:
         self.fit_density_estimates()
 
     def fit_nn(self, maxk):
-        # to do: check input
         if maxk == None or maxk > self._size:
             maxk = self._size
         self._maxk = maxk
@@ -212,13 +209,11 @@ class _MetricProbabilitySpace:
         self._kernel_estimate = np.cumsum(self._measure[self._nn_indices], axis=1)
 
     def kde_at_index_width(self, point_index, neighbor_index, width=None):
-        # to do: check input
         if width is None:
             width = self._nn_distance[point_index][neighbor_index]
         return self._kernel_estimate[point_index][neighbor_index]
 
     def kde(self, point_index, width):
-        # to do: check input (in particular that the index is in bound)
         width = np.array(width)
         # find the index (resp. indices) of the neighbor (resp. neighbors)
         # whose distance is (left) closest to width (resp. each element of width)
@@ -260,7 +255,6 @@ class _MetricProbabilitySpace:
             i_indices = np.array(i_indices)
             out_of_range = i_indices[:, 1]
             if np.any(out_of_range):
-                # to do: better message for second condition
                 warnings.warn(
                     "Don't have enough neighbors to properly compute core scale, or point takes too long to appear."
                 )
