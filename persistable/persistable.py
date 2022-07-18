@@ -108,13 +108,11 @@ class Persistable:
             warnings.warn("num_clusters is larger than the number of gaps.")
             threshold = spers[0] / 2
         else:
-            # print(np.abs(spers[-num_clusters] - spers[-(num_clusters+1)]))
             if np.abs(spers[-num_clusters] - spers[-(num_clusters + 1)]) < _TOL:
                 warnings.warn(
                     "The gap selected is too small to produce a reliable clustering."
                 )
             threshold = (spers[-num_clusters] + spers[-(num_clusters + 1)]) / 2
-            # print(threshold)
         cl = hc.persistence_based_flattening(threshold)
 
         def _post_processing(dataset, labels, k):
@@ -161,10 +159,10 @@ class _MetricProbabilitySpace:
         self._maxk = None
         self._maxs = None
         self._tol = _TOL
-        if metric in BallTree.valid_metrics:
-            self._tree = BallTree(X, metric=metric, leaf_size=leaf_size, p=p)
-        elif metric in KDTree.valid_metrics:
+        if metric in KDTree.valid_metrics:
             self._tree = KDTree(X, metric=metric, leaf_size=leaf_size, p=p)
+        elif metric in BallTree.valid_metrics:
+            self._tree = BallTree(X, metric=metric, leaf_size=leaf_size, p=p)
         elif metric == "precomputed":
             self._dist_mat = X
         else:
@@ -297,24 +295,7 @@ class _MetricProbabilitySpace:
     def lambda_linkage(self, s0, k0):
         indices = np.arange(self._size)
         core_scales = np.minimum(s0, self.core_distance(indices, s0, k0))
-
-        if self._metric in BallTree.valid_metrics:
-            if self._dimension > 60:
-                X = self._points
-                if not X.flags["C_CONTIGUOUS"]:
-                    X = np.array(X, dtype=np.double, order="C")
-                dist_metric = DistanceMetric.get_metric(self._metric, p=self._p)
-                sl = mst_linkage_core_vector(X, core_scales, dist_metric)
-            else:
-                sl = BallTreeBoruvkaAlgorithm(
-                    self._tree,
-                    core_scales,
-                    self._nn_indices,
-                    leaf_size=self._leaf_size // 3,
-                    metric=self._metric,
-                    p=self._p,
-                ).spanning_tree()
-        elif self._metric in KDTree.valid_metrics:
+        if self._metric in KDTree.valid_metrics:
             if self._dimension > 60:
                 X = self._points
                 if not X.flags["C_CONTIGUOUS"]:
@@ -330,6 +311,22 @@ class _MetricProbabilitySpace:
                     metric=self._metric,
                     p=self._p,
                 ).spanning_tree()
+        elif self._metric in BallTree.valid_metrics:
+            if self._dimension > 60:
+                X = self._points
+                if not X.flags["C_CONTIGUOUS"]:
+                    X = np.array(X, dtype=np.double, order="C")
+                dist_metric = DistanceMetric.get_metric(self._metric, p=self._p)
+                sl = mst_linkage_core_vector(X, core_scales, dist_metric)
+            else:
+                sl = BallTreeBoruvkaAlgorithm(
+                    self._tree,
+                    core_scales,
+                    self._nn_indices,
+                    leaf_size=self._leaf_size // 3,
+                    metric=self._metric,
+                    p=self._p,
+                ).spanning_tree()
         else:
             sl = stepwise_dendrogram_with_core_distances(
                 self._size, self._dist_mat, core_scales
@@ -338,17 +335,19 @@ class _MetricProbabilitySpace:
         merges_heights = np.minimum(s0, sl[:, 2])
         return _HierarchicalClustering(core_scales, merges, merges_heights, s0)
 
-    def lambda_linkage_vineyard(self, sks, n_jobs, tol = _TOL):
-        run_in_parallel = lambda sk: self.lambda_linkage(sk[0], sk[1]).persistence_diagram(tol=tol)
-        return Parallel(n_jobs=n_jobs)(delayed(run_in_parallel)(sk) for sk in sks )
+    def lambda_linkage_vineyard(self, sks, n_jobs, tol=_TOL):
+        run_in_parallel = lambda sk: self.lambda_linkage(
+            sk[0], sk[1]
+        ).persistence_diagram(tol=tol)
+        return Parallel(n_jobs=n_jobs)(delayed(run_in_parallel)(sk) for sk in sks)
 
-    def lambda_linkage_prominence_vineyard(self, sks, k_indexed, n_jobs = 4, tol = _TOL):
+    def lambda_linkage_prominence_vineyard(self, sks, k_indexed, n_jobs=4, tol=_TOL):
         def _prominences(bd):
             return np.sort(np.abs(bd[:, 0] - bd[:, 1]))[::-1]
 
         pds = self.lambda_linkage_vineyard(sks, n_jobs, tol=tol)
         prominence_diagrams = []
-        for persistence_diagram, sk in zip(pds,sks):
+        for persistence_diagram, sk in zip(pds, sks):
             s0, k0 = sk
             if k_indexed:
                 mu = k0 / s0
@@ -358,11 +357,11 @@ class _MetricProbabilitySpace:
             prominence_diagrams.append(prominence_diagram)
         return prominence_diagrams
 
-    def hilbert_function(self, ks, ss, n_jobs, tol = _TOL):
+    def hilbert_function(self, ks, ss, n_jobs, tol=_TOL):
         n_s = len(ss)
         n_k = len(ks)
         tol = ss[1] - ss[0]
-        sks = [ (np.infty, k) for k in ks[:-1] ]
+        sks = [(np.infty, k) for k in ks[:-1]]
         pds = self.lambda_linkage_vineyard(sks, n_jobs=n_jobs, tol=tol)
         hf = np.zeros((n_k - 1, n_s - 1))
         for i, pd in enumerate(pds):
@@ -374,7 +373,7 @@ class _MetricProbabilitySpace:
         return hf
 
     def connection_radius(self, percentiles=1):
-        hc = self.lambda_linkage(np.infty,0)
+        hc = self.lambda_linkage(np.infty, 0)
         return np.quantile(hc._merges_heights, percentiles)
 
 
