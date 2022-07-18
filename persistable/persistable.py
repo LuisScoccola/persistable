@@ -75,25 +75,18 @@ class Persistable:
         hc = self._mpspace.lambda_linkage(s0, k0)
         return hc.persistence_diagram()
 
-    def hilbert_function(self, max_k=0.2, granularity=50, logscale=True, max_dim=15):
+    def hilbert_function(self, max_k=0.2, granularity=50, max_dim=15, n_jobs=4):
         # how many more ss than ks (note that getting more ss is very cheap)
         more_s_than_k = 10
-        if logscale:
-            ss = np.logspace(
-                np.log10(self._connection_radius / 3),
-                np.log10(self._connection_radius * 1.5),
-                granularity * more_s_than_k,
-            )
-        else:
-            ss = np.linspace(
-                self._connection_radius / 3,
-                self._connection_radius * 1.5,
-                granularity * more_s_than_k,
-            )
+        ss = np.linspace(
+            self._connection_radius / 3,
+            self._connection_radius * 1.5,
+            granularity * more_s_than_k,
+        )
         ks = np.linspace(0, max_k, granularity)
-        hf = self._mpspace.hilbert_function(ks, ss)
+        hf = self._mpspace.hilbert_function(ks, ss, n_jobs=n_jobs)
 
-        ax = plot_hilbert_function(ss, ks, max_dim, hf, logscale=logscale)
+        ax = plot_hilbert_function(ss, ks, max_dim, hf)
         return ax
 
     def cluster(
@@ -348,7 +341,7 @@ class _MetricProbabilitySpace:
 
     # TODO: abstract and use the prominence vineyard functionality to implement
     # the hilbert function
-    def hilbert_function(self, ks, ss, n_jobs=4):
+    def hilbert_function(self, ks, ss, n_jobs):
         n_s = len(ss)
         n_k = len(ks)
         tol = ss[1] - ss[0]
