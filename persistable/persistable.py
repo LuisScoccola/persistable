@@ -3,7 +3,9 @@ from .borrowed._hdbscan_boruvka import (
     KDTreeBoruvkaAlgorithm,
     BallTreeBoruvkaAlgorithm,
 )
+from .borrowed.prim_mst import PrimMst
 from .borrowed.dense_mst import stepwise_dendrogram_with_core_distances
+from .borrowed.dist_metrics import DistanceMetric
 from .aux import lazy_intersection
 import numpy as np
 import warnings
@@ -295,24 +297,39 @@ class _MetricProbabilitySpace:
     def lambda_linkage(self, s0, k0):
         indices = np.arange(self._size)
         core_scales = np.minimum(s0, self.core_distance(indices, s0, k0))
+
         if self._metric in BallTree.valid_metrics:
-            sl = BallTreeBoruvkaAlgorithm(
-                self._tree,
-                core_scales,
-                self._nn_indices,
-                leaf_size=self._leaf_size // 3,
-                metric=self._metric,
-                p=self._p,
-            ).spanning_tree()
+            if self._dimension > 60:
+                X = self._points
+                if not X.flags["C_CONTIGUOUS"]:
+                    X = np.array(X, dtype=np.double, order="C")
+                dist_metric = DistanceMetric.get_metric(self._metric, p=self._p)
+                sl = PrimMst(X, core_scales, dist_metric).mst_linkage_core_vector()
+            else:
+                sl = BallTreeBoruvkaAlgorithm(
+                    self._tree,
+                    core_scales,
+                    self._nn_indices,
+                    leaf_size=self._leaf_size // 3,
+                    metric=self._metric,
+                    p=self._p,
+                ).spanning_tree()
         elif self._metric in KDTree.valid_metrics:
-            sl = KDTreeBoruvkaAlgorithm(
-                self._tree,
-                core_scales,
-                self._nn_indices,
-                leaf_size=self._leaf_size // 3,
-                metric=self._metric,
-                p=self._p,
-            ).spanning_tree()
+            if self._dimension > 60:
+                X = self._points
+                if not X.flags["C_CONTIGUOUS"]:
+                    X = np.array(X, dtype=np.double, order="C")
+                dist_metric = DistanceMetric.get_metric(self._metric, p=self._p)
+                sl = PrimMst(X, core_scales, dist_metric).mst_linkage_core_vector()
+            else:
+                sl = KDTreeBoruvkaAlgorithm(
+                    self._tree,
+                    core_scales,
+                    self._nn_indices,
+                    leaf_size=self._leaf_size // 3,
+                    metric=self._metric,
+                    p=self._p,
+                ).spanning_tree()
         else:
             sl = stepwise_dendrogram_with_core_distances(
                 self._size, self._dist_mat, core_scales
@@ -345,8 +362,10 @@ class _MetricProbabilitySpace:
         n_s = len(ss)
         n_k = len(ks)
         tol = ss[1] - ss[0]
-        #pds = [ self.lambda_linkage(np.infty, k).persistence_diagram(tol=tol) for k in ks[:-1]]
-        run_in_parallel = lambda k : self.lambda_linkage(np.infty, k).persistence_diagram(tol=tol)
+        # pds = [ self.lambda_linkage(np.infty, k).persistence_diagram(tol=tol) for k in ks[:-1]]
+        run_in_parallel = lambda k: self.lambda_linkage(
+            np.infty, k
+        ).persistence_diagram(tol=tol)
         pds = Parallel(n_jobs=n_jobs)(delayed(run_in_parallel)(k) for k in ks[:-1])
         hf = np.zeros((n_k - 1, n_s - 1))
         for i, pd in enumerate(pds):
@@ -358,29 +377,8 @@ class _MetricProbabilitySpace:
         return hf
 
     def connection_radius(self, percentiles=1):
-        if self._metric in BallTree.valid_metrics:
-            mst = BallTreeBoruvkaAlgorithm(
-                self._tree,
-                np.zeros(self._size),
-                self._nn_indices,
-                leaf_size=self._leaf_size // 3,
-                metric=self._metric,
-                p=self._p,
-            ).spanning_tree()
-        elif self._metric in KDTree.valid_metrics:
-            mst = KDTreeBoruvkaAlgorithm(
-                self._tree,
-                np.zeros(self._size),
-                self._nn_indices,
-                leaf_size=self._leaf_size // 3,
-                metric=self._metric,
-                p=self._p,
-            ).spanning_tree()
-        elif self._metric == "precomputed":
-            mst = stepwise_dendrogram_with_core_distances(
-                self._size, self._dist_mat, np.zeros(self._size)
-            )
-        return np.quantile(mst[:, 2], percentiles)
+        hc = self.lambda_linkage(np.infty,0)
+        return np.quantile(hc._merges_heights, percentiles)
 
 
 class _HierarchicalClustering:

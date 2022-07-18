@@ -38,6 +38,9 @@ dense_mst = Extension('persistable.borrowed.dense_mst',
 dist_metrics = Extension('persistable.borrowed.dist_metrics',
                          sources=['persistable/borrowed/dist_metrics.pyx'],
                              define_macros=[('CYTHON_TRACE', '1')])
+prim_mst = Extension('persistable.borrowed.prim_mst',
+                             sources=['persistable/borrowed/prim_mst.pyx'],
+                             define_macros=[('CYTHON_TRACE', '1')])
 _hdbscan_boruvka = Extension('persistable.borrowed._hdbscan_boruvka',
                              sources=['persistable/borrowed/_hdbscan_boruvka.pyx'],
                              define_macros=[('CYTHON_TRACE', '1')])
@@ -54,7 +57,7 @@ setup(
    maintainer_email='luis.scoccola@gmail.com',
    packages=['persistable'],
    install_requires=requirements(),
-   ext_modules=[relabel_dendrogram, aux, dense_mst, dist_metrics, _hdbscan_boruvka],
+   ext_modules=[relabel_dendrogram, aux, dense_mst, dist_metrics, prim_mst, _hdbscan_boruvka],
    cmdclass={'build_ext': CustomBuildExtCommand},
    data_files=('persistable/borrowed/dist_metrics.pxd',),
 )
