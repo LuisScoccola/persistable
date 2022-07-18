@@ -1,5 +1,3 @@
-# cython: profile=True
-# cython: linetrace=True
 # cython: boundscheck=False
 # cython: nonecheck=False
 # cython: wraparound=False
@@ -101,41 +99,6 @@ cdef inline np.double_t balltree_min_dist_dual(
     cdef np.double_t dist_pt = centroid_dist[node1, node2]
     return max(0, (dist_pt - radius1 - radius2))
 
-
-# Define a function giving the minimum distance between two
-# nodes of a kd-tree
-cdef inline np.double_t kdtree_min_dist_dual(
-    dist_metrics.DistanceMetric metric,
-    np.intp_t node1,
-    np.intp_t node2,
-    np.double_t[:, :, ::1] node_bounds,
-    np.intp_t num_features) except -1:
-
-    cdef np.double_t d, d1, d2, rdist = 0.0
-    cdef np.double_t zero = 0.0
-    cdef np.intp_t j
-
-    if metric.p == INF:
-        for j in range(num_features):
-            d1 = (node_bounds[0, node1, j] -
-                  node_bounds[1, node2, j])
-            d2 = (node_bounds[0, node2, j] -
-                  node_bounds[1, node1, j])
-            d = (d1 + fabs(d1)) + (d2 + fabs(d2))
-
-            rdist = max(rdist, 0.5 * d)
-    else:
-        # here we'll use the fact that x + abs(x) = 2 * max(x, 0)
-        for j in range(num_features):
-            d1 = (node_bounds[0, node1, j] -
-                  node_bounds[1, node2, j])
-            d2 = (node_bounds[0, node2, j] -
-                  node_bounds[1, node1, j])
-            d = (d1 + fabs(d1)) + (d2 + fabs(d2))
-
-            rdist += pow(0.5 * d, metric.p)
-
-    return metric._rdist_to_dist(rdist)
 
 
 # As above, but this time we use the rdist as per the kdtree
@@ -1079,7 +1042,7 @@ cdef class BallTreeBoruvkaAlgorithm (object):
         return self.components.shape[0]
 
     cdef int dual_tree_traversal(self, np.intp_t node1,
-                                 np.intp_t node2) except -1:
+                                 np.intp_t node2) nogil except -1:
         """Perform a dual tree traversal, pruning wherever possible, to find
         the nearest neighbor not in the same component for each component.
         This is akin to a standard dual tree NN search, but we also prune
