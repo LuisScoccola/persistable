@@ -90,6 +90,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                         )
 
     def test_same_hierarchy(self):
+        # test Boruvka, Prim, and dense Prim
         for w in self._different_weights:
             for p in self._ps:
                 mps1 = _MetricProbabilitySpace(self._X, p=p, measure=w)
@@ -98,15 +99,23 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                     metric="precomputed",
                     measure=w,
                 )
+                num_components=1000
+                big_X = np.zeros((self._X.shape[0],num_components))
+                big_X[:,:self._X.shape[1]] = self._X
+                mps3 = _MetricProbabilitySpace(big_X, p=p, measure=w)
                 mps1.fit()
                 mps2.fit()
+                mps3.fit()
                 for s0 in self._s0s:
                     for k0 in self._k0s:
                         hc1 = mps1.lambda_linkage(s0, k0)
                         hc2 = mps2.lambda_linkage(s0, k0)
-                        # np.testing.assert_array_equal(hc1._merges, hc2._merges)
+                        hc3 = mps2.lambda_linkage(s0, k0)
                         np.testing.assert_almost_equal(
                             hc1._merges_heights, hc2._merges_heights
+                        )
+                        np.testing.assert_almost_equal(
+                            hc2._merges_heights, hc3._merges_heights
                         )
 
 

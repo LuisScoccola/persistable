@@ -863,7 +863,8 @@ cdef class BallTreeBoruvkaAlgorithm (object):
         self.num_nodes = self.tree.node_data.shape[0]
 
         ####
-        self.core_distance_arr = np.asarray(core_distance,dtype=np.double).copy()
+        #self.core_distance_arr = np.asarray(core_distance,dtype=np.double).copy()
+        self.core_distance_arr = np.asarray(core_distance,dtype=np.double)
         self.core_distance = (<np.double_t[:self.num_points:1]> (
             <np.double_t *> self.core_distance_arr.data))
 
