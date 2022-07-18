@@ -17,7 +17,7 @@ cdef extern from "numpy/npy_math.h":
     cdef enum:
         NPY_INFINITYF
 
-def stepwise_dendrogram_with_core_distances(int n, double[:,:] dists, double[:] core_distances):
+def stepwise_dendrogram_with_core_distances(int n, const double[:,:] dists, const double[:] core_distances):
     Z_arr = np.empty((n - 1, 3))
     cdef double[:, :] Z = Z_arr
 
