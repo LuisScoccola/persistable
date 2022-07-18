@@ -8,26 +8,15 @@ import matplotlib.patches as patches
 from matplotlib import cm
 
 
-def plot_hilbert_function(xs, ys, max_dim, dimensions):
-    normalized_dimensions = np.minimum(max_dim, dimensions) / max_dim
-    # normalized_dimensions = normalized_dimensions[:,::-1]
-    colormap = cm.binary
-
-    _, ax = plt.subplots(figsize=(6,4))
-    ax.imshow(normalized_dimensions[::-1], cmap=colormap, aspect='auto')
-
-    #ax.set_xlim((xs[0], xs[-1]))
-    #ax.set_ylim((ys[0], ys[-1]))
-
-    #for i in range(xs.shape[0] - 1):
-    #    for j in range(ys.shape[0] - 1):
-    #        rect = patches.Rectangle(
-    #            (xs[i], ys[j]),
-    #            xs[i + 1] - xs[i],
-    #            ys[j + 1] - ys[j],
-    #            facecolor=colormap(normalized_dimensions[j, i]),
-    #        )
-    #        ax.add_patch(rect)
+def plot_hilbert_function(xs, ys, max_dim, dimensions, figsize=(6,4), colormap="binary"):
+    cmap = cm.get_cmap(colormap)
+    fig, ax = plt.subplots(figsize=figsize)
+    im = ax.imshow(dimensions[::-1], cmap=cmap, aspect='auto', extent=[xs[0],xs[-1],ys[0],ys[-1]])
+    ntics = 10
+    bounds = list(range(0,max_dim,max_dim//ntics))
+    norm = mpl.colors.BoundaryNorm(bounds, cmap.N, extend='max')
+    fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap))
+    im.set_clim(0,max_dim)
     return ax
 
 
