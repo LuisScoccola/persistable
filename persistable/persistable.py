@@ -100,6 +100,8 @@ class Persistable:
         vineyard = ProminenceVineyard(startends, pds, firstn=first_n_vines)
         self._init_plot()
         plot_prominence_vineyard(vineyard, self._vineyard_ax, log_prominence=log_prominence, colormap=colormap)
+        self._fig.canvas.draw_idle()
+
 
     def hilbert_function(
         self, max_dim=20, max_k=None, bounds_s=None, granularity=50, n_jobs=4, colormap="binary"
@@ -109,7 +111,7 @@ class Persistable:
         elif max_k > self._maxk:
             max_k = min(max_k, self._maxk)
             warnings.warn(
-                "Not enough neighbors to compute chose max_k, using max_k="
+                "Not enough neighbors to compute chosen max_k, using max_k="
                 + str(max_k)
                 + " instead."
             )
@@ -127,6 +129,7 @@ class Persistable:
         hf = self._mpspace.hilbert_function(ks, ss, n_jobs=n_jobs)
         self._init_plot()
         plot_hilbert_function(ss, ks, max_dim, hf, self._hilbert_ax, self._fig, colormap=colormap)
+        self._fig.canvas.draw_idle()
 
     def persistence_diagram(self, s0, k0):
         hc = self._mpspace.lambda_linkage([0, k0], [s0, 0])
