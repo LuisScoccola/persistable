@@ -116,9 +116,9 @@ class TestMetricProbabilitySpace(unittest.TestCase):
             mps3 = p3._mpspace
             for s0 in self._s0s:
                 for k0 in self._k0s:
-                    hc1 = mps1.lambda_linkage(s0, k0)
-                    hc2 = mps2.lambda_linkage(s0, k0)
-                    hc3 = mps3.lambda_linkage(s0, k0)
+                    hc1 = mps1.lambda_linkage([0,k0],[s0,0])
+                    hc2 = mps2.lambda_linkage([0,k0],[s0,0])
+                    hc3 = mps3.lambda_linkage([0,k0],[s0,0])
                     np.testing.assert_almost_equal(
                         hc1._merges_heights, hc2._merges_heights
                     )
@@ -144,9 +144,9 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                 mps3 = p3._mpspace
                 for s0 in self._s0s:
                     for k0 in self._k0s:
-                        hc1 = mps1.lambda_linkage(s0, k0)
-                        hc2 = mps2.lambda_linkage(s0, k0)
-                        hc3 = mps3.lambda_linkage(s0, k0)
+                        hc1 = mps1.lambda_linkage([0,k0],[s0,0])
+                        hc2 = mps2.lambda_linkage([0,k0],[s0,0])
+                        hc3 = mps3.lambda_linkage([0,k0],[s0,0])
                         np.testing.assert_almost_equal(
                             hc1._merges_heights, hc2._merges_heights
                         )
@@ -169,7 +169,7 @@ class TestHierarchicalClustering(unittest.TestCase):
         merges = np.array([[0, 1], [2, 4]])
         merges_heights = np.array([2, 6])
         end = 10
-        hc = _HierarchicalClustering(heights, merges, merges_heights, end)
+        hc = _HierarchicalClustering(heights, merges, merges_heights, 0, end)
         pd = hc.persistence_diagram()
         res = np.array([[0, 10], [1, 2], [3, 6], [2, 10]])
         np.testing.assert_array_equal(
@@ -180,7 +180,7 @@ class TestHierarchicalClustering(unittest.TestCase):
         merges = np.array([[0, 1], [3, 5], [2, 6]])
         merges_heights = np.array([2, 4, 6])
         end = 10
-        hc = _HierarchicalClustering(heights, merges, merges_heights, end)
+        hc = _HierarchicalClustering(heights, merges, merges_heights, 0, end)
         pd = hc.persistence_diagram()
         res = np.array([[0, 10], [1, 2], [2, 4], [3, 6], [4, 10]])
         np.testing.assert_array_equal(
@@ -191,7 +191,7 @@ class TestHierarchicalClustering(unittest.TestCase):
         merges = np.array([[0, 1], [2, 4], [3, 5]])
         merges_heights = np.array([2, 4, 6])
         end = 10
-        hc = _HierarchicalClustering(heights, merges, merges_heights, end)
+        hc = _HierarchicalClustering(heights, merges, merges_heights, 0, end)
         pd = hc.persistence_diagram()
         res = np.array([[0.5, 6], [1, 2], [2, 4], [0, 10]])
         np.testing.assert_array_equal(
@@ -202,7 +202,7 @@ class TestHierarchicalClustering(unittest.TestCase):
         merges = np.array([[0, 1]])
         merges_heights = np.array([1])
         end = 10
-        hc = _HierarchicalClustering(heights, merges, merges_heights, end)
+        hc = _HierarchicalClustering(heights, merges, merges_heights, 0, end)
         pd = hc.persistence_diagram()
         res = np.array([[0, 10]])
         np.testing.assert_array_equal(
@@ -214,7 +214,7 @@ class TestHierarchicalClustering(unittest.TestCase):
         merges = np.array([[0, 1], [2, 4]])
         merges_heights = np.array([2, 6])
         end = 10
-        hc = _HierarchicalClustering(heights, merges, merges_heights, end)
+        hc = _HierarchicalClustering(heights, merges, merges_heights, 0, end)
         c = hc.persistence_based_flattening(0.5)
         res = np.array([0, 1, 2, 3])
         np.testing.assert_array_equal(
