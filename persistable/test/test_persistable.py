@@ -1,3 +1,6 @@
+# Authors: Luis Scoccola
+# License: 3-clause BSD
+
 import unittest
 from persistable import Persistable
 from persistable.persistable import _HierarchicalClustering, _MetricProbabilitySpace
