@@ -1,7 +1,6 @@
 # Authors: Luis Scoccola
 # License: 3-clause BSD
 
-from .prominence_vineyard import ProminenceVineyard
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -10,10 +9,9 @@ from matplotlib import cm
 
 
 def plot_hilbert_function(
-    xs, ys, max_dim, dimensions, figsize=(8, 4), colormap="binary"
+    xs, ys, max_dim, dimensions, ax, fig, colormap="binary"
 ):
     cmap = cm.get_cmap(colormap)
-    fig, ax = plt.subplots(figsize=figsize)
     im = ax.imshow(
         dimensions[::-1],
         cmap=cmap,
@@ -23,10 +21,11 @@ def plot_hilbert_function(
     ntics = 10
     bounds = list(range(0, max_dim, max_dim // ntics))
     norm = mpl.colors.BoundaryNorm(bounds, cmap.N, extend="max")
-    fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap))
+    #fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap),cax=ax)
     im.set_clim(0, max_dim)
     ax.set_xlabel("distance scale")
     ax.set_ylabel("density threshold")
+    ax.set_title("Hilbert function")
     return ax
 
 
@@ -85,6 +84,7 @@ def plot_prominence_vineyard(
     else:
         ax.set_ylabel("prominence")
     ax.set_ylim([np.quantile(np.array(vineyard._values), 0.05), max(vineyard._values)])
+    ax.set_title("Prominence vineyard")
 
 
 # a combination of:
