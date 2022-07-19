@@ -8,7 +8,7 @@ import matplotlib.patches as patches
 from matplotlib import cm
 
 
-def plot_hilbert_function(xs, ys, max_dim, dimensions, figsize=(6,4), colormap="binary"):
+def plot_hilbert_function(xs, ys, max_dim, dimensions, figsize=(8,4), colormap="binary"):
     cmap = cm.get_cmap(colormap)
     fig, ax = plt.subplots(figsize=figsize)
     im = ax.imshow(dimensions[::-1], cmap=cmap, aspect='auto', extent=[xs[0],xs[-1],ys[0],ys[-1]])
@@ -17,6 +17,8 @@ def plot_hilbert_function(xs, ys, max_dim, dimensions, figsize=(6,4), colormap="
     norm = mpl.colors.BoundaryNorm(bounds, cmap.N, extend='max')
     fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap))
     im.set_clim(0,max_dim)
+    ax.set_xlabel('distance scale')
+    ax.set_ylabel('density threshold')
     return ax
 
 
@@ -29,7 +31,7 @@ def plot_hilbert_function(xs, ys, max_dim, dimensions, figsize=(6,4), colormap="
 # https://stackoverflow.com/questions/36730261/matplotlib-path-contains-point
 # https://stackoverflow.com/a/36335048/7128154
 class StatusbarHoverManager:
-    def __init__(self, ax, label):
+    def __init__(self, ax):
         assert isinstance(ax, mpl.axes.Axes)
 
         def hover(event):
@@ -44,7 +46,7 @@ class StatusbarHoverManager:
         self.cid = cid
         self.artists = []
         self.labels = []
-        self.label = label
+        #self.label = label
 
     def add_artist_labels(self, artist, label):
         if isinstance(artist, list):
@@ -58,14 +60,15 @@ class StatusbarHoverManager:
             if event.inaxes != self.ax:
                 return
             # info = (str(self.xlabel)+'={:.3e}, ' + str(self.ylabel)+'={:.3e}').format(event.xdata, event.ydata)
-            info = self.label.format(event.xdata)
+            #info = self.label.format(event.xdata)
+            info=""
             for aa, artist in enumerate(self.artists):
                 cont, dct = artist.contains(event)
                 if not cont:
                     continue
                 inds = dct.get("ind")
                 lbl = self.labels[aa]
-                info += ";   " + str(lbl)
+                info += str(lbl) + ";    "
 
             self.ax.format_coord = lambda x, y: info
 

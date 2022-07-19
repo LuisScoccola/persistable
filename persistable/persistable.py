@@ -53,23 +53,40 @@ class Persistable:
 
     def parameter_selection(
         self,
-        initial_k=0.02,
-        final_k=_DEFAULT_FINAL_K,
+        start_end1=None,
+        start_end2=None,
         n_parameters=50,
-        firstn=10,
+        first_n_vines=20,
+        log_prominence=True,
         fig_size=(10, 3),
     ):
-        parameters = np.logspace(
-            np.log10(initial_k), np.log10(final_k), num=n_parameters
+        start1, end1 = start_end1
+        start2, end2 = start_end2
+        starts = list(
+            zip(
+                np.linspace(start1[0], start2[0], n_parameters),
+                np.linspace(start1[1], start2[1], n_parameters),
+            )
         )
-        startends = [[[0, k], [self._connection_radius, 0]] for k in parameters]
+        ends = list(
+            zip(
+                np.linspace(end1[0], end2[0], n_parameters),
+                np.linspace(end1[1], end2[1], n_parameters),
+            )
+        )
+        startends = list(zip(starts, ends))
         pds = self._mpspace.lambda_linkage_prominence_vineyard(startends)
         _, ax = plt.subplots(figsize=fig_size)
-        plt.xscale("log")
-        plt.yscale("log")
-        vineyard = _ProminenceVineyard(
-            parameters, self._connection_radius, pds, k_varying=True, firstn=firstn
-        )
+        # plt.xscale("log")
+        plt.xticks([])
+        #plt.yticks([])
+        plt.xlabel('parameter')
+        if log_prominence:
+            plt.ylabel('log-prominence')
+            plt.yscale("log")
+        else:
+            plt.ylabel('prominence')
+        vineyard = _ProminenceVineyard(startends, pds, firstn=first_n_vines)
         vineyard.plot_prominence_vineyard(ax)
         plt.ylim([np.quantile(np.array(vineyard._values), 0.05), max(vineyard._values)])
         plt.show()
@@ -298,6 +315,8 @@ class _MetricProbabilitySpace:
             return self._nn_distance[(point_index, i_indices)]
 
     def lambda_linkage(self, start, end):
+        if start[0] > end[0] or start[1] < end[1]:
+            raise Exception("Lambda linkage parameters do not give a monotonic line!")
         def _startend_to_intercepts(start, end):
             if end[0] == np.infty:
                 k_intercept = start[1]
@@ -597,24 +616,18 @@ class _HierarchicalClustering:
 class _ProminenceVineyard:
     def __init__(
         self,
-        varying_parameters,
-        fixed_parameter,
+        parameters,
         prominence_diagrams,
-        k_varying=True,
         firstn=20,
     ):
-        if firstn is None:
-            self._firstn = -1
-        else:
-            self._firstn = firstn
-        self._parameters = varying_parameters
+        self._firstn = firstn
+        self._parameters = parameters
+        self._parameter_indices = list(range(len(parameters)))
         self._prominence_diagrams = [pd[:firstn] for pd in prominence_diagrams]
         self._values = []
-        self._fixed_parameter = fixed_parameter
-        self.k_varying = k_varying
 
     def _vineyard_to_vines(self):
-        times = self._parameters
+        times = self._parameter_indices
         prominence_diagrams = self._prominence_diagrams
         num_vines = np.max([len(prom) for prom in prominence_diagrams])
         padded_prominence_diagrams = np.zeros((len(times), num_vines))
@@ -669,7 +682,7 @@ class _ProminenceVineyard:
                     current_time_part.append(times[i])
             return parts
 
-        times = self._parameters
+        times = self._parameter_indices
         # prominence_diagrams = self._prominence_diagrams
         vines = self._vineyard_to_vines()
         num_vines = len(vines)
@@ -680,18 +693,17 @@ class _ProminenceVineyard:
             colors = list(cscheme(np.linspace(0, 1, self._firstn)[::-1]))
             last = colors[-1]
             colors.extend([last for _ in range(num_vines - self._firstn)])
-        if self.k_varying:
-            shm = StatusbarHoverManager(
-                ax,
-                "s_intercept = {:.3e}".format(self._fixed_parameter)
-                + ", k_intercept = {:.3e}",
-            )
-        else:
-            shm = StatusbarHoverManager(
-                ax,
-                "s_intercept = {:.3e}, "
-                + ("k_intercept = {:.3e}".format(self._fixed_parameter)),
-            )
+        # if self.k_varying:
+        #    shm = StatusbarHoverManager(
+        #        ax,
+        #        "s_intercept = {:.3e}".format(self._fixed_parameter)
+        #        + ", k_intercept = {:.3e}",
+        #    )
+        # else:
+        shm = StatusbarHoverManager(ax)
+        #    #"start = "  {:.3e}, "
+        #    #+ ("k_intercept = {:.3e}".format(self._fixed_parameter)),
+        # )
         if areas:
             for i in range(len(vines) - 1):
                 artist = ax.fill_between(
@@ -712,3 +724,15 @@ class _ProminenceVineyard:
                     artist = ax.plot(time_part, vine_part, "o", c="black")
                     # shm.add_artist_labels(artist, "vine " + str(i+1))
                 self._values.extend(vine_part)
+        ymax = max(self._values)
+        for t in times:
+            artist = ax.vlines(x=t, ymin=0, ymax=ymax, color="black", alpha=0.1)
+            shm.add_artist_labels(
+                artist,
+                "parameter: (({:.3e},{:.3e}),({:.3e},{:.3e}))".format(
+                    self._parameters[t][0][0],
+                    self._parameters[t][0][1],
+                    self._parameters[t][1][0],
+                    self._parameters[t][1][1],
+                ),
+            )
