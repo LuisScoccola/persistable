@@ -1,7 +1,8 @@
 # Authors: Luis Scoccola and Alexander Rolle
 # License: 3-clause BSD
 
-from .plot import StatusbarHoverManager, plot_hilbert_function
+from .plot import plot_hilbert_function, plot_prominence_vineyard
+from .prominence_vineyard import ProminenceVineyard
 from .borrowed._hdbscan_boruvka import (
     KDTreeBoruvkaAlgorithm,
     BallTreeBoruvkaAlgorithm,
@@ -51,6 +52,8 @@ class Persistable:
         self._mpspace.fit(max_neighbors)
         default_percentile = 0.95
         self._connection_radius = self._mpspace.connection_radius(default_percentile)
+        self._hilbert_function_ax = None
+        self._prominence_vineyard_ax = None
 
     def parameter_selection(
         self,
@@ -77,20 +80,12 @@ class Persistable:
         )
         startends = list(zip(starts, ends))
         pds = self._mpspace.lambda_linkage_prominence_vineyard(startends)
-        _, ax = plt.subplots(figsize=fig_size)
-        # plt.xscale("log")
-        plt.xticks([])
-        #plt.yticks([])
-        plt.xlabel('parameter')
-        if log_prominence:
-            plt.ylabel('log-prominence')
-            plt.yscale("log")
-        else:
-            plt.ylabel('prominence')
-        vineyard = _ProminenceVineyard(startends, pds, firstn=first_n_vines)
-        vineyard.plot_prominence_vineyard(ax)
-        plt.ylim([np.quantile(np.array(vineyard._values), 0.05), max(vineyard._values)])
-        plt.show()
+        vineyard = ProminenceVineyard(startends, pds, firstn=first_n_vines)
+        if self._prominence_vineyard_ax is None:
+            _, self._prominence_vineyard_ax = plt.subplots(figsize=fig_size)
+        plot_prominence_vineyard(
+            vineyard, self._prominence_vineyard_ax, log_prominence=log_prominence
+        )
 
     def persistence_diagram(self, s0, k0):
         hc = self._mpspace.lambda_linkage([0, k0], [s0, 0])
@@ -318,6 +313,7 @@ class _MetricProbabilitySpace:
     def lambda_linkage(self, start, end):
         if start[0] > end[0] or start[1] < end[1]:
             raise Exception("Lambda linkage parameters do not give a monotonic line!")
+
         def _startend_to_intercepts(start, end):
             if end[0] == np.infty:
                 k_intercept = start[1]
@@ -612,112 +608,3 @@ class _HierarchicalClustering:
                 pd.append([heights[i], end])
         pd = np.array(pd)
         return pd[np.abs(pd[:, 0] - pd[:, 1]) > tol] - self._start
-
-
-class _ProminenceVineyard:
-    def __init__(
-        self,
-        parameters,
-        prominence_diagrams,
-        firstn=20,
-    ):
-        self._firstn = firstn
-        self._parameters = parameters
-        self._parameter_indices = list(range(len(parameters)))
-        self._prominence_diagrams = [pd[:firstn] for pd in prominence_diagrams]
-        self._values = []
-
-    def _vineyard_to_vines(self):
-        times = self._parameter_indices
-        prominence_diagrams = self._prominence_diagrams
-        num_vines = np.max([len(prom) for prom in prominence_diagrams])
-        padded_prominence_diagrams = np.zeros((len(times), num_vines))
-        for i in range(len(times)):
-            padded_prominence_diagrams[
-                i, : len(prominence_diagrams[i])
-            ] = prominence_diagrams[i]
-        return [(times, padded_prominence_diagrams[:, j]) for j in range(num_vines)]
-
-    def plot_prominence_vineyard(self, ax, interpolate=True, areas=True, points=False, colormap="viridis"):
-        def _vine_parts(times, prominences, tol=1e-8):
-            parts = []
-            current_vine_part = []
-            current_time_part = []
-            part_number = 0
-            for i, _ in enumerate(times):
-                if prominences[i] < tol:
-                    if len(current_vine_part) > 0:
-                        # we have constructed a non-trivial vine part that has now ended
-                        if part_number != 0:
-                            # this is not the first vine part, so we prepend 0 to the vine and the previous time to the times
-                            current_vine_part.insert(0, 0)
-                            current_time_part.insert(
-                                0, times[i - len(current_vine_part)]
-                            )
-                        # finish the vine part with a 0 and the time with the current time
-                        current_vine_part.append(0)
-                        current_time_part.append(times[i])
-                        ## we save the current vine part and start over
-                        parts.append(
-                            (np.array(current_vine_part), np.array(current_time_part))
-                        )
-                        part_number += 1
-                        current_vine_part = []
-                        current_time_part = []
-                    # else, we haven't constructed a non-trivial vine part, so we just keep going
-                elif i == len(times) - 1:
-                    if part_number != 0:
-                        # this is not the first vine part, so we prepend 0 to the vine and the previous time to the times
-                        current_vine_part.insert(0, 0)
-                        current_time_part.insert(0, times[i - len(current_vine_part)])
-                    # finish the vine part with its value and the time with the current time
-                    current_vine_part.append(prominences[i])
-                    current_time_part.append(times[i])
-                    # we save the final vine part and time
-                    parts.append(
-                        (np.array(current_vine_part), np.array(current_time_part))
-                    )
-                else:
-                    # we keep constructing the vine part, since the prominence is non-zero
-                    current_vine_part.append(prominences[i])
-                    current_time_part.append(times[i])
-            return parts
-
-        times = self._parameter_indices
-        vines = self._vineyard_to_vines()
-        num_vines = min(len(vines),self._firstn)
-        cmap = cm.get_cmap(colormap)
-        colors = list(cmap(np.linspace(0, 1, num_vines)[::-1]))
-        last = colors[-1]
-        colors.extend([last for _ in range(num_vines - self._firstn)])
-        shm = StatusbarHoverManager(ax)
-        if areas:
-            for i in range(len(vines) - 1):
-                artist = ax.fill_between(
-                    times, vines[i][1], vines[i + 1][1], color=colors[i]
-                )
-                shm.add_artist_labels(artist, "gap " + str(i + 1))
-            ax.fill_between(
-                times, vines[len(vines) - 1][1], 0, color=colors[len(vines) - 1]
-            )
-            shm.add_artist_labels(artist, "gap " + str(i + 1))
-        for i, tv in enumerate(vines):
-            times, vine = tv
-            for vine_part, time_part in _vine_parts(times, vine):
-                if interpolate:
-                    artist = ax.plot(time_part, vine_part, c="black")
-                if points:
-                    artist = ax.plot(time_part, vine_part, "o", c="black")
-                self._values.extend(vine_part)
-        ymax = max(self._values)
-        for t in times:
-            artist = ax.vlines(x=t, ymin=0, ymax=ymax, color="black", alpha=0.1)
-            shm.add_artist_labels(
-                artist,
-                "parameter: (({:.3e},{:.3e}),({:.3e},{:.3e}))".format(
-                    self._parameters[t][0][0],
-                    self._parameters[t][0][1],
-                    self._parameters[t][1][0],
-                    self._parameters[t][1][1],
-                ),
-            )
