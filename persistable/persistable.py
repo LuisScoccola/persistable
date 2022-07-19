@@ -13,6 +13,7 @@ from .aux import lazy_intersection
 import numpy as np
 import warnings
 import matplotlib.pyplot as plt
+from matplotlib import cm
 from sklearn.neighbors import KDTree, BallTree
 from sklearn.neighbors import KNeighborsClassifier
 from scipy.cluster.hierarchy import DisjointSet
@@ -637,13 +638,13 @@ class _ProminenceVineyard:
             ] = prominence_diagrams[i]
         return [(times, padded_prominence_diagrams[:, j]) for j in range(num_vines)]
 
-    def plot_prominence_vineyard(self, ax, interpolate=True, areas=True, points=False):
+    def plot_prominence_vineyard(self, ax, interpolate=True, areas=True, points=False, colormap="viridis"):
         def _vine_parts(times, prominences, tol=1e-8):
             parts = []
             current_vine_part = []
             current_time_part = []
             part_number = 0
-            for i in range(len(times)):
+            for i, _ in enumerate(times):
                 if prominences[i] < tol:
                     if len(current_vine_part) > 0:
                         # we have constructed a non-trivial vine part that has now ended
@@ -683,27 +684,13 @@ class _ProminenceVineyard:
             return parts
 
         times = self._parameter_indices
-        # prominence_diagrams = self._prominence_diagrams
         vines = self._vineyard_to_vines()
-        num_vines = len(vines)
-        cscheme = lambda x: plt.cm.viridis(x)
-        if self._firstn == -1:
-            colors = cscheme(np.linspace(0, 1, num_vines)[::-1])
-        else:
-            colors = list(cscheme(np.linspace(0, 1, self._firstn)[::-1]))
-            last = colors[-1]
-            colors.extend([last for _ in range(num_vines - self._firstn)])
-        # if self.k_varying:
-        #    shm = StatusbarHoverManager(
-        #        ax,
-        #        "s_intercept = {:.3e}".format(self._fixed_parameter)
-        #        + ", k_intercept = {:.3e}",
-        #    )
-        # else:
+        num_vines = min(len(vines),self._firstn)
+        cmap = cm.get_cmap(colormap)
+        colors = list(cmap(np.linspace(0, 1, num_vines)[::-1]))
+        last = colors[-1]
+        colors.extend([last for _ in range(num_vines - self._firstn)])
         shm = StatusbarHoverManager(ax)
-        #    #"start = "  {:.3e}, "
-        #    #+ ("k_intercept = {:.3e}".format(self._fixed_parameter)),
-        # )
         if areas:
             for i in range(len(vines) - 1):
                 artist = ax.fill_between(
@@ -719,10 +706,8 @@ class _ProminenceVineyard:
             for vine_part, time_part in _vine_parts(times, vine):
                 if interpolate:
                     artist = ax.plot(time_part, vine_part, c="black")
-                    # shm.add_artist_labels(artist, "vine " + str(i+1))
                 if points:
                     artist = ax.plot(time_part, vine_part, "o", c="black")
-                    # shm.add_artist_labels(artist, "vine " + str(i+1))
                 self._values.extend(vine_part)
         ymax = max(self._values)
         for t in times:
