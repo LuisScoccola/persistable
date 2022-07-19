@@ -17,7 +17,7 @@ cdef extern from "numpy/npy_math.h":
     cdef enum:
         NPY_INFINITYF
 
-def stepwise_dendrogram_with_core_distances(int n, const double[:,:] dists, const double[:] core_distances):
+def stepwise_dendrogram_with_core_distances(int n, const double[:,:] dists, const double[:] core_distance):
     Z_arr = np.empty((n - 1, 3))
     cdef double[:, :] Z = Z_arr
 
@@ -30,27 +30,38 @@ def stepwise_dendrogram_with_core_distances(int n, const double[:,:] dists, cons
     cdef int i, k, x, y = 0
     cdef double dist, current_min
 
+    cdef np.ndarray result_arr 
+    cdef np.ndarray core_distance_arr
+    cdef np.double_t *core_distance_ptr
+
+    core_distance_arr = np.asarray(core_distance,dtype=np.double)
+    cdef np.double_t[::1] core_distance_ = (<np.double_t[:n:1]> (
+        <np.double_t *> core_distance_arr.data))
+
+    core_distance_ptr = <np.double_t *> &core_distance_[0]
+
     x = 0
-    for k in range(n - 1):
-        current_min = NPY_INFINITYF
-        merged[x] = 1
-        for i in range(n):
-            if merged[i] == 1:
-                continue
+    with nogil:
+        for k in range(n - 1):
+            current_min = NPY_INFINITYF
+            merged[x] = 1
+            for i in range(n):
+                if merged[i] == 1:
+                    continue
 
-            #dist = max(dists[condensed_index(n, x, i)],core_distances[x],core_distances[i])
-            dist = max(dists[x, i],core_distances[x],core_distances[i])
-            if D[i] > dist:
-                D[i] = dist
+                #dist = max(dists[condensed_index(n, x, i)],core_distances[x],core_distances[i])
+                dist = max(dists[x, i],core_distance_ptr[x],core_distance_ptr[i])
+                if D[i] > dist:
+                    D[i] = dist
 
-            if D[i] < current_min:
-                y = i
-                current_min = D[i]
+                if D[i] < current_min:
+                    y = i
+                    current_min = D[i]
 
-        Z[k, 0] = x
-        Z[k, 1] = y
-        Z[k, 2] = current_min
-        x = y
+            Z[k, 0] = x
+            Z[k, 1] = y
+            Z[k, 2] = current_min
+            x = y
 
     # Sort Z by cluster distances.
     order = np.argsort(Z_arr[:, 2], kind='mergesort')

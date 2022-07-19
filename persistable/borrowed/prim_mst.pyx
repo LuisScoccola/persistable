@@ -28,7 +28,7 @@ cpdef np.ndarray[np.double_t, ndim=2] mst_linkage_core_vector(
     cdef np.intp_t dim = raw_data.shape[0]
     result_arr = np.zeros((dim - 1, 3))
 
-    core_distance_arr = np.asarray(core_distance,dtype=np.double).copy()
+    core_distance_arr = np.asarray(core_distance,dtype=np.double)
     cdef np.double_t[::1] core_distance_ = (<np.double_t[:dim:1]> (
         <np.double_t *> core_distance_arr.data))
 
