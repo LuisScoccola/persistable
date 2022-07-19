@@ -25,16 +25,25 @@ _DEFAULT_FINAL_K = 0.2
 
 class Persistable:
     def __init__(
-        self, X, metric="minkowski", measure=None, maxk=None, leaf_size=40, **kwargs
+        self, X, metric="minkowski", measure=None, max_neighbors=None, leaf_size=40, **kwargs
     ):
         self._data = X
+        if metric=="minkowski" and "p" not in kwargs:
+            kwargs["p"] = 2
+        if measure is None:
+            measure = np.full(X.shape[0], 1.0 / X.shape[0])
         self._mpspace = _MetricProbabilitySpace(X, metric, measure, leaf_size, **kwargs)
-        if maxk == None:
-            maxk = int(_DEFAULT_FINAL_K * X.shape[0]) + 1
-        self._maxk = maxk
-        # self._mpspace.fit()
-        self._mpspace.fit(maxk=maxk)
-        self._connection_radius = self._mpspace.connection_radius()
+        if max_neighbors is None:
+            if X.shape[0] < 100:
+                max_neighbors = X.shape[0]
+            else:
+                 max_neighbors = min(int(np.log10(X.shape[0])) * 100, X.shape[0])
+        else:
+            max_neighbors = min(max_neighbors, X.shape[0])
+        self._maxk = max_neighbors/ X.shape[0]
+        self._mpspace.fit(max_neighbors)
+        default_percentile=0.95
+        self._connection_radius = self._mpspace.connection_radius(default_percentile)
 
     def parameter_selection(
         self,
@@ -56,7 +65,7 @@ class Persistable:
             parameters, self._connection_radius, pds, k_varying=True, firstn=firstn
         )
         vineyard.plot_prominence_vineyard(ax)
-        plt.ylim([np.quantile(np.array(vineyard._values), 0.1), max(vineyard._values)])
+        plt.ylim([np.quantile(np.array(vineyard._values), 0.05), max(vineyard._values)])
         plt.show()
 
     def parameter_selection_s(self, n_parameters=50, firstn=10, fig_size=(10, 3)):
@@ -72,24 +81,31 @@ class Persistable:
             parameters, k0, pds, k_varying=False, firstn=firstn
         )
         vineyard.plot_prominence_vineyard(ax)
-        plt.ylim([np.quantile(np.array(vineyard._values), 0.1), max(vineyard._values)])
+        plt.ylim([np.quantile(np.array(vineyard._values), 0.05), max(vineyard._values)])
         plt.show()
 
     def persistence_diagram(self, s0, k0):
         hc = self._mpspace.lambda_linkage(s0, k0)
         return hc.persistence_diagram()
 
-    def hilbert_function(self, max_k=0.2, granularity=50, max_dim=15, n_jobs=4):
+    def hilbert_function(self, max_dim=20, max_k=None, bounds_s = None, granularity=50, n_jobs=4):
+        if max_k is None:
+            max_k = self._maxk
+        elif max_k > self._maxk:
+                max_k = min(max_k,self._maxk)
+                warnings.warn("Not enough neighbors to compute chose max_k, using max_k=" + str(max_k) + " instead.")
+        if bounds_s is None:
+            first_s = self._connection_radius / 5
+            last_s = self._connection_radius * 2
         # how many more ss than ks (note that getting more ss is very cheap)
         more_s_than_k = 10
         ss = np.linspace(
-            self._connection_radius / 3,
-            self._connection_radius * 1.5,
+            first_s,
+            last_s,
             granularity * more_s_than_k,
         )
         ks = np.linspace(0, max_k, granularity)
         hf = self._mpspace.hilbert_function(ks, ss, n_jobs=n_jobs)
-
         ax = plot_hilbert_function(ss, ks, max_dim, hf)
         return ax
 
@@ -99,7 +115,7 @@ class Persistable:
         if num_clusters <= 1:
             warnings.warn("num_clusters must be greater than 1.")
             return
-        if s0 == None:
+        if s0 is None:
             s0 = self._connection_radius
         hc = self._mpspace.lambda_linkage(s0, k0)
         # bd = hc.persistence_diagram()[0]
@@ -136,17 +152,12 @@ class _MetricProbabilitySpace:
     """Implements a finite metric probability space that can compute \
        its kernel density estimates"""
 
-    def __init__(self, X, metric="minkowski", measure=None, leaf_size=40, **kwargs):
+    def __init__(self, X, metric, measure, leaf_size=40, **kwargs):
         self._metric = metric
         self._kwargs = kwargs
-        if metric=="minkowski" and "p" not in kwargs:
-            self._kwargs["p"] = 2
         self._leaf_size = leaf_size
         self._size = X.shape[0]
-        if measure is None:
-            self._measure = np.full(self._size, 1.0 / self._size)
-        else:
-            self._measure = measure
+        self._measure = measure
         self._dimension = X.shape[1]
         self._metric = metric
         if metric != "precomputed":
@@ -158,7 +169,7 @@ class _MetricProbabilitySpace:
         self._nn_distance = None
         self._nn_indices = None
         self._kernel_estimate = None
-        self._maxk = None
+        self._max_neighbors = None
         self._maxs = None
         self._tol = _TOL
         if metric in KDTree.valid_metrics:
@@ -170,31 +181,28 @@ class _MetricProbabilitySpace:
         else:
             raise Exception("Metric given is not supported.")
 
-    def fit(self, maxk=None):
-        self.fit_nn(maxk=maxk)
+    def fit(self, max_neighbors):
+        self.fit_nn(max_neighbors)
         self.fit_density_estimates()
 
-    def fit_nn(self, maxk):
-        if maxk == None or maxk > self._size:
-            maxk = self._size
-        self._maxk = maxk
+    def fit_nn(self, max_neighbors):
+        self._max_neighbors = max_neighbors
         if self._metric in BallTree.valid_metrics + KDTree.valid_metrics:
             k_neighbors = self._tree.query(
                 self._points,
-                self._maxk,
+                self._max_neighbors,
                 return_distance=True,
                 sort_results=True,
                 dualtree=True,
                 breadth_first=True
             )
             k_neighbors = (np.array(k_neighbors[1]), np.array(k_neighbors[0]))
-            maxs_given_by_maxk = np.min(k_neighbors[1][:, -1])
-            self._maxs = maxs_given_by_maxk
+            maxs_given_by_max_neighbors = np.min(k_neighbors[1][:, -1])
+            self._maxs = maxs_given_by_max_neighbors
             neighbors = k_neighbors[0]
             _nn_distance = k_neighbors[1]
         else:
-            # warnings.warn("For now, for distance matrix we assume maxk = number of points.")
-            self._maxk = self._size
+            self._max_neighbors = self._size
             self._maxs = 0
             neighbors = np.argsort(self._dist_mat)
             _nn_distance = self._dist_mat[
@@ -271,7 +279,7 @@ class _MetricProbabilitySpace:
                     np.searchsorted(self._kernel_estimate[p], k0, side="left")
                 )
             i_indices = np.array(i_indices)
-            if self._maxk < self._size:
+            if self._max_neighbors < self._size:
                 out_of_range = np.where(
                     (
                         i_indices
@@ -584,7 +592,7 @@ class _ProminenceVineyard:
         k_varying=True,
         firstn=20,
     ):
-        if firstn == None:
+        if firstn is None:
             self._firstn = -1
         else:
             self._firstn = firstn

@@ -26,8 +26,8 @@ class TestMetricProbabilitySpace(unittest.TestCase):
     def test_core_distances(self):
         n = 4
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
-        mps = _MetricProbabilitySpace(X)
-        mps.fit()
+        p = Persistable(X)
+        mps = p._mpspace
 
         s0 = 2
         k0 = 0.5
@@ -49,8 +49,8 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         res = np.array([1, 1, 1, 2])
         np.testing.assert_almost_equal(mps.core_distance(np.arange(n), s0, k0), res)
 
-        mps = _MetricProbabilitySpace(X, measure=np.array([0.5, 0.5, 0.5, 0.5]))
-        mps.fit()
+        p = Persistable(X, measure=np.array([0.5, 0.5, 0.5, 0.5]))
+        mps = p._mpspace
         s0 = np.infty
         k0 = 0.6
         res = np.array([1, 1, 1, 2])
@@ -58,8 +58,8 @@ class TestMetricProbabilitySpace(unittest.TestCase):
 
     def test_hilbert_function(self):
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
-        mps = _MetricProbabilitySpace(X)
-        mps.fit()
+        p = Persistable(X)
+        mps = p._mpspace
 
         ss = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4]
         ks = [0, 1 / 4 + 0.01, 1 / 2, 3 / 4, 1, 1.1]
@@ -78,14 +78,14 @@ class TestMetricProbabilitySpace(unittest.TestCase):
     def test_same_core_distances(self):
         for w in self._different_weights:
             for p in self._ps:
-                mps1 = _MetricProbabilitySpace(self._X, p=p, measure=w)
-                mps2 = _MetricProbabilitySpace(
+                p1 = Persistable(self._X, measure=w, p=p)
+                mps1 = p1._mpspace
+                p2 = Persistable(
                     distance_matrix(self._X, self._X, p=p),
                     metric="precomputed",
                     measure=w,
                 )
-                mps1.fit()
-                mps2.fit()
+                mps2 = p2._mpspace
                 for s0 in self._s0s:
                     for k0 in self._k0s:
                         np.testing.assert_almost_equal(
@@ -98,22 +98,22 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         for w in self._different_weights:
             V = np.ones(self._X.shape[1])
             # will use BallTree and Boruvka
-            mps1 = _MetricProbabilitySpace(self._X, metric="seuclidean", measure=w, V=V)
+            p1 = Persistable(self._X, metric="seuclidean", measure=w, V=V)
+            mps1 = p1._mpspace
             # will use dense MST
-            mps2 = _MetricProbabilitySpace(
+            p2 = Persistable(
                 cdist(self._X, self._X, metric="seuclidean", V=V),
                 metric="precomputed",
                 measure=w,
             )
+            mps2 = p2._mpspace
             num_components = 1000
             big_X = np.zeros((self._X.shape[0], num_components))
             big_X[:, : self._X.shape[1]] = self._X
             # will use BallTree and Prim
             V2 = np.ones(big_X.shape[1])
-            mps3 = _MetricProbabilitySpace(big_X, metric="seuclidean", measure=w, V=V2)
-            mps1.fit()
-            mps2.fit()
-            mps3.fit()
+            p3 = Persistable(big_X, metric="seuclidean", measure=w, V=V2)
+            mps3 = p3._mpspace
             for s0 in self._s0s:
                 for k0 in self._k0s:
                     hc1 = mps1.lambda_linkage(s0, k0)
@@ -127,21 +127,21 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                     )
             for p in self._ps:
                 # will use KDTree and Boruvka
-                mps1 = _MetricProbabilitySpace(self._X, p=p, measure=w)
+                p1 = Persistable(self._X, measure=w, p=p)
+                mps1 = p1._mpspace
                 # will use dense MST
-                mps2 = _MetricProbabilitySpace(
+                p2 = Persistable(
                     distance_matrix(self._X, self._X, p=p),
                     metric="precomputed",
                     measure=w,
                 )
+                mps2 = p2._mpspace
                 num_components = 1000
                 big_X = np.zeros((self._X.shape[0], num_components))
                 big_X[:, : self._X.shape[1]] = self._X
                 # will use KDTree and Prim
-                mps3 = _MetricProbabilitySpace(big_X, p=p, measure=w)
-                mps1.fit()
-                mps2.fit()
-                mps3.fit()
+                p3 = Persistable(big_X, measure=w, p=p)
+                mps3 = p3._mpspace
                 for s0 in self._s0s:
                     for k0 in self._k0s:
                         hc1 = mps1.lambda_linkage(s0, k0)
