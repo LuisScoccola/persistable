@@ -2,7 +2,7 @@
 # License: 3-clause BSD
 
 from turtle import color
-from .plot import plot_hilbert_function, plot_prominence_vineyard
+from .plot import PersistablePlot
 from .prominence_vineyard import ProminenceVineyard
 from .borrowed._hdbscan_boruvka import (
     KDTreeBoruvkaAlgorithm,
@@ -53,22 +53,13 @@ class Persistable:
         self._mpspace.fit(max_neighbors)
         default_percentile = 0.95
         self._connection_radius = self._mpspace.connection_radius(default_percentile)
-        self._fig_num = -1
-        self._fig = None
-        self._hilbert_ax = None
-        self._vineyard_ax = None
+        self._vineyard_parameters = {}
+        self._plot = PersistablePlot(self.update_parameters)
 
     #def set_figsize(self, figsize):
     #    self._figsize = figsize
     #    self._fignum = -1
 
-    def _init_plot(self):
-        if not plt.fignum_exists(self._fig_num):
-            fig, axes = plt.subplots(1,2, figsize=(10,5))
-            self._fig = fig
-            self._hilbert_ax = axes[0]
-            self._vineyard_ax = axes[1]
-            self._fig_num = fig.number
 
     def parameter_selection(
         self,
@@ -79,8 +70,17 @@ class Persistable:
         log_prominence=True,
         colormap="viridis",
     ):
-        start1, end1 = start_end1
-        start2, end2 = start_end2
+        if start_end1 is None or start_end2 is None:
+            if len(self._vineyard_parameters.values()) < 4:
+                raise Exception("No parameters chosen!")
+            else:
+                start1 = self._vineyard_parameters["start1"]
+                end1 = self._vineyard_parameters["end1"]
+                start2 = self._vineyard_parameters["start2"]
+                end2 = self._vineyard_parameters["end2"]
+        else :
+            start1, end1 = start_end1
+            start2, end2 = start_end2
         if start1[1] <= end2[1] or start2[0] >= end1[0]:
             raise Exception("Chosen parameters will result in non-monotonic lines!")
         starts = list(
@@ -98,10 +98,8 @@ class Persistable:
         startends = list(zip(starts, ends))
         pds = self._mpspace.lambda_linkage_prominence_vineyard(startends)
         vineyard = ProminenceVineyard(startends, pds, firstn=first_n_vines)
-        self._init_plot()
-        plot_prominence_vineyard(vineyard, self._vineyard_ax, log_prominence=log_prominence, colormap=colormap)
-        self._fig.canvas.draw_idle()
-
+        #self._init_plot()
+        self._plot.plot_prominence_vineyard(vineyard, log_prominence=log_prominence, colormap=colormap)
 
     def hilbert_function(
         self, max_dim=20, max_k=None, bounds_s=None, granularity=50, n_jobs=4, colormap="binary"
@@ -127,9 +125,33 @@ class Persistable:
         )
         ks = np.linspace(0, max_k, granularity)
         hf = self._mpspace.hilbert_function(ks, ss, n_jobs=n_jobs)
-        self._init_plot()
-        plot_hilbert_function(ss, ks, max_dim, hf, self._hilbert_ax, self._fig, colormap=colormap)
-        self._fig.canvas.draw_idle()
+        self._plot.plot_hilbert_function(ss, ks, max_dim, hf, colormap=colormap)
+
+    def update_parameters(self, point):
+        if "start1" not in self._vineyard_parameters:
+            self._vineyard_parameters["start1"] = point
+        elif "end1" not in self._vineyard_parameters:
+            st1 = self._vineyard_parameters["start1"]
+            if point[0] < st1[0] or point[1] > st1[1]:
+                return self._vineyard_parameters
+            self._vineyard_parameters["end1"] = point
+        elif "start2" not in self._vineyard_parameters:
+            #st1 = self._vineyard_parameters["start1"]
+            #en1 = self._vineyard_parameters["end1"]
+            #if p[0] >= en1[0] or 
+            self._vineyard_parameters["start2"] = point
+        elif "end2" not in self._vineyard_parameters:
+            st2 = self._vineyard_parameters["start2"]
+            if point[0] < st2[0] or point[1] > st2[1]:
+                return self._vineyard_parameters
+            self._vineyard_parameters["end2"] = point
+            print("Parameter " + str(self._vineyard_parameters) + " selected.")
+        else:
+            self._vineyard_parameters = {}
+            self.update_parameters(point)
+        return self._vineyard_parameters
+        #plot_parameters(self._vineyard_parameters, self._hilbert_ax)
+
 
     def persistence_diagram(self, s0, k0):
         hc = self._mpspace.lambda_linkage([0, k0], [s0, 0])
