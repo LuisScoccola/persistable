@@ -54,14 +54,31 @@ class Persistable:
         default_percentile = 0.95
         self._connection_radius = self._mpspace.connection_radius(default_percentile)
         self._vineyard_parameters = {}
-        self._plot = PersistablePlot(self.update_parameters)
-
-    #def set_figsize(self, figsize):
-    #    self._figsize = figsize
-    #    self._fignum = -1
-
+        self._plot = None
+        self._line_parameters = None
 
     def parameter_selection(
+        self,
+        max_dim=20,
+        max_k=None,
+        bounds_s=None,
+        granularity=50,
+        n_jobs=4,
+        colormap="binary",
+    ):
+        self._plot = PersistablePlot(
+            self.update_vineyard_parameters, self.update_line_parameters
+        )
+        self.hilbert_function(
+            max_dim=max_dim,
+            max_k=max_k,
+            bounds_s=bounds_s,
+            granularity=granularity,
+            n_jobs=n_jobs,
+            colormap=colormap,
+        )
+
+    def prominence_vineyard(
         self,
         start_end1=None,
         start_end2=None,
@@ -78,7 +95,7 @@ class Persistable:
                 end1 = self._vineyard_parameters["end1"]
                 start2 = self._vineyard_parameters["start2"]
                 end2 = self._vineyard_parameters["end2"]
-        else :
+        else:
             start1, end1 = start_end1
             start2, end2 = start_end2
         if start1[1] <= end2[1] or start2[0] >= end1[0]:
@@ -98,11 +115,19 @@ class Persistable:
         startends = list(zip(starts, ends))
         pds = self._mpspace.lambda_linkage_prominence_vineyard(startends)
         vineyard = ProminenceVineyard(startends, pds, firstn=first_n_vines)
-        #self._init_plot()
-        self._plot.plot_prominence_vineyard(vineyard, log_prominence=log_prominence, colormap=colormap)
+        # self._init_plot()
+        self._plot.plot_prominence_vineyard(
+            vineyard, log_prominence=log_prominence, colormap=colormap
+        )
 
     def hilbert_function(
-        self, max_dim=20, max_k=None, bounds_s=None, granularity=50, n_jobs=4, colormap="binary"
+        self,
+        max_dim=20,
+        max_k=None,
+        bounds_s=None,
+        granularity=50,
+        n_jobs=4,
+        colormap="binary",
     ):
         if max_k is None:
             max_k = self._maxk
@@ -116,6 +141,9 @@ class Persistable:
         if bounds_s is None:
             first_s = self._connection_radius / 5
             last_s = self._connection_radius * 2
+        else:
+            first_s = bounds_s[0]
+            last_s = bounds_s[1]
         # how many more ss than ks (note that getting more ss is very cheap)
         more_s_than_k = 10
         ss = np.linspace(
@@ -127,7 +155,10 @@ class Persistable:
         hf = self._mpspace.hilbert_function(ks, ss, n_jobs=n_jobs)
         self._plot.plot_hilbert_function(ss, ks, max_dim, hf, colormap=colormap)
 
-    def update_parameters(self, point):
+    def update_line_parameters(self, start, end):
+        self._line_parameters = [start, end]
+
+    def update_vineyard_parameters(self, point):
         if "start1" not in self._vineyard_parameters:
             self._vineyard_parameters["start1"] = point
         elif "end1" not in self._vineyard_parameters:
@@ -136,9 +167,9 @@ class Persistable:
                 return self._vineyard_parameters
             self._vineyard_parameters["end1"] = point
         elif "start2" not in self._vineyard_parameters:
-            #st1 = self._vineyard_parameters["start1"]
-            #en1 = self._vineyard_parameters["end1"]
-            #if p[0] >= en1[0] or 
+            # st1 = self._vineyard_parameters["start1"]
+            # en1 = self._vineyard_parameters["end1"]
+            # if p[0] >= en1[0] or
             self._vineyard_parameters["start2"] = point
         elif "end2" not in self._vineyard_parameters:
             st2 = self._vineyard_parameters["start2"]
@@ -148,25 +179,65 @@ class Persistable:
             print("Parameter " + str(self._vineyard_parameters) + " selected.")
         else:
             self._vineyard_parameters = {}
-            self.update_parameters(point)
+            self.update_vineyard_parameters(point)
         return self._vineyard_parameters
-        #plot_parameters(self._vineyard_parameters, self._hilbert_ax)
-
 
     def persistence_diagram(self, s0, k0):
         hc = self._mpspace.lambda_linkage([0, k0], [s0, 0])
         return hc.persistence_diagram()
 
-    def cluster(
-        self, num_clusters, s0=None, k0=0.2, cluster_all=False, cluster_all_k=5
-    ):
+    def quick_cluster(self, n_neighbors=30, num_clusters_range=[3, 15]):
+        k = n_neighbors / self._mpspace._size
+        s = self._connection_radius * 2
+        hc = self._mpspace.lambda_linkage([0, k], [s, 0])
+        pd = hc.persistence_diagram()
+
+        def _prominences(bd):
+            return np.sort(np.abs(bd[:, 0] - bd[:, 1]))[::-1]
+
+        proms = _prominences(pd)
+        logproms = np.log(proms)
+        peaks = logproms[:-1] - logproms[1:]
+        min_clust = min(len(peaks), num_clusters_range[0] - 1)
+        max_clust = min(len(peaks), num_clusters_range[1])
+        num_clust = np.argmax(peaks[min_clust:max_clust]) + min_clust
+        threshold = (proms[num_clust] + proms[num_clust + 1]) / 2
+        print(
+            "Clustering with k = "
+            + str(k)
+            + ", s = "
+            + str(s)
+            + ", persistence threshold = "
+            + str(threshold)
+            + ", resulting in "
+            + str(num_clust + 1)
+            + " clusters."
+        )
+        return hc.persistence_based_flattening(threshold)
+
+    def cluster(self, num_clusters, start=None, end=None):
         if num_clusters <= 1:
-            warnings.warn("num_clusters must be greater than 1.")
-            return
-        if s0 is None:
-            s0 = self._connection_radius
-        hc = self._mpspace.lambda_linkage([0, k0], [s0, 0])
-        # bd = hc.persistence_diagram()[0]
+            raise Exception("num_clusters must be greater than 1.")
+        if start is None:
+            if self._line_parameters is None:
+                raise Exception("No parameters for the line were given!")
+            else:
+                start, end = self._line_parameters
+        else:
+            start, end = np.array(start), np.array(end)
+            if start.shape != end.shape:
+                raise Exception(
+                    "start and end must either both be scalars or both be points on the plane."
+                )
+            else:
+                if start.shape == ():
+                    start, end = [0, start], [end, 0]
+                else:
+                    if start.shape != (2,):
+                        raise Exception(
+                            "start and end must either both be scalars or both be points on the plane."
+                        )
+        hc = self._mpspace.lambda_linkage(start, end)
         bd = hc.persistence_diagram()
         pers = np.abs(bd[:, 0] - bd[:, 1])
         spers = np.sort(pers)
@@ -180,21 +251,7 @@ class Persistable:
                 )
             threshold = (spers[-num_clusters] + spers[-(num_clusters + 1)]) / 2
         cl = hc.persistence_based_flattening(threshold)
-
-        def _post_processing(dataset, labels, k):
-            neigh = KNeighborsClassifier(n_neighbors=k, p=self._p)
-            neigh.fit(dataset[labels != -1], labels[labels != -1])
-            res = labels.copy()
-            res[labels == -1] = neigh.predict(dataset[labels == -1, :])
-            return res
-
-        if cluster_all:
-            # labels = _post_processing(self._data, cl[1], k=cluster_all_k)
-            labels = _post_processing(self._data, cl, k=cluster_all_k)
-            return labels
-        else:
-            return cl
-
+        return cl
 
 class _MetricProbabilitySpace:
     """Implements a finite metric probability space that can compute \
@@ -352,6 +409,7 @@ class _MetricProbabilitySpace:
     def lambda_linkage(self, start, end):
         if start[0] > end[0] or start[1] < end[1]:
             raise Exception("Lambda linkage parameters do not give a monotonic line!")
+
         def _startend_to_intercepts(start, end):
             if end[0] == np.infty:
                 k_intercept = start[1]
