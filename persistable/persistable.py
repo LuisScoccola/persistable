@@ -33,15 +33,19 @@ class Persistable:
         metric="minkowski",
         measure=None,
         max_neighbors=None,
-        leaf_size=40,
+        leaf_size: int = 40,
         **kwargs
     ):
+        # keep dataset
         self._data = X
+        # if metric is minkowski but no p was passed, assume p = 2
         if metric == "minkowski" and "p" not in kwargs:
             kwargs["p"] = 2
+        # if no measure was passed, assume normalized counting measure
         if measure is None:
             measure = np.full(X.shape[0], 1.0 / X.shape[0])
         self._mpspace = _MetricProbabilitySpace(X, metric, measure, leaf_size, **kwargs)
+        # if no max_neighbors for fitting mpspace was passed, compute a reasonable one
         if max_neighbors is None:
             if X.shape[0] < 100:
                 max_neighbors = X.shape[0]
@@ -49,13 +53,85 @@ class Persistable:
                 max_neighbors = min(int(np.log10(X.shape[0])) * 100, X.shape[0])
         else:
             max_neighbors = min(max_neighbors, X.shape[0])
+        # keep max_k (normalized max_neighbors)
         self._maxk = max_neighbors / X.shape[0]
+        # fit the mpspace
         self._mpspace.fit(max_neighbors)
         default_percentile = 0.95
+        # compute and keep robust connection radius
         self._connection_radius = self._mpspace.connection_radius(default_percentile)
-        self._vineyard_parameters = {}
-        self._plot = None
+
+        ## to be passed/computed later:
+        # user-selected bounds for the prominence vineyard
+        self._vineyard_parameter_bounds = {}
+        # user-selected start and end for a line
         self._line_parameters = None
+        # user-selected number of clusters
+        self._n_clusters = None
+        # the computed prominence vineyard
+        self._vineyard = None
+        # the PersistablePlot object implementing the GUI
+        self._plot = None
+
+    def quick_cluster(self, n_neighbors: int = 30, n_clusters_range=[3, 15]):
+        k = n_neighbors / self._mpspace._size
+        s = self._connection_radius * 2
+        hc = self._mpspace.lambda_linkage([0, k], [s, 0])
+        pd = hc.persistence_diagram()
+
+        def _prominences(bd):
+            return np.sort(np.abs(bd[:, 0] - bd[:, 1]))[::-1]
+
+        proms = _prominences(pd)
+        logproms = np.log(proms)
+        peaks = logproms[:-1] - logproms[1:]
+        min_clust = min(len(peaks), n_clusters_range[0] - 1)
+        max_clust = min(len(peaks), n_clusters_range[1])
+        num_clust = np.argmax(peaks[min_clust:max_clust]) + min_clust
+        threshold = (proms[num_clust] + proms[num_clust + 1]) / 2
+        print(
+            "Clustering with k = "
+            + str(k)
+            + ", s = "
+            + str(s)
+            + ", persistence threshold = "
+            + str(threshold)
+            + ", resulting in "
+            + str(num_clust + 1)
+            + " clusters."
+        )
+        return hc.persistence_based_flattening(threshold)
+
+    def cluster(self, n_clusters=None, start=None, end=None):
+        if start is None:
+            if self._line_parameters is None:
+                raise Exception("No parameters for the line were given!")
+            else:
+                start, end = self._line_parameters
+                n_clusters = self._n_clusters
+        else:
+            start, end = np.array(start), np.array(end)
+            if start.shape != (2,) or end.shape != (2,):
+                raise Exception(
+                    "start and end must either both be points on the plane."
+                )
+        if n_clusters <= 1:
+            raise Exception("n_clusters must be greater than 1.")
+        hc = self._mpspace.lambda_linkage(start, end)
+        bd = hc.persistence_diagram()
+        pers = np.abs(bd[:, 0] - bd[:, 1])
+        # TODO: use sort from largest to smallest and make the logic below simpler
+        spers = np.sort(pers)
+        if n_clusters >= bd.shape[0]:
+            warnings.warn("n_clusters is larger than the number of gaps.")
+            threshold = spers[0] / 2
+        else:
+            if np.abs(spers[-n_clusters] - spers[-(n_clusters + 1)]) < _TOL:
+                warnings.warn(
+                    "The gap selected is too small to produce a reliable clustering."
+                )
+            threshold = (spers[-n_clusters] + spers[-(n_clusters + 1)]) / 2
+        return hc.persistence_based_flattening(threshold)
 
     def parameter_selection(
         self,
@@ -67,7 +143,7 @@ class Persistable:
         colormap="binary",
     ):
         self._plot = PersistablePlot(
-            self.update_vineyard_parameters, self.update_line_parameters
+            self.update_vineyard_parameter_bounds, self.update_line_parameters, self.prominence_vineyard
         )
         self.hilbert_function(
             max_dim=max_dim,
@@ -84,21 +160,27 @@ class Persistable:
         start_end2=None,
         n_parameters=50,
         first_n_vines=20,
-        log_prominence=True,
-        colormap="viridis",
+        #log_prominence=True,
+        #colormap="viridis",
     ):
         if start_end1 is None or start_end2 is None:
-            if len(self._vineyard_parameters.values()) < 4:
+            if len(self._vineyard_parameter_bounds.values()) < 4:
                 raise Exception("No parameters chosen!")
             else:
-                start1 = self._vineyard_parameters["start1"]
-                end1 = self._vineyard_parameters["end1"]
-                start2 = self._vineyard_parameters["start2"]
-                end2 = self._vineyard_parameters["end2"]
+                start1 = self._vineyard_parameter_bounds["start1"]
+                end1 = self._vineyard_parameter_bounds["end1"]
+                start2 = self._vineyard_parameter_bounds["start2"]
+                end2 = self._vineyard_parameter_bounds["end2"]
         else:
             start1, end1 = start_end1
             start2, end2 = start_end2
-        if start1[1] <= end2[1] or start2[0] >= end1[0]:
+        # if start1[1] <= end2[1] or start2[0] >= end1[0]:
+        if (
+            start1[0] >= end1[0]
+            or start1[1] <= end1[1]
+            or start2[0] >= end2[0]
+            or start2[1] <= end2[1]
+        ):
             raise Exception("Chosen parameters will result in non-monotonic lines!")
         starts = list(
             zip(
@@ -113,12 +195,14 @@ class Persistable:
             )
         )
         startends = list(zip(starts, ends))
+        # self._vineyard_parameters = startends
         pds = self._mpspace.lambda_linkage_prominence_vineyard(startends)
-        vineyard = ProminenceVineyard(startends, pds, firstn=first_n_vines)
+        self._vineyard = ProminenceVineyard(startends, pds, firstn=first_n_vines)
         # self._init_plot()
-        self._plot.plot_prominence_vineyard(
-            vineyard, log_prominence=log_prominence, colormap=colormap
-        )
+        return self._vineyard
+        #self._plot.plot_prominence_vineyard(
+        #    self._vineyard, #log_prominence=log_prominence, colormap=colormap
+        #)
 
     def hilbert_function(
         self,
@@ -155,103 +239,45 @@ class Persistable:
         hf = self._mpspace.hilbert_function(ks, ss, n_jobs=n_jobs)
         self._plot.plot_hilbert_function(ss, ks, max_dim, hf, colormap=colormap)
 
-    def update_line_parameters(self, start, end):
-        self._line_parameters = [start, end]
+    def update_line_parameters(self, gap, line_index):
+        self._line_parameters = self._vineyard._parameters[line_index]
+        self._n_clusters = gap
+        print(
+            "Parameter "
+            + str(self._line_parameters)
+            + " and n_clusters = "
+            + str(gap)
+            + " selected."
+        )
 
-    def update_vineyard_parameters(self, point):
-        if "start1" not in self._vineyard_parameters:
-            self._vineyard_parameters["start1"] = point
-        elif "end1" not in self._vineyard_parameters:
-            st1 = self._vineyard_parameters["start1"]
+    def update_vineyard_parameter_bounds(self, point):
+        if "start1" not in self._vineyard_parameter_bounds:
+            self._vineyard_parameter_bounds["start1"] = point
+        elif "end1" not in self._vineyard_parameter_bounds:
+            st1 = self._vineyard_parameter_bounds["start1"]
             if point[0] < st1[0] or point[1] > st1[1]:
-                return self._vineyard_parameters
-            self._vineyard_parameters["end1"] = point
-        elif "start2" not in self._vineyard_parameters:
-            # st1 = self._vineyard_parameters["start1"]
-            # en1 = self._vineyard_parameters["end1"]
+                return self._vineyard_parameter_bounds
+            self._vineyard_parameter_bounds["end1"] = point
+        elif "start2" not in self._vineyard_parameter_bounds:
+            # st1 = self._vineyard_parameter_bounds["start1"]
+            # en1 = self._vineyard_parameter_bounds["end1"]
             # if p[0] >= en1[0] or
-            self._vineyard_parameters["start2"] = point
-        elif "end2" not in self._vineyard_parameters:
-            st2 = self._vineyard_parameters["start2"]
+            self._vineyard_parameter_bounds["start2"] = point
+        elif "end2" not in self._vineyard_parameter_bounds:
+            st2 = self._vineyard_parameter_bounds["start2"]
             if point[0] < st2[0] or point[1] > st2[1]:
-                return self._vineyard_parameters
-            self._vineyard_parameters["end2"] = point
-            print("Parameter " + str(self._vineyard_parameters) + " selected.")
+                return self._vineyard_parameter_bounds
+            self._vineyard_parameter_bounds["end2"] = point
+            print("Parameter " + str(self._vineyard_parameter_bounds) + " selected.")
         else:
-            self._vineyard_parameters = {}
-            self.update_vineyard_parameters(point)
-        return self._vineyard_parameters
+            self._vineyard_parameter_bounds = {}
+            self.update_vineyard_parameter_bounds(point)
+        return self._vineyard_parameter_bounds
 
     def persistence_diagram(self, s0, k0):
         hc = self._mpspace.lambda_linkage([0, k0], [s0, 0])
         return hc.persistence_diagram()
 
-    def quick_cluster(self, n_neighbors=30, num_clusters_range=[3, 15]):
-        k = n_neighbors / self._mpspace._size
-        s = self._connection_radius * 2
-        hc = self._mpspace.lambda_linkage([0, k], [s, 0])
-        pd = hc.persistence_diagram()
-
-        def _prominences(bd):
-            return np.sort(np.abs(bd[:, 0] - bd[:, 1]))[::-1]
-
-        proms = _prominences(pd)
-        logproms = np.log(proms)
-        peaks = logproms[:-1] - logproms[1:]
-        min_clust = min(len(peaks), num_clusters_range[0] - 1)
-        max_clust = min(len(peaks), num_clusters_range[1])
-        num_clust = np.argmax(peaks[min_clust:max_clust]) + min_clust
-        threshold = (proms[num_clust] + proms[num_clust + 1]) / 2
-        print(
-            "Clustering with k = "
-            + str(k)
-            + ", s = "
-            + str(s)
-            + ", persistence threshold = "
-            + str(threshold)
-            + ", resulting in "
-            + str(num_clust + 1)
-            + " clusters."
-        )
-        return hc.persistence_based_flattening(threshold)
-
-    def cluster(self, num_clusters, start=None, end=None):
-        if num_clusters <= 1:
-            raise Exception("num_clusters must be greater than 1.")
-        if start is None:
-            if self._line_parameters is None:
-                raise Exception("No parameters for the line were given!")
-            else:
-                start, end = self._line_parameters
-        else:
-            start, end = np.array(start), np.array(end)
-            if start.shape != end.shape:
-                raise Exception(
-                    "start and end must either both be scalars or both be points on the plane."
-                )
-            else:
-                if start.shape == ():
-                    start, end = [0, start], [end, 0]
-                else:
-                    if start.shape != (2,):
-                        raise Exception(
-                            "start and end must either both be scalars or both be points on the plane."
-                        )
-        hc = self._mpspace.lambda_linkage(start, end)
-        bd = hc.persistence_diagram()
-        pers = np.abs(bd[:, 0] - bd[:, 1])
-        spers = np.sort(pers)
-        if num_clusters >= bd.shape[0]:
-            warnings.warn("num_clusters is larger than the number of gaps.")
-            threshold = spers[0] / 2
-        else:
-            if np.abs(spers[-num_clusters] - spers[-(num_clusters + 1)]) < _TOL:
-                warnings.warn(
-                    "The gap selected is too small to produce a reliable clustering."
-                )
-            threshold = (spers[-num_clusters] + spers[-(num_clusters + 1)]) / 2
-        cl = hc.persistence_based_flattening(threshold)
-        return cl
 
 class _MetricProbabilitySpace:
     """Implements a finite metric probability space that can compute \
