@@ -242,10 +242,15 @@ class TestPersistable(unittest.TestCase):
         k0 = 0.05
         for s0 in np.linspace(0.1, 0.5, 5):
             for i in list(range(11, 1)):
-                c = p.cluster(num_clusters=i, s0=s0, k0=k0)
+                c = p.cluster(n_clusters=i, start=[0,k0], end=[s0,0])
                 print(s0, k0)
                 print(i, len(set(c[c >= 0])))
                 self.assertEqual(len(set(c[c >= 0])), i)
+
+    def test_number_clusters_quick_cluster(self):
+        X, _ = datasets.make_moons(n_samples=1000, noise=0.1, random_state=0)
+        p = Persistable(X)
+        self.assertEqual(max(p.quick_cluster()), 3)
 
 
 if __name__ == "__main__":
