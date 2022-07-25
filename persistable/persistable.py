@@ -140,19 +140,22 @@ class Persistable:
         bounds_s=None,
         granularity=50,
         n_jobs=4,
-        colormap="binary",
+        #colormap="binary",
     ):
         self._plot = PersistablePlot(
-            self.update_vineyard_parameter_bounds, self.update_line_parameters, self.prominence_vineyard
+            self.update_vineyard_parameter_bounds,
+            self.update_line_parameters,
+            self.prominence_vineyard,
         )
-        self.hilbert_function(
+        ss, ks, max_dim, hf = self.hilbert_function(
             max_dim=max_dim,
             max_k=max_k,
             bounds_s=bounds_s,
             granularity=granularity,
             n_jobs=n_jobs,
-            colormap=colormap,
         )
+        self._plot.plot_hilbert_function(ss, ks, max_dim, hf)
+        
 
     def prominence_vineyard(
         self,
@@ -203,7 +206,7 @@ class Persistable:
         bounds_s=None,
         granularity=50,
         n_jobs=4,
-        colormap="binary",
+        #colormap="binary",
     ):
         if max_k is None:
             max_k = self._maxk
@@ -229,7 +232,8 @@ class Persistable:
         )
         ks = np.linspace(0, max_k, granularity)
         hf = self._mpspace.hilbert_function(ks, ss, n_jobs=n_jobs)
-        self._plot.plot_hilbert_function(ss, ks, max_dim, hf, colormap=colormap)
+        return ss, ks, max_dim, hf
+        #self._plot.plot_hilbert_function(ss, ks, max_dim, hf, colormap=colormap)
 
     def update_line_parameters(self, gap, line_index):
         self._line_parameters = self._vineyard._parameters[line_index]
