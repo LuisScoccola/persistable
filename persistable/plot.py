@@ -30,7 +30,7 @@ class PersistablePlot:
         self._hilbert_current_points_plotted_on = None
         self._hilbert_current_lines_plotted_on = []
         self._hilbert_current_polygon_plotted_on = None
-        self._vineyard_current_points = None
+        self._vineyard_current_points_plotted_on = None
         self._vineyard_values = []
         self._hilbert_call_on_click = hilbert_call_on_click
         self._vineyard_call_on_click = vineyard_call_on_click
@@ -73,11 +73,9 @@ class PersistablePlot:
                     self._hilbert_current_lines_plotted_on.append(ax.plot(
                         [points[2, 0],points[3, 0]], [points[2, 1],points[3, 1]], c="blue", linewidth=1
                     ))
-                    polygon = Polygon([points[0],points[1],points[3],points[2]], True, color="red", alpha=0.2)
+                    polygon = Polygon([points[0],points[1],points[3],points[2]], True, color="red", alpha=0.1)
                     ax.add_patch(polygon)
                     self._hilbert_current_polygon_plotted_on = polygon
-
-
 
                 ax.figure.canvas.draw_idle()
                 ax.figure.canvas.flush_events()
@@ -124,6 +122,16 @@ class PersistablePlot:
 
                 if gap is not None and line_index is not None:
                     self._vineyard_call_on_click(gap + 1, line_index)
+                    if self._vineyard_current_points_plotted_on is not None:
+                        self._vineyard_current_points_plotted_on.remove()
+                    self._vineyard_current_points_plotted_on = ax.scatter(
+                        [event.xdata], [event.ydata], c="blue", s=40
+                    )
+                    ax.figure.canvas.draw_idle()
+                    ax.figure.canvas.flush_events()
+
+
+ 
 
         self._vineyard_ax.figure.canvas.mpl_connect(
             "button_press_event", vineyard_on_click
