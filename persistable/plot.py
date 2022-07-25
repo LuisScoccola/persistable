@@ -24,6 +24,7 @@ class PersistablePlot:
         self._vineyard_ax = None
         self._hilbert_current_points = None
         self._vineyard_current_points = None
+        self._vineyard_values = []
         self._hilbert_call_on_click = hilbert_call_on_click
         self._vineyard_call_on_click = vineyard_call_on_click
         self._compute_prominence_vineyard = compute_prominence_vineyard
@@ -204,8 +205,8 @@ class PersistablePlot:
                     artist = ax.plot(time_part, vine_part, c="black")
                 if points:
                     artist = ax.plot(time_part, vine_part, "o", c="black")
-                vineyard._values.extend(vine_part)
-        ymax = max(vineyard._values)
+                self._vineyard_values.extend(vine_part)
+        ymax = max(self._vineyard_values)
         for t in times:
             artist = ax.vlines(x=t, ymin=0, ymax=ymax, color="black", alpha=0.1)
             self._add_line_index(artist, t)
@@ -230,8 +231,9 @@ class PersistablePlot:
             ax.set_yscale("log")
         else:
             ax.set_ylabel("prominence")
+        values = np.array(self._vineyard_values)
         ax.set_ylim(
-            [np.quantile(np.array(vineyard._values), 0.05), max(vineyard._values)]
+            [np.quantile(values[values>0], 0.05), max(values)]
         )
         ax.set_title("Prominence vineyard")
         ax.figure.canvas.draw_idle()
