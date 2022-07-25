@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.widgets import Button
 
+from matplotlib.patches import Polygon
+from matplotlib.collections import PatchCollection
+
 
 class PersistablePlot:
     def _init_plot(self):
@@ -24,7 +27,9 @@ class PersistablePlot:
         self._fig = None
         self._hilbert_ax = None
         self._vineyard_ax = None
-        self._hilbert_current_points = None
+        self._hilbert_current_points_plotted_on = None
+        self._hilbert_current_lines_plotted_on = []
+        self._hilbert_current_polygon_plotted_on = None
         self._vineyard_current_points = None
         self._vineyard_values = []
         self._hilbert_call_on_click = hilbert_call_on_click
@@ -48,11 +53,32 @@ class PersistablePlot:
                     [event.xdata, event.ydata]
                 )
                 points = np.array(list(vineyard_parameters.values()))
-                if self._hilbert_current_points is not None:
-                    self._hilbert_current_points.remove()
-                self._hilbert_current_points = ax.scatter(
+                if self._hilbert_current_points_plotted_on is not None: 
+                    self._hilbert_current_points_plotted_on.remove() 
+                if len(self._hilbert_current_lines_plotted_on) > 0: 
+                    for x in self._hilbert_current_lines_plotted_on:
+                        x.pop(0).remove() 
+                    self._hilbert_current_lines_plotted_on = []
+                if self._hilbert_current_polygon_plotted_on is not None: 
+                    self._hilbert_current_polygon_plotted_on.remove()
+                    self._hilbert_current_polygon_plotted_on = None
+                self._hilbert_current_points_plotted_on = ax.scatter(
                     points[:, 0], points[:, 1], c="blue", s=10
                 )
+                if len(points)>=2:
+                    self._hilbert_current_lines_plotted_on.append(ax.plot(
+                        [points[0, 0],points[1, 0]], [points[0, 1],points[1, 1]], c="blue", linewidth=1
+                    ))
+                if len(points)>=4:
+                    self._hilbert_current_lines_plotted_on.append(ax.plot(
+                        [points[2, 0],points[3, 0]], [points[2, 1],points[3, 1]], c="blue", linewidth=1
+                    ))
+                    polygon = Polygon([points[0],points[1],points[3],points[2]], True, color="red", alpha=0.2)
+                    ax.add_patch(polygon)
+                    self._hilbert_current_polygon_plotted_on = polygon
+
+
+
                 ax.figure.canvas.draw_idle()
                 ax.figure.canvas.flush_events()
 
