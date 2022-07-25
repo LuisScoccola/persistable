@@ -123,7 +123,8 @@ class Persistable:
         # TODO: use sort from largest to smallest and make the logic below simpler
         spers = np.sort(pers)
         if n_clusters >= bd.shape[0]:
-            warnings.warn("n_clusters is larger than the number of gaps.")
+            if n_clusters > bd.shape[0]: 
+                warnings.warn("n_clusters is larger than the number of gaps, using n_clusters = number of gaps.")
             threshold = spers[0] / 2
         else:
             if np.abs(spers[-n_clusters] - spers[-(n_clusters + 1)]) < _TOL:
@@ -264,7 +265,7 @@ class Persistable:
             if point[0] < st2[0] or point[1] > st2[1]:
                 return self._vineyard_parameter_bounds
             self._vineyard_parameter_bounds["end2"] = point
-            print("Parameter " + str(self._vineyard_parameter_bounds) + " selected.")
+            print("Prominence vineyard with " + str(self._vineyard_parameter_bounds) + " selected.")
         else:
             self._vineyard_parameter_bounds = {}
             self.update_vineyard_parameter_bounds(point)

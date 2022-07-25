@@ -111,6 +111,7 @@ class PersistablePlot:
         self._button_compute_and_plot = Button(self._ax_button, "Compute vineyard")
         self._button_compute_and_plot.on_clicked(plot_prominence_vineyard_button)
 
+
     def plot_hilbert_function(self, xs, ys, max_dim, dimensions, colormap="binary"):
         ax = self._hilbert_ax
         cmap = cm.get_cmap(colormap)
@@ -155,7 +156,14 @@ class PersistablePlot:
         colormap="viridis",
     ):
         ax = self._vineyard_ax
+
+        # TODO: abstract this
         ax.clear()
+        self._gaps = []
+        self._gap_numbers = []
+        self._lines = []
+        self._line_index = []
+
         times = vineyard._parameter_indices
         vines = vineyard._vineyard_to_vines()
         num_vines = min(len(vines), vineyard._firstn)
