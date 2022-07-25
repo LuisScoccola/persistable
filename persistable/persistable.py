@@ -160,8 +160,6 @@ class Persistable:
         start_end2=None,
         n_parameters=50,
         first_n_vines=20,
-        #log_prominence=True,
-        #colormap="viridis",
     ):
         if start_end1 is None or start_end2 is None:
             if len(self._vineyard_parameter_bounds.values()) < 4:
@@ -174,7 +172,6 @@ class Persistable:
         else:
             start1, end1 = start_end1
             start2, end2 = start_end2
-        # if start1[1] <= end2[1] or start2[0] >= end1[0]:
         if (
             start1[0] >= end1[0]
             or start1[1] <= end1[1]
@@ -195,14 +192,9 @@ class Persistable:
             )
         )
         startends = list(zip(starts, ends))
-        # self._vineyard_parameters = startends
         pds = self._mpspace.lambda_linkage_prominence_vineyard(startends)
         self._vineyard = ProminenceVineyard(startends, pds, firstn=first_n_vines)
-        # self._init_plot()
         return self._vineyard
-        #self._plot.plot_prominence_vineyard(
-        #    self._vineyard, #log_prominence=log_prominence, colormap=colormap
-        #)
 
     def hilbert_function(
         self,

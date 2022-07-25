@@ -17,7 +17,9 @@ class PersistablePlot:
             self._vineyard_ax = axes[1]
             self._fig_num = fig.number
 
-    def __init__(self, hilbert_call_on_click, vineyard_call_on_click, compute_prominence_vineyard):
+    def __init__(
+        self, hilbert_call_on_click, vineyard_call_on_click, compute_prominence_vineyard
+    ):
         self._fig_num = -1
         self._fig = None
         self._hilbert_ax = None
@@ -33,7 +35,7 @@ class PersistablePlot:
         self._gaps = []
         self._gap_numbers = []
         self._lines = []
-        self._line_index = [] 
+        self._line_index = []
 
         self._init_plot()
 
@@ -48,7 +50,9 @@ class PersistablePlot:
                 points = np.array(list(vineyard_parameters.values()))
                 if self._hilbert_current_points is not None:
                     self._hilbert_current_points.remove()
-                self._hilbert_current_points = ax.scatter(points[:, 0], points[:, 1], c="blue", s=10)
+                self._hilbert_current_points = ax.scatter(
+                    points[:, 0], points[:, 1], c="blue", s=10
+                )
                 ax.figure.canvas.draw_idle()
                 ax.figure.canvas.flush_events()
 
@@ -62,7 +66,7 @@ class PersistablePlot:
                 return
 
             if event.button == 1:
-                #info = ""
+                # info = ""
 
                 # gaps
                 gap = None
@@ -73,10 +77,10 @@ class PersistablePlot:
                         continue
                     aas.append(aa)
                 if len(aas) > 0:
-                    #aa = aas[-1]
+                    # aa = aas[-1]
                     gap = aas[-1]
-                    #lbl = self._gap_numbers[aa]
-                    #info += "gap: " + str(lbl) + ";    "
+                    # lbl = self._gap_numbers[aa]
+                    # info += "gap: " + str(lbl) + ";    "
 
                 # lines
                 line_index = None
@@ -87,47 +91,25 @@ class PersistablePlot:
                         continue
                     aas.append(aa)
                 if len(aas) > 0:
-                    #aa = aas[-1]
+                    # aa = aas[-1]
                     line_index = aas[-1]
-                    #lbl = self._line_index[aa]
-                    #info += "line: " + str(lbl) + ";    "
-                
+                    # lbl = self._line_index[aa]
+                    # info += "line: " + str(lbl) + ";    "
+
                 if gap is not None and line_index is not None:
-                    self._vineyard_call_on_click(gap+1, line_index)
+                    self._vineyard_call_on_click(gap + 1, line_index)
 
-                #ax.format_coord = lambda x, y: info
-                #ax.figure.canvas.draw_idle()
-                #ax.figure.canvas.flush_events()
-
-        self._vineyard_ax.figure.canvas.mpl_connect("button_press_event", vineyard_on_click)
+        self._vineyard_ax.figure.canvas.mpl_connect(
+            "button_press_event", vineyard_on_click
+        )
 
         def plot_prominence_vineyard_button(event):
             vineyard = self._compute_prominence_vineyard()
             self.plot_prominence_vineyard(vineyard)
 
         self._ax_button = plt.axes([0.05, 0.05, 0.15, 0.075])
-        self._button_compute_and_plot = Button(self._ax_button, 'Compute vineyard')
+        self._button_compute_and_plot = Button(self._ax_button, "Compute vineyard")
         self._button_compute_and_plot.on_clicked(plot_prominence_vineyard_button)
-
-
-
-        #def vineyard_on_click(event):
-        #    ax = self._vineyard_ax
-        #    if event.inaxes != ax:
-        #        return
-        #    if event.button == 1:
-        #        self._vineyard_call_on_click( "A", "B")
-        #        if self._vineyard_current_points is not None:
-        #            self._vineyard_current_points.remove()
-        #        self._vineyard_current_points = ax.scatter(event.xdata, event.ydata, c="red", s=10)
-        #        ax.figure.canvas.draw_idle()
-        #        ax.figure.canvas.flush_events()
-
-        #self._vineyard_ax.figure.canvas.mpl_connect(
-        #    "button_press_event", vineyard_on_click
-        #)
-
-
 
     def plot_hilbert_function(self, xs, ys, max_dim, dimensions, colormap="binary"):
         ax = self._hilbert_ax
@@ -138,10 +120,6 @@ class PersistablePlot:
             aspect="auto",
             extent=[xs[0], xs[-1], ys[0], ys[-1]],
         )
-        # ntics = 10
-        # bounds = list(range(0, max_dim, max_dim // ntics))
-        # norm = mpl.colors.BoundaryNorm(bounds, cmap.N, extend="max")
-        # ax.figure.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap),cax=ax)
         im.set_clim(0, max_dim)
         ax.set_xlabel("distance scale")
         ax.set_ylabel("density threshold")
@@ -150,7 +128,6 @@ class PersistablePlot:
         ax.figure.canvas.flush_events()
 
     def _add_gap(self, artist, number):
-        #ax = self._vineyard_ax
 
         if isinstance(artist, list):
             assert len(artist) == 1
@@ -160,7 +137,6 @@ class PersistablePlot:
         self._gap_numbers += [number]
 
     def _add_line_index(self, artist, number):
-        #ax = self._vineyard_ax
 
         if isinstance(artist, list):
             assert len(artist) == 1
@@ -168,7 +144,6 @@ class PersistablePlot:
 
         self._lines += [artist]
         self._line_index += [number]
-
 
     def plot_prominence_vineyard(
         self,
@@ -210,20 +185,6 @@ class PersistablePlot:
         for t in times:
             artist = ax.vlines(x=t, ymin=0, ymax=ymax, color="black", alpha=0.1)
             self._add_line_index(artist, t)
-            #self.add_artist_labels(
-            #    artist,
-            #    vineyard._parameters[t][0],
-            #    #vineyard._parameters[t][0][1],
-            #    vineyard._parameters[t][1],
-            #    #vineyard._parameters[t][1][1],
-            #    #
-            #    #"parameter: (({:.3e},{:.3e}),({:.3e},{:.3e}))".format(
-            #    #    vineyard._parameters[t][0][0],
-            #    #    vineyard._parameters[t][0][1],
-            #    #    vineyard._parameters[t][1][0],
-            #    #    vineyard._parameters[t][1][1],
-            #    #),
-            #)
         ax.set_xticks([])
         ax.set_xlabel("parameter")
         if log_prominence:
@@ -232,24 +193,7 @@ class PersistablePlot:
         else:
             ax.set_ylabel("prominence")
         values = np.array(self._vineyard_values)
-        ax.set_ylim(
-            [np.quantile(values[values>0], 0.05), max(values)]
-        )
+        ax.set_ylim([np.quantile(values[values > 0], 0.05), max(values)])
         ax.set_title("Prominence vineyard")
         ax.figure.canvas.draw_idle()
         ax.figure.canvas.flush_events()
-
-
-# class ProminenceVineyardHoverManager:
-#    def __init__(self, ax):
-#        assert isinstance(ax, mpl.axes.Axes)
-#
-#        # def onclick(event):
-#        #    if event.button == 1:
-#        #         ax.scatter(event.xdata),event.ydata)
-#        # ax.figure.canvas.mpl_connect('button_press_event',onclick)
-#        # plt.show()
-#        # plt.draw()
-#
-#        self.ax = ax
-#
