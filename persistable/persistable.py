@@ -355,39 +355,6 @@ class _MetricProbabilitySpace:
         self._fitted_density_estimates = True
         self._kernel_estimate = np.cumsum(self._measure[self._nn_indices], axis=1)
 
-    def kde_at_index_width(self, point_index, neighbor_index, width=None):
-        if width is None:
-            width = self._nn_distance[point_index][neighbor_index]
-        return self._kernel_estimate[point_index][neighbor_index]
-
-    def kde(self, point_index, width):
-        width = np.array(width)
-        # find the index (resp. indices) of the neighbor (resp. neighbors)
-        # whose distance is (left) closest to width (resp. each element of width)
-        pos = np.searchsorted(self._nn_distance[point_index], width, side="right")
-        pos -= 1
-        # number of local neighbors of the point
-        n_neighbors = len(self._nn_distance[point_index])
-        # check if the k value we computed is exact or only a lower bound
-        # (in that case, annotate it in the out_of_range list)
-        if n_neighbors < self._size:
-            if width.ndim == 1:
-                # two conditions needed for out of bound
-                out_of_range = np.where(pos == n_neighbors - 1, True, False)
-                if self._maxs > self._tol:
-                    out_of_range_ = np.where(width > self._maxs, True, False)
-                    out_of_range = np.logical_and(out_of_range, out_of_range_)
-            else:
-                out_of_range = (
-                    pos == n_neighbors - 1 and self._nn_distance[pos] > self._maxs
-                )
-        else:
-            if width.ndim == 1:
-                out_of_range = np.full(len(width), False)
-            else:
-                out_of_range = False
-        return self.kde_at_index_width(point_index, pos, width), out_of_range
-
     def core_distance(self, point_index, s_intercept, k_intercept):
         i_indices = []
         if s_intercept != np.inf:
