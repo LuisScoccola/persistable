@@ -4,6 +4,8 @@ plugins = Cython.Coverage
 omit = 
     */test*
     *__init__.py
+    # for now, we are not testing the plotting module
+    persistable/plot.py
     # the following was not modified by us
     persistable/borrowed/dist_metrics.pyx
- 
+    persistable/borrowed/dist_metrics.pxd
