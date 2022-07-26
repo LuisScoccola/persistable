@@ -1,6 +1,7 @@
 # Authors: Luis Scoccola and Alexander Rolle
 # License: 3-clause BSD
 
+from operator import ne
 from turtle import color
 from .plot import PersistablePlot
 from .prominence_vineyard import ProminenceVineyard
@@ -19,6 +20,7 @@ from matplotlib import cm
 from sklearn.neighbors import KDTree, BallTree
 from sklearn.neighbors import KNeighborsClassifier
 from scipy.cluster.hierarchy import DisjointSet
+from scipy.stats import mode
 from joblib import Parallel, delayed
 
 
@@ -73,7 +75,14 @@ class Persistable:
         # the PersistablePlot object implementing the GUI
         self._plot = None
 
-    def quick_cluster(self, n_neighbors: int = 30, n_clusters_range=[3, 15]):
+    def quick_cluster(
+        self,
+        n_neighbors: int = 30,
+        n_clusters_range=[3, 15],
+        extend_clustering_by_hill_climbing=True,
+        n_iterations_extend_cluster=5,
+        n_neighbors_extend_cluster=10,
+    ):
         k = n_neighbors / self._mpspace._size
         s = self._connection_radius * 2
         hc = self._mpspace.lambda_linkage([0, k], [s, 0])
@@ -84,36 +93,37 @@ class Persistable:
 
         proms = _prominences(pd)
         if n_clusters_range[1] >= len(proms):
-            return self.cluster(n_clusters_range[1],[0,k],[s,0])
+            return self.cluster(n_clusters_range[1], [0, k], [s, 0])
         logproms = np.log(proms)
-        #print("logproms")
-        #print(logproms)
+        # print("logproms")
+        # print(logproms)
         peaks = logproms[:-1] - logproms[1:]
-        #print("peaks")
-        #print(peaks)
+        # print("peaks")
+        # print(peaks)
         min_clust = n_clusters_range[0] - 1
         max_clust = n_clusters_range[1] - 1
-        #print("highest peak")
-        #print(peaks[min_clust:max_clust][np.argmax(peaks[min_clust:max_clust])])
+        # print("highest peak")
+        # print(peaks[min_clust:max_clust][np.argmax(peaks[min_clust:max_clust])])
         num_clust = np.argmax(peaks[min_clust:max_clust]) + min_clust + 1
-        #print(num_clust)
-        return self.cluster( num_clust,[0,k],[s,0])
+        # print(num_clust)
+        return self.cluster(
+            num_clust,
+            [0, k],
+            [s, 0],
+            extend_clustering_by_hill_climbing=extend_clustering_by_hill_climbing,
+            n_iterations_extend_cluster=n_iterations_extend_cluster,
+            n_neighbors_extend_cluster=n_neighbors_extend_cluster,
+        )
 
-        #threshold = (proms[num_clust] + proms[num_clust + 1]) / 2
-        #print(
-        #    "Clustering with k = "
-        #    + str(k)
-        #    + ", s = "
-        #    + str(s)
-        #    + ", persistence threshold = "
-        #    + str(threshold)
-        #    + ", resulting in "
-        #    + str(num_clust + 1)
-        #    + " clusters."
-        #)
-        #return hc.persistence_based_flattening(threshold)
-
-    def cluster(self, n_clusters=None, start=None, end=None):
+    def cluster(
+        self,
+        n_clusters=None,
+        start=None,
+        end=None,
+        extend_clustering_by_hill_climbing=True,
+        n_iterations_extend_cluster=5,
+        n_neighbors_extend_cluster=10,
+    ):
         if start is None:
             if self._line_parameters is None:
                 raise Exception("No parameters for the line were given!")
@@ -123,9 +133,7 @@ class Persistable:
         else:
             start, end = np.array(start), np.array(end)
             if start.shape != (2,) or end.shape != (2,):
-                raise Exception(
-                    "start and end must both be points on the plane."
-                )
+                raise Exception("start and end must both be points on the plane.")
         if n_clusters <= 1:
             raise Exception("n_clusters must be greater than 1.")
         hc = self._mpspace.lambda_linkage(start, end)
@@ -134,8 +142,10 @@ class Persistable:
         # TODO: use sort from largest to smallest and make the logic below simpler
         spers = np.sort(pers)
         if n_clusters >= bd.shape[0]:
-            if n_clusters > bd.shape[0]: 
-                warnings.warn("n_clusters is larger than the number of gaps, using n_clusters = number of gaps.")
+            if n_clusters > bd.shape[0]:
+                warnings.warn(
+                    "n_clusters is larger than the number of gaps, using n_clusters = number of gaps."
+                )
             threshold = spers[0] / 2
         else:
             if np.abs(spers[-n_clusters] - spers[-(n_clusters + 1)]) < _TOL:
@@ -143,7 +153,12 @@ class Persistable:
                     "The gap selected is too small to produce a reliable clustering."
                 )
             threshold = (spers[-n_clusters] + spers[-(n_clusters + 1)]) / 2
-        return hc.persistence_based_flattening(threshold)
+        cl = hc.persistence_based_flattening(threshold)
+        if extend_clustering_by_hill_climbing:
+            cl = self._mpspace.extend_clustering_by_hill_climbing(
+                cl, n_iterations_extend_cluster, n_neighbors_extend_cluster
+            )
+        return cl
 
     def parameter_selection(
         self,
@@ -152,7 +167,7 @@ class Persistable:
         bounds_s=None,
         granularity=50,
         n_jobs=4,
-        #colormap="binary",
+        # colormap="binary",
     ):
         self._plot = PersistablePlot(
             self.update_vineyard_parameter_bounds,
@@ -167,7 +182,6 @@ class Persistable:
             n_jobs=n_jobs,
         )
         self._plot.plot_hilbert_function(ss, ks, max_dim, hf)
-        
 
     def prominence_vineyard(
         self,
@@ -218,7 +232,7 @@ class Persistable:
         bounds_s=None,
         granularity=50,
         n_jobs=4,
-        #colormap="binary",
+        # colormap="binary",
     ):
         if max_k is None:
             max_k = self._maxk
@@ -245,18 +259,11 @@ class Persistable:
         ks = np.linspace(0, max_k, granularity)
         hf = self._mpspace.hilbert_function(ks, ss, n_jobs=n_jobs)
         return ss, ks, max_dim, hf
-        #self._plot.plot_hilbert_function(ss, ks, max_dim, hf, colormap=colormap)
+        # self._plot.plot_hilbert_function(ss, ks, max_dim, hf, colormap=colormap)
 
     def update_line_parameters(self, gap, line_index):
         self._line_parameters = self._vineyard._parameters[line_index]
         self._n_clusters = gap
-        #print(
-        #    "Parameter "
-        #    + str(self._line_parameters)
-        #    + " and n_clusters = "
-        #    + str(gap)
-        #    + " selected."
-        #)
         return self._line_parameters, gap
 
     def update_vineyard_parameter_bounds(self, point):
@@ -268,16 +275,12 @@ class Persistable:
                 return self._vineyard_parameter_bounds
             self._vineyard_parameter_bounds["end1"] = point
         elif "start2" not in self._vineyard_parameter_bounds:
-            # st1 = self._vineyard_parameter_bounds["start1"]
-            # en1 = self._vineyard_parameter_bounds["end1"]
-            # if p[0] >= en1[0] or
             self._vineyard_parameter_bounds["start2"] = point
         elif "end2" not in self._vineyard_parameter_bounds:
             st2 = self._vineyard_parameter_bounds["start2"]
             if point[0] < st2[0] or point[1] > st2[1]:
                 return self._vineyard_parameter_bounds
             self._vineyard_parameter_bounds["end2"] = point
-            #print("Prominence vineyard with " + str(self._vineyard_parameter_bounds) + " selected.")
         else:
             self._vineyard_parameter_bounds = {}
             self.update_vineyard_parameter_bounds(point)
@@ -477,6 +480,7 @@ class _MetricProbabilitySpace:
         run_in_parallel = lambda startend: self.lambda_linkage(
             startend[0], startend[1]
         ).persistence_diagram(tol=tol)
+        # return [run_in_parallel(startend) for startend in startends]
         return Parallel(n_jobs=n_jobs)(
             delayed(run_in_parallel)(startend) for startend in startends
         )
@@ -506,6 +510,24 @@ class _MetricProbabilitySpace:
     def connection_radius(self, percentiles=1):
         hc = self.lambda_linkage([0, 0], [np.infty, 0])
         return np.quantile(hc._merges_heights, percentiles)
+
+    def extend_clustering_by_hill_climbing(self, labels, n_iterations, n_neighbors):
+        old_labels = labels
+        for _ in range(n_iterations):
+            new_labels = []
+            for x in range(self._size):
+                if old_labels[x] == -1:
+                    neighbors_labels = old_labels[self._nn_indices[x, :n_neighbors]]
+                    neighbors_labels = neighbors_labels[neighbors_labels != -1]
+                    if len(neighbors_labels) == 0:
+                        new_labels.append(-1)
+                    else:
+                        new_labels.append(mode(neighbors_labels)[0][0])
+                else:
+                    new_labels.append(old_labels[x])
+            new_labels = np.array(new_labels)
+            old_labels = new_labels
+        return new_labels
 
 
 class _HierarchicalClustering:

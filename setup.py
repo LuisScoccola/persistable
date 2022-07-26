@@ -72,7 +72,7 @@ if not HAVE_CYTHON:
 setup(
     name="persistable",
     version="0.3",
-    description="Implements the lambda-linkage hierarchical clustering algorithm and the persistence-based flattening of (Rolle and Scoccola, 2021)",
+    description="Persistable: persistent and stable clustering. Versatile density-based clustering for exploratory data analysis.",
     license="3-clause BSD",
     maintainer="Luis Scoccola",
     maintainer_email="luis.scoccola@gmail.com",
