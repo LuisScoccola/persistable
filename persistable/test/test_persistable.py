@@ -232,7 +232,7 @@ class TestPersistable(unittest.TestCase):
     def test_number_clusters(self):
         n_datapoints = 1000
         n_true_points = int(n_datapoints * 0.7)
-        X, _ = datasets.make_moons(n_samples=n_true_points, noise=0.1, random_state=0)
+        X, _ = datasets.make_blobs(n_samples=n_true_points, centers=6, cluster_std=[0.05,0.06,0.07,0.08,0.09,0.1], random_state=0)
         np.random.seed(0)
         n_noise = n_datapoints - n_true_points
         noise = (np.random.random_sample((n_noise, 2)) - 0.4) * 4
@@ -241,16 +241,29 @@ class TestPersistable(unittest.TestCase):
         p = Persistable(X)
         k0 = 0.05
         for s0 in np.linspace(0.1, 0.5, 5):
-            for i in list(range(11, 1)):
+            for i in list(range(2, 5)):
                 c = p.cluster(n_clusters=i, start=[0,k0], end=[s0,0])
-                print(s0, k0)
-                print(i, len(set(c[c >= 0])))
                 self.assertEqual(len(set(c[c >= 0])), i)
 
     def test_number_clusters_quick_cluster(self):
-        X, _ = datasets.make_moons(n_samples=1000, noise=0.1, random_state=0)
+        X, _ = datasets.make_blobs(n_samples=1000, centers=3, cluster_std=[0.05,0.06,0.07], random_state=1)
         p = Persistable(X)
-        self.assertEqual(max(p.quick_cluster()), 3)
+        c = p.quick_cluster()
+        self.assertEqual(len(set(c[c >= 0])), 3)
+
+        X, _ = datasets.make_blobs(n_samples=1000, centers=4, random_state=2)
+        p = Persistable(X)
+        c = p.quick_cluster(n_neighbors=50)
+        self.assertEqual(len(set(c[c >= 0])), 4)
+
+        X, _ = datasets.make_blobs(n_samples=1000, centers=5, random_state=3)
+        p = Persistable(X)
+        c = p.quick_cluster()
+        self.assertEqual(len(set(c[c >= 0])), 5)
+
+
+
+
 
 
 if __name__ == "__main__":

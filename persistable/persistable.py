@@ -83,24 +83,35 @@ class Persistable:
             return np.sort(np.abs(bd[:, 0] - bd[:, 1]))[::-1]
 
         proms = _prominences(pd)
+        if n_clusters_range[1] >= len(proms):
+            return self.cluster(n_clusters_range[1],[0,k],[s,0])
         logproms = np.log(proms)
+        #print("logproms")
+        #print(logproms)
         peaks = logproms[:-1] - logproms[1:]
-        min_clust = min(len(peaks), n_clusters_range[0] - 1)
-        max_clust = min(len(peaks), n_clusters_range[1])
-        num_clust = np.argmax(peaks[min_clust:max_clust]) + min_clust
-        threshold = (proms[num_clust] + proms[num_clust + 1]) / 2
-        print(
-            "Clustering with k = "
-            + str(k)
-            + ", s = "
-            + str(s)
-            + ", persistence threshold = "
-            + str(threshold)
-            + ", resulting in "
-            + str(num_clust + 1)
-            + " clusters."
-        )
-        return hc.persistence_based_flattening(threshold)
+        #print("peaks")
+        #print(peaks)
+        min_clust = n_clusters_range[0] - 1
+        max_clust = n_clusters_range[1] - 1
+        #print("highest peak")
+        #print(peaks[min_clust:max_clust][np.argmax(peaks[min_clust:max_clust])])
+        num_clust = np.argmax(peaks[min_clust:max_clust]) + min_clust + 1
+        #print(num_clust)
+        return self.cluster( num_clust,[0,k],[s,0])
+
+        #threshold = (proms[num_clust] + proms[num_clust + 1]) / 2
+        #print(
+        #    "Clustering with k = "
+        #    + str(k)
+        #    + ", s = "
+        #    + str(s)
+        #    + ", persistence threshold = "
+        #    + str(threshold)
+        #    + ", resulting in "
+        #    + str(num_clust + 1)
+        #    + " clusters."
+        #)
+        #return hc.persistence_based_flattening(threshold)
 
     def cluster(self, n_clusters=None, start=None, end=None):
         if start is None:
@@ -113,7 +124,7 @@ class Persistable:
             start, end = np.array(start), np.array(end)
             if start.shape != (2,) or end.shape != (2,):
                 raise Exception(
-                    "start and end must either both be points on the plane."
+                    "start and end must both be points on the plane."
                 )
         if n_clusters <= 1:
             raise Exception("n_clusters must be greater than 1.")
