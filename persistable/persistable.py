@@ -250,13 +250,14 @@ class Persistable:
     def update_line_parameters(self, gap, line_index):
         self._line_parameters = self._vineyard._parameters[line_index]
         self._n_clusters = gap
-        print(
-            "Parameter "
-            + str(self._line_parameters)
-            + " and n_clusters = "
-            + str(gap)
-            + " selected."
-        )
+        #print(
+        #    "Parameter "
+        #    + str(self._line_parameters)
+        #    + " and n_clusters = "
+        #    + str(gap)
+        #    + " selected."
+        #)
+        return self._line_parameters, gap
 
     def update_vineyard_parameter_bounds(self, point):
         if "start1" not in self._vineyard_parameter_bounds:
@@ -276,7 +277,7 @@ class Persistable:
             if point[0] < st2[0] or point[1] > st2[1]:
                 return self._vineyard_parameter_bounds
             self._vineyard_parameter_bounds["end2"] = point
-            print("Prominence vineyard with " + str(self._vineyard_parameter_bounds) + " selected.")
+            #print("Prominence vineyard with " + str(self._vineyard_parameter_bounds) + " selected.")
         else:
             self._vineyard_parameter_bounds = {}
             self.update_vineyard_parameter_bounds(point)

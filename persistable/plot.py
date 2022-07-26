@@ -53,29 +53,56 @@ class PersistablePlot:
                     [event.xdata, event.ydata]
                 )
                 points = np.array(list(vineyard_parameters.values()))
-                if self._hilbert_current_points_plotted_on is not None: 
-                    self._hilbert_current_points_plotted_on.remove() 
-                if len(self._hilbert_current_lines_plotted_on) > 0: 
+                if self._hilbert_current_points_plotted_on is not None:
+                    self._hilbert_current_points_plotted_on.remove()
+                if len(self._hilbert_current_lines_plotted_on) > 0:
                     for x in self._hilbert_current_lines_plotted_on:
-                        x.pop(0).remove() 
+                        x.pop(0).remove()
                     self._hilbert_current_lines_plotted_on = []
-                if self._hilbert_current_polygon_plotted_on is not None: 
+                if self._hilbert_current_polygon_plotted_on is not None:
                     self._hilbert_current_polygon_plotted_on.remove()
                     self._hilbert_current_polygon_plotted_on = None
                 self._hilbert_current_points_plotted_on = ax.scatter(
                     points[:, 0], points[:, 1], c="blue", s=10
                 )
-                if len(points)>=2:
-                    self._hilbert_current_lines_plotted_on.append(ax.plot(
-                        [points[0, 0],points[1, 0]], [points[0, 1],points[1, 1]], c="blue", linewidth=1
-                    ))
-                if len(points)>=4:
-                    self._hilbert_current_lines_plotted_on.append(ax.plot(
-                        [points[2, 0],points[3, 0]], [points[2, 1],points[3, 1]], c="blue", linewidth=1
-                    ))
-                    polygon = Polygon([points[0],points[1],points[3],points[2]], True, color="red", alpha=0.1)
+                if len(points) >= 2:
+                    self._hilbert_current_lines_plotted_on.append(
+                        ax.plot(
+                            [points[0, 0], points[1, 0]],
+                            [points[0, 1], points[1, 1]],
+                            c="blue",
+                            linewidth=1,
+                        )
+                    )
+                if len(points) >= 4:
+                    self._hilbert_current_lines_plotted_on.append(
+                        ax.plot(
+                            [points[2, 0], points[3, 0]],
+                            [points[2, 1], points[3, 1]],
+                            c="blue",
+                            linewidth=1,
+                        )
+                    )
+                    polygon = Polygon(
+                        [points[0], points[1], points[3], points[2]],
+                        True,
+                        color="red",
+                        alpha=0.1,
+                    )
                     ax.add_patch(polygon)
                     self._hilbert_current_polygon_plotted_on = polygon
+                if len(points) >= 4:
+                    info = "Prominence vineyard with ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}) to ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}) selected.".format(
+                        points[0, 0],
+                        points[0, 1],
+                        points[1, 0],
+                        points[1, 1],
+                        points[2, 0],
+                        points[2, 1],
+                        points[3, 0],
+                        points[3, 1],
+                    )
+                    ax.format_coord = lambda x, y: info
 
                 ax.figure.canvas.draw_idle()
                 ax.figure.canvas.flush_events()
@@ -121,17 +148,26 @@ class PersistablePlot:
                     # info += "line: " + str(lbl) + ";    "
 
                 if gap is not None and line_index is not None:
-                    self._vineyard_call_on_click(gap + 1, line_index)
+                    parameters, n_clusters = self._vineyard_call_on_click(
+                        gap + 1, line_index
+                    )
                     if self._vineyard_current_points_plotted_on is not None:
                         self._vineyard_current_points_plotted_on.remove()
                     self._vineyard_current_points_plotted_on = ax.scatter(
                         [event.xdata], [event.ydata], c="blue", s=40
                     )
+
+                    info = "Parameter ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}), with n_clusters = {:d} selected.".format(
+                        parameters[0][0],
+                        parameters[0][1],
+                        parameters[1][0],
+                        parameters[1][1],
+                        n_clusters,
+                    )
+                    ax.format_coord = lambda x, y: info
+
                     ax.figure.canvas.draw_idle()
                     ax.figure.canvas.flush_events()
-
-
- 
 
         self._vineyard_ax.figure.canvas.mpl_connect(
             "button_press_event", vineyard_on_click
@@ -144,7 +180,6 @@ class PersistablePlot:
         self._ax_button = plt.axes([0.05, 0.05, 0.15, 0.075])
         self._button_compute_and_plot = Button(self._ax_button, "Compute vineyard")
         self._button_compute_and_plot.on_clicked(plot_prominence_vineyard_button)
-
 
     def plot_hilbert_function(self, xs, ys, max_dim, dimensions, colormap="binary"):
         ax = self._hilbert_ax
