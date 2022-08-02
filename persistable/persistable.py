@@ -87,6 +87,8 @@ class Persistable:
         s = self._connection_radius * 2
         hc = self._mpspace.lambda_linkage([0, k], [s, 0])
         pd = hc.persistence_diagram()
+        if pd.shape[0] == 0:
+            return np.full(self._mpspace._size, -1)
 
         def _prominences(bd):
             return np.sort(np.abs(bd[:, 0] - bd[:, 1]))[::-1]
@@ -134,8 +136,8 @@ class Persistable:
             start, end = np.array(start), np.array(end)
             if start.shape != (2,) or end.shape != (2,):
                 raise Exception("start and end must both be points on the plane.")
-        if n_clusters <= 1:
-            raise Exception("n_clusters must be greater than 1.")
+        if n_clusters < 1:
+            raise Exception("n_clusters must be greater than 0.")
         hc = self._mpspace.lambda_linkage(start, end)
         bd = hc.persistence_diagram()
         pers = np.abs(bd[:, 0] - bd[:, 1])
@@ -487,7 +489,10 @@ class _MetricProbabilitySpace:
 
     def lambda_linkage_prominence_vineyard(self, startends, n_jobs=4, tol=_TOL):
         def _prominences(bd):
-            return np.sort(np.abs(bd[:, 0] - bd[:, 1]))[::-1]
+            if bd.shape[0] == 0:
+                return np.array([])
+            else:
+                return np.sort(np.abs(bd[:, 0] - bd[:, 1]))[::-1]
 
         pds = self.lambda_linkage_vineyard(startends, n_jobs, tol=tol)
         return [_prominences(pd) for pd in pds]
@@ -727,4 +732,7 @@ class _HierarchicalClustering:
             if cluster_reps[i] == i:
                 pd.append([heights[i], end])
         pd = np.array(pd)
-        return pd[np.abs(pd[:, 0] - pd[:, 1]) > tol] - self._start
+        if pd.shape[0] == 0:
+            return np.array([])
+        else :
+            return pd[np.abs(pd[:, 0] - pd[:, 1]) > tol] - self._start

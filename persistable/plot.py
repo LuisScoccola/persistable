@@ -236,6 +236,13 @@ class PersistablePlot:
         times = vineyard._parameter_indices
         vines = vineyard._vineyard_to_vines()
         num_vines = min(len(vines), vineyard._firstn)
+
+        ax.set_title("prominence vineyard")
+
+        # TODO: warn that vineyard is empty
+        if num_vines == 0:
+            return
+
         cmap = cm.get_cmap(colormap)
         colors = list(cmap(np.linspace(0, 1, num_vines)[::-1]))
         last = colors[-1]
@@ -246,10 +253,10 @@ class PersistablePlot:
                     times, vines[i][1], vines[i + 1][1], color=colors[i]
                 )
                 self._add_gap(artist, i + 1)
-            ax.fill_between(
+            artist = ax.fill_between(
                 times, vines[len(vines) - 1][1], 0, color=colors[len(vines) - 1]
             )
-            self._add_gap(artist, i + 1)
+            self._add_gap(artist, len(vines))
         for i, tv in enumerate(vines):
             times, vine = tv
             for vine_part, time_part in vineyard._vine_parts(vine):
@@ -270,7 +277,7 @@ class PersistablePlot:
         else:
             ax.set_ylabel("prominence")
         values = np.array(self._vineyard_values)
+
         ax.set_ylim([np.quantile(values[values > 0], 0.05), max(values)])
-        ax.set_title("Prominence vineyard")
         ax.figure.canvas.draw_idle()
         ax.figure.canvas.flush_events()
