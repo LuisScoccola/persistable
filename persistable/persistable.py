@@ -25,7 +25,6 @@ from joblib import Parallel, delayed
 
 
 _TOL = 1e-08
-_DEFAULT_FINAL_K = 0.2
 
 
 class Persistable:
@@ -79,9 +78,9 @@ class Persistable:
         self,
         n_neighbors: int = 30,
         n_clusters_range=[3, 15],
-        extend_clustering_by_hill_climbing=True,
-        n_iterations_extend_cluster=5,
-        n_neighbors_extend_cluster=10,
+        extend_clustering_by_hill_climbing=False,
+        n_iterations_extend_cluster=10,
+        n_neighbors_extend_cluster=5,
     ):
         k = n_neighbors / self._mpspace._size
         s = self._connection_radius * 2
@@ -122,9 +121,9 @@ class Persistable:
         n_clusters=None,
         start=None,
         end=None,
-        extend_clustering_by_hill_climbing=True,
-        n_iterations_extend_cluster=5,
-        n_neighbors_extend_cluster=10,
+        extend_clustering_by_hill_climbing=False,
+        n_iterations_extend_cluster=10,
+        n_neighbors_extend_cluster=5,
     ):
         if start is None:
             if self._line_parameters is None:
