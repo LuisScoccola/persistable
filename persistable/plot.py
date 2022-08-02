@@ -21,7 +21,11 @@ class PersistablePlot:
             self._fig_num = fig.number
 
     def __init__(
-        self, hilbert_call_on_click, vineyard_call_on_click, compute_prominence_vineyard
+        self,
+        update_vineyard_parameter_bounds,
+        clear_vineyard_parameter_bounds,
+        update_line_parameters,
+        compute_prominence_vineyard,
     ):
         self._fig_num = -1
         self._fig = None
@@ -32,8 +36,9 @@ class PersistablePlot:
         self._hilbert_current_polygon_plotted_on = None
         self._vineyard_current_points_plotted_on = None
         self._vineyard_values = []
-        self._hilbert_call_on_click = hilbert_call_on_click
-        self._vineyard_call_on_click = vineyard_call_on_click
+        self._update_vineyard_parameter_bounds = update_vineyard_parameter_bounds
+        self._clear_vineyard_parameter_bounds = clear_vineyard_parameter_bounds
+        self._update_line_parameters = update_line_parameters
         self._compute_prominence_vineyard = compute_prominence_vineyard
 
         # prominence vineyard
@@ -44,142 +49,161 @@ class PersistablePlot:
 
         self._init_plot()
 
-        def hilbert_on_click(event):
-            ax = self._hilbert_ax
-            if event.inaxes != ax:
-                return
-            if event.button == 1:
-                vineyard_parameters = self._hilbert_call_on_click(
-                    [event.xdata, event.ydata]
+        self._hilbert_ax.figure.canvas.mpl_connect(
+            "button_press_event", self._hilbert_on_parameter_selection
+        )
+
+        self._vineyard_ax.figure.canvas.mpl_connect(
+            "button_press_event", self._vineyard_on_parameter_selection
+        )
+
+        self._ax_button_clear = plt.axes([0.10, 0., 0.15, 0.075])
+        self._button_clear_and_plot = Button(self._ax_button_clear, "clear parameters")
+        self._button_clear_and_plot.on_clicked(self._hilbert_on_clear_parameter)
+
+        self._ax_button_compute_vineyard = plt.axes([0.30, 0., 0.15, 0.075])
+        self._button_compute_and_plot = Button(self._ax_button_compute_vineyard, "compute vineyard")
+        self._button_compute_and_plot.on_clicked(self._plot_prominence_vineyard_button)
+
+
+
+    def _plot_prominence_vineyard_button(self, event):
+        vineyard = self._compute_prominence_vineyard()
+        self.plot_prominence_vineyard(vineyard)
+
+    def _vineyard_on_parameter_selection(self, event):
+        ax = self._vineyard_ax
+        if event.inaxes != ax:
+            return
+
+        if event.button == 1:
+            # info = ""
+
+            # gaps
+            gap = None
+            aas = []
+            for aa, artist in enumerate(self._gaps):
+                cont, _ = artist.contains(event)
+                if not cont:
+                    continue
+                aas.append(aa)
+            if len(aas) > 0:
+                # aa = aas[-1]
+                gap = aas[-1]
+                # lbl = self._gap_numbers[aa]
+                # info += "gap: " + str(lbl) + ";    "
+
+            # lines
+            line_index = None
+            aas = []
+            for aa, artist in enumerate(self._lines):
+                cont, _ = artist.contains(event)
+                if not cont:
+                    continue
+                aas.append(aa)
+            if len(aas) > 0:
+                # aa = aas[-1]
+                line_index = aas[-1]
+                # lbl = self._line_index[aa]
+                # info += "line: " + str(lbl) + ";    "
+
+            if gap is not None and line_index is not None:
+                parameters, n_clusters = self._update_line_parameters(
+                    gap + 1, line_index
                 )
-                points = np.array(list(vineyard_parameters.values()))
-                if self._hilbert_current_points_plotted_on is not None:
-                    self._hilbert_current_points_plotted_on.remove()
-                if len(self._hilbert_current_lines_plotted_on) > 0:
-                    for x in self._hilbert_current_lines_plotted_on:
-                        x.pop(0).remove()
-                    self._hilbert_current_lines_plotted_on = []
-                if self._hilbert_current_polygon_plotted_on is not None:
-                    self._hilbert_current_polygon_plotted_on.remove()
-                    self._hilbert_current_polygon_plotted_on = None
-                self._hilbert_current_points_plotted_on = ax.scatter(
-                    points[:, 0], points[:, 1], c="blue", s=10
+                if self._vineyard_current_points_plotted_on is not None:
+                    self._vineyard_current_points_plotted_on.remove()
+                self._vineyard_current_points_plotted_on = ax.scatter(
+                    [event.xdata], [event.ydata], c="blue", s=40
                 )
-                if len(points) >= 2:
-                    self._hilbert_current_lines_plotted_on.append(
-                        ax.plot(
-                            [points[0, 0], points[1, 0]],
-                            [points[0, 1], points[1, 1]],
-                            c="blue",
-                            linewidth=1,
-                        )
-                    )
-                if len(points) >= 4:
-                    self._hilbert_current_lines_plotted_on.append(
-                        ax.plot(
-                            [points[2, 0], points[3, 0]],
-                            [points[2, 1], points[3, 1]],
-                            c="blue",
-                            linewidth=1,
-                        )
-                    )
-                    polygon = Polygon(
-                        [points[0], points[1], points[3], points[2]],
-                        True,
-                        color="red",
-                        alpha=0.1,
-                    )
-                    ax.add_patch(polygon)
-                    self._hilbert_current_polygon_plotted_on = polygon
-                if len(points) >= 4:
-                    info = "Prominence vineyard with ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}) to ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}) selected.".format(
-                        points[0, 0],
-                        points[0, 1],
-                        points[1, 0],
-                        points[1, 1],
-                        points[2, 0],
-                        points[2, 1],
-                        points[3, 0],
-                        points[3, 1],
-                    )
-                    ax.format_coord = lambda x, y: info
+
+                info = "Parameter ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}), with n_clusters = {:d} selected.".format(
+                    parameters[0][0],
+                    parameters[0][1],
+                    parameters[1][0],
+                    parameters[1][1],
+                    n_clusters,
+                )
+                ax.format_coord = lambda x, y: info
 
                 ax.figure.canvas.draw_idle()
                 ax.figure.canvas.flush_events()
 
-        self._hilbert_ax.figure.canvas.mpl_connect(
-            "button_press_event", hilbert_on_click
+    def _clear_hilbert_parameters(self):
+        if self._hilbert_current_points_plotted_on is not None:
+            self._hilbert_current_points_plotted_on.remove()
+            self._hilbert_current_points_plotted_on = None
+        if len(self._hilbert_current_lines_plotted_on) > 0:
+            for x in self._hilbert_current_lines_plotted_on:
+                x.pop(0).remove()
+            self._hilbert_current_lines_plotted_on = []
+        if self._hilbert_current_polygon_plotted_on is not None:
+            self._hilbert_current_polygon_plotted_on.remove()
+            self._hilbert_current_polygon_plotted_on = None
+
+    def _draw_on_hilbert(self, vineyard_parameters):
+        ax = self._hilbert_ax
+        points = np.array(list(vineyard_parameters.values()))
+
+        self._hilbert_current_points_plotted_on = ax.scatter(
+            points[:, 0], points[:, 1], c="blue", s=10
         )
+        if len(points) >= 2:
+            self._hilbert_current_lines_plotted_on.append(
+                ax.plot(
+                    [points[0, 0], points[1, 0]],
+                    [points[0, 1], points[1, 1]],
+                    c="blue",
+                    linewidth=1,
+                )
+            )
+        if len(points) >= 4:
+            self._hilbert_current_lines_plotted_on.append(
+                ax.plot(
+                    [points[2, 0], points[3, 0]],
+                    [points[2, 1], points[3, 1]],
+                    c="blue",
+                    linewidth=1,
+                )
+            )
+            polygon = Polygon(
+                [points[0], points[1], points[3], points[2]],
+                True,
+                color="red",
+                alpha=0.1,
+            )
+            ax.add_patch(polygon)
+            self._hilbert_current_polygon_plotted_on = polygon
+        if len(points) >= 4:
+            info = "Prominence vineyard with ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}) to ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}) selected.".format(
+                points[0, 0],
+                points[0, 1],
+                points[1, 0],
+                points[1, 1],
+                points[2, 0],
+                points[2, 1],
+                points[3, 0],
+                points[3, 1],
+            )
+            ax.format_coord = lambda x, y: info
 
-        def vineyard_on_click(event):
-            ax = self._vineyard_ax
-            if event.inaxes != ax:
-                return
+        ax.figure.canvas.draw_idle()
+        ax.figure.canvas.flush_events()
 
-            if event.button == 1:
-                # info = ""
+    def _hilbert_on_parameter_selection(self, event):
+        ax = self._hilbert_ax
+        if event.inaxes != ax:
+            return
+        if event.button == 1:
+            vineyard_parameters = self._update_vineyard_parameter_bounds(
+                [event.xdata, event.ydata]
+            )
+            self._clear_hilbert_parameters()
+            self._draw_on_hilbert(vineyard_parameters)
 
-                # gaps
-                gap = None
-                aas = []
-                for aa, artist in enumerate(self._gaps):
-                    cont, _ = artist.contains(event)
-                    if not cont:
-                        continue
-                    aas.append(aa)
-                if len(aas) > 0:
-                    # aa = aas[-1]
-                    gap = aas[-1]
-                    # lbl = self._gap_numbers[aa]
-                    # info += "gap: " + str(lbl) + ";    "
-
-                # lines
-                line_index = None
-                aas = []
-                for aa, artist in enumerate(self._lines):
-                    cont, _ = artist.contains(event)
-                    if not cont:
-                        continue
-                    aas.append(aa)
-                if len(aas) > 0:
-                    # aa = aas[-1]
-                    line_index = aas[-1]
-                    # lbl = self._line_index[aa]
-                    # info += "line: " + str(lbl) + ";    "
-
-                if gap is not None and line_index is not None:
-                    parameters, n_clusters = self._vineyard_call_on_click(
-                        gap + 1, line_index
-                    )
-                    if self._vineyard_current_points_plotted_on is not None:
-                        self._vineyard_current_points_plotted_on.remove()
-                    self._vineyard_current_points_plotted_on = ax.scatter(
-                        [event.xdata], [event.ydata], c="blue", s=40
-                    )
-
-                    info = "Parameter ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}), with n_clusters = {:d} selected.".format(
-                        parameters[0][0],
-                        parameters[0][1],
-                        parameters[1][0],
-                        parameters[1][1],
-                        n_clusters,
-                    )
-                    ax.format_coord = lambda x, y: info
-
-                    ax.figure.canvas.draw_idle()
-                    ax.figure.canvas.flush_events()
-
-        self._vineyard_ax.figure.canvas.mpl_connect(
-            "button_press_event", vineyard_on_click
-        )
-
-        def plot_prominence_vineyard_button(event):
-            vineyard = self._compute_prominence_vineyard()
-            self.plot_prominence_vineyard(vineyard)
-
-        self._ax_button = plt.axes([0.05, 0.05, 0.15, 0.075])
-        self._button_compute_and_plot = Button(self._ax_button, "Compute vineyard")
-        self._button_compute_and_plot.on_clicked(plot_prominence_vineyard_button)
+    def _hilbert_on_clear_parameter(self, event):
+        _ = self._clear_vineyard_parameter_bounds()
+        self._clear_hilbert_parameters()
 
     def plot_hilbert_function(self, xs, ys, max_dim, dimensions, colormap="binary"):
         ax = self._hilbert_ax
@@ -197,7 +221,7 @@ class PersistablePlot:
         ax.figure.canvas.draw_idle()
         ax.figure.canvas.flush_events()
 
-    def _add_gap(self, artist, number):
+    def _add_gap_prominence_vineyard(self, artist, number):
 
         if isinstance(artist, list):
             assert len(artist) == 1
@@ -206,7 +230,7 @@ class PersistablePlot:
         self._gaps += [artist]
         self._gap_numbers += [number]
 
-    def _add_line_index(self, artist, number):
+    def _add_line_prominence_vineyard(self, artist, number):
 
         if isinstance(artist, list):
             assert len(artist) == 1
@@ -252,11 +276,11 @@ class PersistablePlot:
                 artist = ax.fill_between(
                     times, vines[i][1], vines[i + 1][1], color=colors[i]
                 )
-                self._add_gap(artist, i + 1)
+                self._add_gap_prominence_vineyard(artist, i + 1)
             artist = ax.fill_between(
                 times, vines[len(vines) - 1][1], 0, color=colors[len(vines) - 1]
             )
-            self._add_gap(artist, len(vines))
+            self._add_gap_prominence_vineyard(artist, len(vines))
         for i, tv in enumerate(vines):
             times, vine = tv
             for vine_part, time_part in vineyard._vine_parts(vine):
@@ -268,7 +292,7 @@ class PersistablePlot:
         ymax = max(self._vineyard_values)
         for t in times:
             artist = ax.vlines(x=t, ymin=0, ymax=ymax, color="black", alpha=0.1)
-            self._add_line_index(artist, t)
+            self._add_line_prominence_vineyard(artist, t)
         ax.set_xticks([])
         ax.set_xlabel("parameter")
         if log_prominence:

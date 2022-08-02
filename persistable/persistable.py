@@ -172,8 +172,9 @@ class Persistable:
     ):
         self._plot = PersistablePlot(
             self.update_vineyard_parameter_bounds,
+            self.clear_vineyard_parameter_bounds,
             self.update_line_parameters,
-            self.prominence_vineyard,
+            self.compute_prominence_vineyard,
         )
         ss, ks, max_dim, hf = self.hilbert_function(
             max_dim=max_dim,
@@ -184,7 +185,7 @@ class Persistable:
         )
         self._plot.plot_hilbert_function(ss, ks, max_dim, hf)
 
-    def prominence_vineyard(
+    def compute_prominence_vineyard(
         self,
         start_end1=None,
         start_end2=None,
@@ -266,6 +267,10 @@ class Persistable:
         self._line_parameters = self._vineyard._parameters[line_index]
         self._n_clusters = gap
         return self._line_parameters, gap
+
+    def clear_vineyard_parameter_bounds(self):
+        self._vineyard_parameter_bounds = {}
+        return self._vineyard_parameter_bounds
 
     def update_vineyard_parameter_bounds(self, point):
         if "start1" not in self._vineyard_parameter_bounds:
