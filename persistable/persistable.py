@@ -1,10 +1,8 @@
 # Authors: Luis Scoccola and Alexander Rolle
 # License: 3-clause BSD
 
-from operator import ne
-from turtle import color
-from .plot import PersistablePlot
-from .prominence_vineyard import ProminenceVineyard
+#from .plot import PersistablePlot
+from ._prominence_vineyard import ProminenceVineyard
 from .borrowed._hdbscan_boruvka import (
     KDTreeBoruvkaAlgorithm,
     BallTreeBoruvkaAlgorithm,
@@ -15,10 +13,7 @@ from .borrowed.dist_metrics import DistanceMetric
 from .aux import lazy_intersection
 import numpy as np
 import warnings
-import matplotlib.pyplot as plt
-from matplotlib import cm
 from sklearn.neighbors import KDTree, BallTree
-from sklearn.neighbors import KNeighborsClassifier
 from scipy.cluster.hierarchy import DisjointSet
 from scipy.stats import mode
 from joblib import Parallel, delayed
@@ -161,29 +156,7 @@ class Persistable:
             )
         return cl
 
-    def parameter_selection(
-        self,
-        max_dim=20,
-        max_k=None,
-        bounds_s=None,
-        granularity=50,
-        n_jobs=4,
-        # colormap="binary",
-    ):
-        self._plot = PersistablePlot(
-            self.update_vineyard_parameter_bounds,
-            self.clear_vineyard_parameter_bounds,
-            self.update_line_parameters,
-            self.compute_prominence_vineyard,
-        )
-        ss, ks, max_dim, hf = self.hilbert_function(
-            max_dim=max_dim,
-            max_k=max_k,
-            bounds_s=bounds_s,
-            granularity=granularity,
-            n_jobs=n_jobs,
-        )
-        self._plot.plot_hilbert_function(ss, ks, max_dim, hf)
+
 
     def compute_prominence_vineyard(
         self,
@@ -261,7 +234,6 @@ class Persistable:
         ks = np.linspace(0, max_k, granularity)
         hf = self._mpspace.hilbert_function(ks, ss, n_jobs=n_jobs)
         return ss, ks, max_dim, hf
-        # self._plot.plot_hilbert_function(ss, ks, max_dim, hf, colormap=colormap)
 
     def update_line_parameters(self, gap, line_index):
         self._line_parameters = self._vineyard._parameters[line_index]
@@ -292,9 +264,7 @@ class Persistable:
             self.update_vineyard_parameter_bounds(point)
         return self._vineyard_parameter_bounds
 
-    def persistence_diagram(self, s0, k0):
-        hc = self._mpspace.lambda_linkage([0, k0], [s0, 0])
-        return hc.persistence_diagram()
+
 
 
 class _MetricProbabilitySpace:

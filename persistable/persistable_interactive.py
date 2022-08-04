@@ -5,12 +5,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.widgets import Button
-
 from matplotlib.patches import Polygon
-from matplotlib.collections import PatchCollection
 
 
-class PersistablePlot:
+class PersistableInteractive:
     def _init_plot(self):
         if not plt.fignum_exists(self._fig_num):
             fig, axes = plt.subplots(1, 2, figsize=(10, 4))
@@ -22,10 +20,7 @@ class PersistablePlot:
 
     def __init__(
         self,
-        update_vineyard_parameter_bounds,
-        clear_vineyard_parameter_bounds,
-        update_line_parameters,
-        compute_prominence_vineyard,
+        persistable
     ):
         self._fig_num = -1
         self._fig = None
@@ -36,10 +31,7 @@ class PersistablePlot:
         self._hilbert_current_polygon_plotted_on = None
         self._vineyard_current_points_plotted_on = None
         self._vineyard_values = []
-        self._update_vineyard_parameter_bounds = update_vineyard_parameter_bounds
-        self._clear_vineyard_parameter_bounds = clear_vineyard_parameter_bounds
-        self._update_line_parameters = update_line_parameters
-        self._compute_prominence_vineyard = compute_prominence_vineyard
+        self._persistable = persistable
 
         # prominence vineyard
         self._gaps = []
@@ -49,6 +41,7 @@ class PersistablePlot:
 
         self._init_plot()
 
+
         self._hilbert_ax.figure.canvas.mpl_connect(
             "button_press_event", self._hilbert_on_parameter_selection
         )
@@ -57,18 +50,120 @@ class PersistablePlot:
             "button_press_event", self._vineyard_on_parameter_selection
         )
 
-        self._ax_button_clear = plt.axes([0.10, 0., 0.15, 0.075])
+        self._ax_button_clear = plt.axes([0.10, 0.0, 0.15, 0.075])
         self._button_clear_and_plot = Button(self._ax_button_clear, "clear parameters")
         self._button_clear_and_plot.on_clicked(self._hilbert_on_clear_parameter)
 
-        self._ax_button_compute_vineyard = plt.axes([0.30, 0., 0.15, 0.075])
-        self._button_compute_and_plot = Button(self._ax_button_compute_vineyard, "compute vineyard")
+        self._ax_button_compute_vineyard = plt.axes([0.30, 0.0, 0.15, 0.075])
+        self._button_compute_and_plot = Button(
+            self._ax_button_compute_vineyard, "compute vineyard"
+        )
         self._button_compute_and_plot.on_clicked(self._plot_prominence_vineyard_button)
 
+    def parameter_selection(
+        self,
+        max_dim=20,
+        max_k=None,
+        bounds_s=None,
+        granularity=50,
+        n_jobs=4,
+    ):
+        ss, ks, max_dim, hf = self._persistable.hilbert_function(
+            max_dim=max_dim,
+            max_k=max_k,
+            bounds_s=bounds_s,
+            granularity=granularity,
+            n_jobs=n_jobs,
+        )
+        self.plot_hilbert_function(ss, ks, max_dim, hf)
 
+    def plot_hilbert_function(self, xs, ys, max_dim, dimensions, colormap="binary"):
+        ax = self._hilbert_ax
+        cmap = cm.get_cmap(colormap)
+        im = ax.imshow(
+            dimensions[::-1],
+            cmap=cmap,
+            aspect="auto",
+            extent=[xs[0], xs[-1], ys[0], ys[-1]],
+        )
+        im.set_clim(0, max_dim)
+        ax.set_xlabel("distance scale")
+        ax.set_ylabel("density threshold")
+        ax.set_title("component counting function")
+        ax.figure.canvas.draw_idle()
+        ax.figure.canvas.flush_events()
+
+
+
+    def plot_prominence_vineyard(
+        self,
+        vineyard,
+        interpolate=True,
+        areas=True,
+        points=False,
+        log_prominence=True,
+        colormap="viridis",
+    ):
+        ax = self._vineyard_ax
+
+        # TODO: abstract this
+        ax.clear()
+        self._gaps = []
+        self._gap_numbers = []
+        self._lines = []
+        self._line_index = []
+
+        times = vineyard._parameter_indices
+        vines = vineyard._vineyard_to_vines()
+        num_vines = min(len(vines), vineyard._firstn)
+
+        ax.set_title("prominence vineyard")
+
+        # TODO: warn that vineyard is empty
+        if num_vines == 0:
+            return
+
+        cmap = cm.get_cmap(colormap)
+        colors = list(cmap(np.linspace(0, 1, num_vines)[::-1]))
+        last = colors[-1]
+        colors.extend([last for _ in range(num_vines - vineyard._firstn)])
+        if areas:
+            for i in range(len(vines) - 1):
+                artist = ax.fill_between(
+                    times, vines[i][1], vines[i + 1][1], color=colors[i]
+                )
+                self._add_gap_prominence_vineyard(artist, i + 1)
+            artist = ax.fill_between(
+                times, vines[len(vines) - 1][1], 0, color=colors[len(vines) - 1]
+            )
+            self._add_gap_prominence_vineyard(artist, len(vines))
+        for i, tv in enumerate(vines):
+            times, vine = tv
+            for vine_part, time_part in vineyard._vine_parts(vine):
+                if interpolate:
+                    artist = ax.plot(time_part, vine_part, c="black")
+                if points:
+                    artist = ax.plot(time_part, vine_part, "o", c="black")
+                self._vineyard_values.extend(vine_part)
+        ymax = max(self._vineyard_values)
+        for t in times:
+            artist = ax.vlines(x=t, ymin=0, ymax=ymax, color="black", alpha=0.1)
+            self._add_line_prominence_vineyard(artist, t)
+        ax.set_xticks([])
+        ax.set_xlabel("parameter")
+        if log_prominence:
+            ax.set_ylabel("log-prominence")
+            ax.set_yscale("log")
+        else:
+            ax.set_ylabel("prominence")
+        values = np.array(self._vineyard_values)
+
+        ax.set_ylim([np.quantile(values[values > 0], 0.05), max(values)])
+        ax.figure.canvas.draw_idle()
+        ax.figure.canvas.flush_events()
 
     def _plot_prominence_vineyard_button(self, event):
-        vineyard = self._compute_prominence_vineyard()
+        vineyard = self._persistable.compute_prominence_vineyard()
         self.plot_prominence_vineyard(vineyard)
 
     def _vineyard_on_parameter_selection(self, event):
@@ -108,7 +203,7 @@ class PersistablePlot:
                 # info += "line: " + str(lbl) + ";    "
 
             if gap is not None and line_index is not None:
-                parameters, n_clusters = self._update_line_parameters(
+                parameters, n_clusters = self._persistable.update_line_parameters(
                     gap + 1, line_index
                 )
                 if self._vineyard_current_points_plotted_on is not None:
@@ -195,31 +290,15 @@ class PersistablePlot:
         if event.inaxes != ax:
             return
         if event.button == 1:
-            vineyard_parameters = self._update_vineyard_parameter_bounds(
+            vineyard_parameters = self._persistable.update_vineyard_parameter_bounds(
                 [event.xdata, event.ydata]
             )
             self._clear_hilbert_parameters()
             self._draw_on_hilbert(vineyard_parameters)
 
     def _hilbert_on_clear_parameter(self, event):
-        _ = self._clear_vineyard_parameter_bounds()
-        self._clear_hilbert_parameters()
-
-    def plot_hilbert_function(self, xs, ys, max_dim, dimensions, colormap="binary"):
-        ax = self._hilbert_ax
-        cmap = cm.get_cmap(colormap)
-        im = ax.imshow(
-            dimensions[::-1],
-            cmap=cmap,
-            aspect="auto",
-            extent=[xs[0], xs[-1], ys[0], ys[-1]],
-        )
-        im.set_clim(0, max_dim)
-        ax.set_xlabel("distance scale")
-        ax.set_ylabel("density threshold")
-        ax.set_title("component counting function")
-        ax.figure.canvas.draw_idle()
-        ax.figure.canvas.flush_events()
+        _ = self._persistable.clear_vineyard_parameter_bounds()
+        self._persistable.clear_hilbert_parameters()
 
     def _add_gap_prominence_vineyard(self, artist, number):
 
@@ -239,69 +318,3 @@ class PersistablePlot:
         self._lines += [artist]
         self._line_index += [number]
 
-    def plot_prominence_vineyard(
-        self,
-        vineyard,
-        interpolate=True,
-        areas=True,
-        points=False,
-        log_prominence=True,
-        colormap="viridis",
-    ):
-        ax = self._vineyard_ax
-
-        # TODO: abstract this
-        ax.clear()
-        self._gaps = []
-        self._gap_numbers = []
-        self._lines = []
-        self._line_index = []
-
-        times = vineyard._parameter_indices
-        vines = vineyard._vineyard_to_vines()
-        num_vines = min(len(vines), vineyard._firstn)
-
-        ax.set_title("prominence vineyard")
-
-        # TODO: warn that vineyard is empty
-        if num_vines == 0:
-            return
-
-        cmap = cm.get_cmap(colormap)
-        colors = list(cmap(np.linspace(0, 1, num_vines)[::-1]))
-        last = colors[-1]
-        colors.extend([last for _ in range(num_vines - vineyard._firstn)])
-        if areas:
-            for i in range(len(vines) - 1):
-                artist = ax.fill_between(
-                    times, vines[i][1], vines[i + 1][1], color=colors[i]
-                )
-                self._add_gap_prominence_vineyard(artist, i + 1)
-            artist = ax.fill_between(
-                times, vines[len(vines) - 1][1], 0, color=colors[len(vines) - 1]
-            )
-            self._add_gap_prominence_vineyard(artist, len(vines))
-        for i, tv in enumerate(vines):
-            times, vine = tv
-            for vine_part, time_part in vineyard._vine_parts(vine):
-                if interpolate:
-                    artist = ax.plot(time_part, vine_part, c="black")
-                if points:
-                    artist = ax.plot(time_part, vine_part, "o", c="black")
-                self._vineyard_values.extend(vine_part)
-        ymax = max(self._vineyard_values)
-        for t in times:
-            artist = ax.vlines(x=t, ymin=0, ymax=ymax, color="black", alpha=0.1)
-            self._add_line_prominence_vineyard(artist, t)
-        ax.set_xticks([])
-        ax.set_xlabel("parameter")
-        if log_prominence:
-            ax.set_ylabel("log-prominence")
-            ax.set_yscale("log")
-        else:
-            ax.set_ylabel("prominence")
-        values = np.array(self._vineyard_values)
-
-        ax.set_ylim([np.quantile(values[values > 0], 0.05), max(values)])
-        ax.figure.canvas.draw_idle()
-        ax.figure.canvas.flush_events()
