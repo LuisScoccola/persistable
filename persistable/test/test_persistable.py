@@ -32,29 +32,29 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         s0 = 2
         k0 = 0.5
         res = np.array([1, 1, 1, 1])
-        np.testing.assert_almost_equal(mps.core_distance(np.arange(n), s0, k0), res)
+        np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
 
         s0 = 1
         k0 = 0.5
         res = np.array([1 / 2, 1 / 2, 1 / 2, 1 / 2])
-        np.testing.assert_almost_equal(mps.core_distance(np.arange(n), s0, k0), res)
+        np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
 
         s0 = np.infty
         k0 = 1
         res = np.array([3, 2, np.sqrt(5), 3])
-        np.testing.assert_almost_equal(mps.core_distance(np.arange(n), s0, k0), res)
+        np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
 
         s0 = np.infty
         k0 = 0.5
         res = np.array([1, 1, 1, 2])
-        np.testing.assert_almost_equal(mps.core_distance(np.arange(n), s0, k0), res)
+        np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
 
         p = Persistable(X, measure=np.array([0.5, 0.5, 0.5, 0.5]))
         mps = p._mpspace
         s0 = np.infty
         k0 = 0.6
         res = np.array([1, 1, 1, 2])
-        np.testing.assert_almost_equal(mps.core_distance(np.arange(n), s0, k0), res)
+        np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
 
     def test_hilbert_function(self):
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
@@ -89,8 +89,8 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                 for s0 in self._s0s:
                     for k0 in self._k0s:
                         np.testing.assert_almost_equal(
-                            mps1.core_distance(np.arange(self._n), s0, k0),
-                            mps2.core_distance(np.arange(self._n), s0, k0),
+                            mps1._core_distance(np.arange(self._n), s0, k0),
+                            mps2._core_distance(np.arange(self._n), s0, k0),
                         )
 
     def test_same_hierarchy(self):
