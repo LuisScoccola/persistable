@@ -33,12 +33,23 @@ class PersistableInteractive:
         self._vineyard_values = []
         self._persistable = persistable
 
+        ## to be passed/computed later:
+        # user-selected bounds for the prominence vineyard
+        self._vineyard_parameter_bounds = {}
+        # user-selected start and end for a line
+        self._line_parameters = None
+        # user-selected number of clusters
+        self._n_clusters = None
+        # the computed prominence vineyard
+        self._vineyard = None
+
         # prominence vineyard
         self._gaps = []
         self._gap_numbers = []
         self._lines = []
         self._line_index = []
 
+        # initialize the plots
         self._init_plot()
 
 
@@ -59,6 +70,37 @@ class PersistableInteractive:
             self._ax_button_compute_vineyard, "compute vineyard"
         )
         self._button_compute_and_plot.on_clicked(self._plot_prominence_vineyard_button)
+
+
+    def _update_line_parameters(self, gap, line_index):
+        self._line_parameters = self._vineyard._parameters[line_index]
+        self._n_clusters = gap
+        return self._line_parameters, gap
+
+    def _clear_vineyard_parameter_bounds(self):
+        self._vineyard_parameter_bounds = {}
+        return self._vineyard_parameter_bounds
+
+    def _update_vineyard_parameter_bounds(self, point):
+        if "start1" not in self._vineyard_parameter_bounds:
+            self._vineyard_parameter_bounds["start1"] = point
+        elif "end1" not in self._vineyard_parameter_bounds:
+            st1 = self._vineyard_parameter_bounds["start1"]
+            if point[0] < st1[0] or point[1] > st1[1]:
+                return self._vineyard_parameter_bounds
+            self._vineyard_parameter_bounds["end1"] = point
+        elif "start2" not in self._vineyard_parameter_bounds:
+            self._vineyard_parameter_bounds["start2"] = point
+        elif "end2" not in self._vineyard_parameter_bounds:
+            st2 = self._vineyard_parameter_bounds["start2"]
+            if point[0] < st2[0] or point[1] > st2[1]:
+                return self._vineyard_parameter_bounds
+            self._vineyard_parameter_bounds["end2"] = point
+        else:
+            self._vineyard_parameter_bounds = {}
+            self._update_vineyard_parameter_bounds(point)
+        return self._vineyard_parameter_bounds
+
 
     def parameter_selection(
         self,
@@ -93,6 +135,14 @@ class PersistableInteractive:
         ax.figure.canvas.draw_idle()
         ax.figure.canvas.flush_events()
 
+
+    def cluster(self):
+        if self._line_parameters is None:
+            raise Exception("No parameters for the line were given!")
+        else:
+            start, end = self._line_parameters
+            n_clusters = self._n_clusters
+        return self._persistable.cluster(n_clusters, start, end)
 
 
     def plot_prominence_vineyard(
@@ -163,8 +213,15 @@ class PersistableInteractive:
         ax.figure.canvas.flush_events()
 
     def _plot_prominence_vineyard_button(self, event):
-        vineyard = self._persistable.compute_prominence_vineyard()
-        self.plot_prominence_vineyard(vineyard)
+        if len(self._vineyard_parameter_bounds.values()) < 4:
+            raise Exception("No parameters chosen!")
+        start1 = self._vineyard_parameter_bounds["start1"]
+        end1 = self._vineyard_parameter_bounds["end1"]
+        start2 = self._vineyard_parameter_bounds["start2"]
+        end2 = self._vineyard_parameter_bounds["end2"]
+
+        self._vineyard = self._persistable.compute_prominence_vineyard([start1,end1], [start2,end2])
+        self.plot_prominence_vineyard(self._vineyard)
 
     def _vineyard_on_parameter_selection(self, event):
         ax = self._vineyard_ax
@@ -203,7 +260,7 @@ class PersistableInteractive:
                 # info += "line: " + str(lbl) + ";    "
 
             if gap is not None and line_index is not None:
-                parameters, n_clusters = self._persistable.update_line_parameters(
+                parameters, n_clusters = self._update_line_parameters(
                     gap + 1, line_index
                 )
                 if self._vineyard_current_points_plotted_on is not None:
@@ -290,15 +347,15 @@ class PersistableInteractive:
         if event.inaxes != ax:
             return
         if event.button == 1:
-            vineyard_parameters = self._persistable.update_vineyard_parameter_bounds(
+            vineyard_parameters = self._update_vineyard_parameter_bounds(
                 [event.xdata, event.ydata]
             )
             self._clear_hilbert_parameters()
             self._draw_on_hilbert(vineyard_parameters)
 
     def _hilbert_on_clear_parameter(self, event):
-        _ = self._persistable.clear_vineyard_parameter_bounds()
-        self._persistable.clear_hilbert_parameters()
+        _ = self._clear_vineyard_parameter_bounds()
+        self._clear_hilbert_parameters()
 
     def _add_gap_prominence_vineyard(self, artist, number):
 

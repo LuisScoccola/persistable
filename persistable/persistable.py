@@ -1,7 +1,7 @@
 # Authors: Luis Scoccola and Alexander Rolle
 # License: 3-clause BSD
 
-#from .plot import PersistablePlot
+# from .plot import PersistablePlot
 from ._prominence_vineyard import ProminenceVineyard
 from .borrowed._hdbscan_boruvka import (
     KDTreeBoruvkaAlgorithm,
@@ -57,18 +57,6 @@ class Persistable:
         # compute and keep robust connection radius
         self._connection_radius = self._mpspace.connection_radius(default_percentile)
 
-        ## to be passed/computed later:
-        # user-selected bounds for the prominence vineyard
-        self._vineyard_parameter_bounds = {}
-        # user-selected start and end for a line
-        self._line_parameters = None
-        # user-selected number of clusters
-        self._n_clusters = None
-        # the computed prominence vineyard
-        self._vineyard = None
-        # the PersistablePlot object implementing the GUI
-        self._plot = None
-
     def quick_cluster(
         self,
         n_neighbors: int = 30,
@@ -113,23 +101,16 @@ class Persistable:
 
     def cluster(
         self,
-        n_clusters=None,
-        start=None,
-        end=None,
+        n_clusters,
+        start,
+        end,
         extend_clustering_by_hill_climbing=False,
         n_iterations_extend_cluster=10,
         n_neighbors_extend_cluster=5,
     ):
-        if start is None:
-            if self._line_parameters is None:
-                raise Exception("No parameters for the line were given!")
-            else:
-                start, end = self._line_parameters
-                n_clusters = self._n_clusters
-        else:
-            start, end = np.array(start), np.array(end)
-            if start.shape != (2,) or end.shape != (2,):
-                raise Exception("start and end must both be points on the plane.")
+        start, end = np.array(start), np.array(end)
+        if start.shape != (2,) or end.shape != (2,):
+            raise Exception("start and end must both be points on the plane.")
         if n_clusters < 1:
             raise Exception("n_clusters must be greater than 0.")
         hc = self._mpspace.lambda_linkage(start, end)
@@ -156,26 +137,15 @@ class Persistable:
             )
         return cl
 
-
-
     def compute_prominence_vineyard(
         self,
-        start_end1=None,
-        start_end2=None,
+        start_end1,
+        start_end2,
         n_parameters=50,
         first_n_vines=20,
     ):
-        if start_end1 is None or start_end2 is None:
-            if len(self._vineyard_parameter_bounds.values()) < 4:
-                raise Exception("No parameters chosen!")
-            else:
-                start1 = self._vineyard_parameter_bounds["start1"]
-                end1 = self._vineyard_parameter_bounds["end1"]
-                start2 = self._vineyard_parameter_bounds["start2"]
-                end2 = self._vineyard_parameter_bounds["end2"]
-        else:
-            start1, end1 = start_end1
-            start2, end2 = start_end2
+        start1, end1 = start_end1
+        start2, end2 = start_end2
         if (
             start1[0] >= end1[0]
             or start1[1] <= end1[1]
@@ -197,8 +167,7 @@ class Persistable:
         )
         startends = list(zip(starts, ends))
         pds = self._mpspace.lambda_linkage_prominence_vineyard(startends)
-        self._vineyard = ProminenceVineyard(startends, pds, firstn=first_n_vines)
-        return self._vineyard
+        return ProminenceVineyard(startends, pds, firstn=first_n_vines)
 
     def hilbert_function(
         self,
@@ -235,41 +204,10 @@ class Persistable:
         hf = self._mpspace.hilbert_function(ks, ss, n_jobs=n_jobs)
         return ss, ks, max_dim, hf
 
-    def update_line_parameters(self, gap, line_index):
-        self._line_parameters = self._vineyard._parameters[line_index]
-        self._n_clusters = gap
-        return self._line_parameters, gap
-
-    def clear_vineyard_parameter_bounds(self):
-        self._vineyard_parameter_bounds = {}
-        return self._vineyard_parameter_bounds
-
-    def update_vineyard_parameter_bounds(self, point):
-        if "start1" not in self._vineyard_parameter_bounds:
-            self._vineyard_parameter_bounds["start1"] = point
-        elif "end1" not in self._vineyard_parameter_bounds:
-            st1 = self._vineyard_parameter_bounds["start1"]
-            if point[0] < st1[0] or point[1] > st1[1]:
-                return self._vineyard_parameter_bounds
-            self._vineyard_parameter_bounds["end1"] = point
-        elif "start2" not in self._vineyard_parameter_bounds:
-            self._vineyard_parameter_bounds["start2"] = point
-        elif "end2" not in self._vineyard_parameter_bounds:
-            st2 = self._vineyard_parameter_bounds["start2"]
-            if point[0] < st2[0] or point[1] > st2[1]:
-                return self._vineyard_parameter_bounds
-            self._vineyard_parameter_bounds["end2"] = point
-        else:
-            self._vineyard_parameter_bounds = {}
-            self.update_vineyard_parameter_bounds(point)
-        return self._vineyard_parameter_bounds
-
-
-
 
 class _MetricProbabilitySpace:
-    """Implements a finite metric probability space that can compute \
-       its kernel density estimates"""
+    """Implements a finite metric probability space that can compute its \
+       kernel density estimates and lambda linkage hierarchical clusterings """
 
     def __init__(self, X, metric, measure, leaf_size=40, **kwargs):
         self._metric = metric
@@ -301,10 +239,10 @@ class _MetricProbabilitySpace:
             raise Exception("Metric given is not supported.")
 
     def fit(self, max_neighbors):
-        self.fit_nn(max_neighbors)
-        self.fit_density_estimates()
+        self._fit_nn(max_neighbors)
+        self._fit_density_estimates()
 
-    def fit_nn(self, max_neighbors):
+    def _fit_nn(self, max_neighbors):
         self._max_neighbors = max_neighbors
         if self._metric in BallTree.valid_metrics + KDTree.valid_metrics:
             k_neighbors = self._tree.query(
@@ -331,11 +269,11 @@ class _MetricProbabilitySpace:
         self._nn_distance = np.array(_nn_distance)
         self._fitted_nn = True
 
-    def fit_density_estimates(self):
+    def _fit_density_estimates(self):
         self._fitted_density_estimates = True
         self._kernel_estimate = np.cumsum(self._measure[self._nn_indices], axis=1)
 
-    def core_distance(self, point_index, s_intercept, k_intercept):
+    def _core_distance(self, point_index, s_intercept, k_intercept):
         i_indices = []
         if s_intercept != np.inf:
             mu = s_intercept / k_intercept
@@ -405,7 +343,7 @@ class _MetricProbabilitySpace:
         hc_end = end[0]
         indices = np.arange(self._size)
         s_intercept, k_intercept = _startend_to_intercepts(start, end)
-        core_distances = self.core_distance(indices, s_intercept, k_intercept)
+        core_distances = self._core_distance(indices, s_intercept, k_intercept)
         core_distances = np.minimum(hc_end, core_distances)
         core_distances = np.maximum(hc_start, core_distances)
         if self._metric in KDTree.valid_metrics:
@@ -708,5 +646,5 @@ class _HierarchicalClustering:
         pd = np.array(pd)
         if pd.shape[0] == 0:
             return np.array([])
-        else :
+        else:
             return pd[np.abs(pd[:, 0] - pd[:, 1]) > tol] - self._start
