@@ -7,6 +7,12 @@ from matplotlib import cm
 from matplotlib.widgets import Button
 from matplotlib.patches import Polygon
 
+import plotly.graph_objects as go
+from jupyter_dash import JupyterDash
+import dash
+from dash import dcc
+from dash import html
+import pandas as pd
 
 class PersistableInteractive:
     def _init_plot(self):
@@ -18,19 +24,7 @@ class PersistableInteractive:
             self._vineyard_ax = axes[1]
             self._fig_num = fig.number
 
-    def __init__(
-        self,
-        persistable
-    ):
-        self._fig_num = -1
-        self._fig = None
-        self._hilbert_ax = None
-        self._vineyard_ax = None
-        self._hilbert_current_points_plotted_on = None
-        self._hilbert_current_lines_plotted_on = []
-        self._hilbert_current_polygon_plotted_on = None
-        self._vineyard_current_points_plotted_on = None
-        self._vineyard_values = []
+    def __init__(self, persistable):
         self._persistable = persistable
 
         ## to be passed/computed later:
@@ -49,28 +43,136 @@ class PersistableInteractive:
         self._lines = []
         self._line_index = []
 
-        # initialize the plots
-        self._init_plot()
+        ## initialize the plots
+
+        default_max_k = self._persistable._maxk
+        default_k_step = default_max_k/20
+        default_min_s = self._persistable._connection_radius / 5
+        default_max_s = self._persistable._connection_radius * 2
+        default_s_step = (default_max_s-default_min_s)/20
+        default_log_granularity = 6
+        default_num_jobs = 4
+        default_max_dim = 15
+
+        def blank_figure():
+            fig = go.Figure(go.Scatter(x=[], y = []))
+            fig.update_layout(template = None)
+            fig.update_xaxes(showgrid = False, showticklabels = False, zeroline=False)
+            fig.update_yaxes(showgrid = False, showticklabels = False, zeroline=False)
+            return fig
 
 
-        self._hilbert_ax.figure.canvas.mpl_connect(
-            "button_press_event", self._hilbert_on_parameter_selection
+
+        self._app = JupyterDash(__name__)
+        self._app.layout = html.Div(
+            style={"backgroundColor": "white"},
+            children=[
+                "max k",
+                html.Div(dcc.Input(id="input-max-k", type="number", value=default_max_k, min=0, step=default_k_step)),
+                "min s",
+                html.Div(dcc.Input(id="input-min-s", type="number", value=default_min_s, min=0, step=default_s_step)),
+                "max s",
+                html.Div(dcc.Input(id="input-max-s", type="number", value=default_max_s, min=0, step=default_s_step)),
+                "granularity",
+                html.Div(
+                    #dcc.Input(
+                    #    id="input-granularity", type="number", value=default_granularity, min=1
+                    #)
+                    dcc.Slider(1, 9,
+                    step=None,
+                    marks={ i:str(2**i) for i in range(1,10) },
+                    value=default_log_granularity,
+                    id='input-log-granularity')
+                ),
+                "number of cores to use",
+                html.Div(
+                    dcc.Input(id="input-num-jobs", type="number", value=default_num_jobs, min=1)
+                ),
+                "max number of components",
+                html.Div(
+                    dcc.Input(
+                        id="input-max-components", type="number", value=default_max_dim, min=1
+                    )
+                ),
+                html.Button(
+                    "compute component counting function", id="compute-ccf-button"
+                ),
+                dcc.Graph(
+                    id="hilbert-plot", figure = blank_figure()
+                ),
+                dcc.Store(id="stored-ccf"),
+            ],
+        )
+        self._app.callback(
+            dash.Output("stored-ccf", "data"),
+            [
+                dash.Input("compute-ccf-button", "n_clicks"),
+                dash.State("input-max-k", "value"),
+                dash.State("input-min-s", "value"),
+                dash.State("input-max-s", "value"),
+                dash.State("input-log-granularity", "value"),
+                dash.State("input-num-jobs", "value"),
+            ],
+            True,
+        )(self.compute_ccf)
+
+        self._app.callback(
+            dash.Output("hilbert-plot", "figure"), [dash.Input("stored-ccf", "data"), dash.Input("input-max-components", "value")] , True
+        )(self.draw_ccf)
+
+        # self._app.callback( dash.Output("my-output", "children"),
+        #                    [dash.Input("print-button", "n_clicks") ], True)(self.test_print)
+        self._app.run_server(mode="inline")
+
+    def compute_ccf(
+        self,
+        n_clicks,
+        max_k,
+        min_s,
+        max_s,
+        log_granularity,
+        num_jobs,
+    ):
+        max_k = max_k
+        min_s = min_s
+        max_s = max_s
+        granularity = 2**log_granularity
+        num_jobs = int(num_jobs)
+        ss, ks, hf = self._persistable.compute_hilbert_function(
+            max_k,
+            min_s,
+            max_s,
+            granularity,
+            n_jobs=num_jobs,
+        )
+        return pd.DataFrame(hf, index=ks[:-1], columns=ss[:-1]).to_json(
+            date_format="iso", orient="split"
         )
 
-        self._vineyard_ax.figure.canvas.mpl_connect(
-            "button_press_event", self._vineyard_on_parameter_selection
+    def draw_ccf(self, ccf, max_components):
+        max_components = 0 if max_components is None else int(max_components)
+        ccf = pd.read_json(ccf, orient="split")
+
+        def df_to_plotly(df):
+            return {
+                "z": df.values.tolist(),
+                "x": df.columns.tolist(),
+                "y": df.index.tolist(),
+            }
+
+        fig = go.Figure(
+            layout=go.Layout(
+                height=500,
+                width=650,
+                title="component counting function",
+                xaxis_title = "distance scale",
+                yaxis_title = "density threshold"
+            ),
         )
-
-        self._ax_button_clear = plt.axes([0.10, 0.0, 0.15, 0.075])
-        self._button_clear_and_plot = Button(self._ax_button_clear, "clear parameters")
-        self._button_clear_and_plot.on_clicked(self._hilbert_on_clear_parameter)
-
-        self._ax_button_compute_vineyard = plt.axes([0.30, 0.0, 0.15, 0.075])
-        self._button_compute_and_plot = Button(
-            self._ax_button_compute_vineyard, "compute vineyard"
-        )
-        self._button_compute_and_plot.on_clicked(self._plot_prominence_vineyard_button)
-
+        fig.add_trace(go.Heatmap(df_to_plotly(ccf), zmin=0, zmax=max_components))
+        fig.update_traces(colorscale="greys")
+        fig.update_layout(coloraxis_showscale=False)
+        return fig
 
     def _update_line_parameters(self, gap, line_index):
         self._line_parameters = self._vineyard._parameters[line_index]
@@ -101,24 +203,6 @@ class PersistableInteractive:
             self._update_vineyard_parameter_bounds(point)
         return self._vineyard_parameter_bounds
 
-
-    def parameter_selection(
-        self,
-        max_dim=20,
-        max_k=None,
-        bounds_s=None,
-        granularity=50,
-        n_jobs=4,
-    ):
-        ss, ks, max_dim, hf = self._persistable.hilbert_function(
-            max_dim=max_dim,
-            max_k=max_k,
-            bounds_s=bounds_s,
-            granularity=granularity,
-            n_jobs=n_jobs,
-        )
-        self.plot_hilbert_function(ss, ks, max_dim, hf)
-
     def plot_hilbert_function(self, xs, ys, max_dim, dimensions, colormap="binary"):
         ax = self._hilbert_ax
         cmap = cm.get_cmap(colormap)
@@ -135,7 +219,6 @@ class PersistableInteractive:
         ax.figure.canvas.draw_idle()
         ax.figure.canvas.flush_events()
 
-
     def cluster(self):
         if self._line_parameters is None:
             raise Exception("No parameters for the line were given!")
@@ -143,7 +226,6 @@ class PersistableInteractive:
             start, end = self._line_parameters
             n_clusters = self._n_clusters
         return self._persistable.cluster(n_clusters, start, end)
-
 
     def plot_prominence_vineyard(
         self,
@@ -220,7 +302,9 @@ class PersistableInteractive:
         start2 = self._vineyard_parameter_bounds["start2"]
         end2 = self._vineyard_parameter_bounds["end2"]
 
-        self._vineyard = self._persistable.compute_prominence_vineyard([start1,end1], [start2,end2])
+        self._vineyard = self._persistable.compute_prominence_vineyard(
+            [start1, end1], [start2, end2]
+        )
         self.plot_prominence_vineyard(self._vineyard)
 
     def _vineyard_on_parameter_selection(self, event):
@@ -374,4 +458,3 @@ class PersistableInteractive:
 
         self._lines += [artist]
         self._line_index += [number]
-

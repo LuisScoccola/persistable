@@ -169,40 +169,33 @@ class Persistable:
         pds = self._mpspace.lambda_linkage_prominence_vineyard(startends)
         return ProminenceVineyard(startends, pds, firstn=first_n_vines)
 
-    def hilbert_function(
+    def compute_hilbert_function(
         self,
-        max_dim=20,
-        max_k=None,
-        bounds_s=None,
+        max_k,
+        min_s,
+        max_s,
         granularity=50,
         n_jobs=4,
-        # colormap="binary",
     ):
-        if max_k is None:
-            max_k = self._maxk
-        elif max_k > self._maxk:
+        #if max_k is None:
+        #    max_k = self._maxk
+        if max_k > self._maxk:
             max_k = min(max_k, self._maxk)
             warnings.warn(
                 "Not enough neighbors to compute chosen max_k, using max_k="
                 + str(max_k)
                 + " instead."
             )
-        if bounds_s is None:
-            first_s = self._connection_radius / 5
-            last_s = self._connection_radius * 2
-        else:
-            first_s = bounds_s[0]
-            last_s = bounds_s[1]
         # how many more ss than ks (note that getting more ss is very cheap)
         more_s_than_k = 10
         ss = np.linspace(
-            first_s,
-            last_s,
+            min_s,
+            max_s,
             granularity * more_s_than_k,
         )
         ks = np.linspace(0, max_k, granularity)
         hf = self._mpspace.hilbert_function(ks, ss, n_jobs=n_jobs)
-        return ss, ks, max_dim, hf
+        return ss, ks, hf
 
 
 class _MetricProbabilitySpace:
