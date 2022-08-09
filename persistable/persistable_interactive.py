@@ -14,17 +14,18 @@ from dash import dcc
 from dash import html
 import pandas as pd
 
-class PersistableInteractive:
-    def _init_plot(self):
-        if not plt.fignum_exists(self._fig_num):
-            fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-            plt.subplots_adjust(bottom=0.2)
-            self._fig = fig
-            self._hilbert_ax = axes[0]
-            self._vineyard_ax = axes[1]
-            self._fig_num = fig.number
 
-    def __init__(self, persistable):
+class PersistableInteractive:
+    # def _init_plot(self):
+    #    if not plt.fignum_exists(self._fig_num):
+    #        fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    #        plt.subplots_adjust(bottom=0.2)
+    #        self._fig = fig
+    #        self._hilbert_ax = axes[0]
+    #        self._vineyard_ax = axes[1]
+    #        self._fig_num = fig.number
+
+    def __init__(self, persistable, jupyter=False, debug=False):
         self._persistable = persistable
 
         ## to be passed/computed later:
@@ -46,61 +47,168 @@ class PersistableInteractive:
         ## initialize the plots
 
         default_max_k = self._persistable._maxk
-        default_k_step = default_max_k/20
+        default_k_step = default_max_k / 20
         default_min_s = self._persistable._connection_radius / 5
         default_max_s = self._persistable._connection_radius * 2
-        default_s_step = (default_max_s-default_min_s)/20
+        default_s_step = (default_max_s - default_min_s) / 20
         default_log_granularity = 6
         default_num_jobs = 4
         default_max_dim = 15
 
         def blank_figure():
-            fig = go.Figure(go.Scatter(x=[], y = []))
-            fig.update_layout(template = None)
-            fig.update_xaxes(showgrid = False, showticklabels = False, zeroline=False)
-            fig.update_yaxes(showgrid = False, showticklabels = False, zeroline=False)
+            fig = go.Figure(go.Scatter(x=[], y=[]))
+            fig.update_layout(template=None)
+            fig.update_xaxes(showgrid=False, showticklabels=False, zeroline=False)
+            fig.update_yaxes(showgrid=False, showticklabels=False, zeroline=False)
             return fig
 
-
-
-        self._app = JupyterDash(__name__)
+        if jupyter == True:
+            self._app = JupyterDash(__name__)
+        else:
+            self._app = dash.Dash()
         self._app.layout = html.Div(
-            style={"backgroundColor": "white"},
             children=[
-                "max k",
-                html.Div(dcc.Input(id="input-max-k", type="number", value=default_max_k, min=0, step=default_k_step)),
-                "min s",
-                html.Div(dcc.Input(id="input-min-s", type="number", value=default_min_s, min=0, step=default_s_step)),
-                "max s",
-                html.Div(dcc.Input(id="input-max-s", type="number", value=default_max_s, min=0, step=default_s_step)),
-                "granularity",
-                html.Div(
-                    #dcc.Input(
-                    #    id="input-granularity", type="number", value=default_granularity, min=1
-                    #)
-                    dcc.Slider(1, 9,
-                    step=None,
-                    marks={ i:str(2**i) for i in range(1,10) },
-                    value=default_log_granularity,
-                    id='input-log-granularity')
-                ),
-                "number of cores to use",
-                html.Div(
-                    dcc.Input(id="input-num-jobs", type="number", value=default_num_jobs, min=1)
-                ),
-                "max number of components",
-                html.Div(
-                    dcc.Input(
-                        id="input-max-components", type="number", value=default_max_dim, min=1
-                    )
-                ),
-                html.Button(
-                    "compute component counting function", id="compute-ccf-button"
-                ),
-                dcc.Graph(
-                    id="hilbert-plot", figure = blank_figure()
-                ),
                 dcc.Store(id="stored-ccf"),
+                html.H1("title"),
+                html.P("prose"),
+                html.Div(
+                    className="grid",
+                    children=[
+                        html.Div(
+                            children=[
+                                html.H2("Component Counting Function"),
+                                html.Div(
+                                    className="parameters",
+                                    children=[
+                                        html.Div(
+                                            className="parameter",
+                                            children=[
+                                                html.Span(
+                                                    className="name", children="max k"
+                                                ),
+                                                dcc.Input(
+                                                    className="value",
+                                                    id="input-max-k",
+                                                    type="number",
+                                                    value=default_max_k,
+                                                    min=0,
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter",
+                                            children=[
+                                                html.Span(
+                                                    className="name", children="min s"
+                                                ),
+                                                dcc.Input(
+                                                    className="value",
+                                                    id="input-min-s",
+                                                    type="number",
+                                                    value=default_min_s,
+                                                    min=0,
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter",
+                                            children=[
+                                                html.Span(
+                                                    className="name", children="max s"
+                                                ),
+                                                dcc.Input(
+                                                    className="value",
+                                                    id="input-max-s",
+                                                    type="number",
+                                                    value=default_max_s,
+                                                    min=0,
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="number of cores",
+                                                ),
+                                                dcc.Input(
+                                                    className="value",
+                                                    id="input-num-jobs",
+                                                    type="number",
+                                                    value=default_num_jobs,
+                                                    min=1,
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="granularity",
+                                                ),
+                                                dcc.Slider(
+                                                    1,
+                                                    9,
+                                                    step=None,
+                                                    marks={
+                                                        i: str(2**i)
+                                                        for i in range(1, 10)
+                                                    },
+                                                    value=default_log_granularity,
+                                                    id="input-log-granularity",
+                                                    className="value",
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                ),
+                                                html.Button(
+                                                    "compute CCF",
+                                                    id="compute-ccf-button",
+                                                    className="value",
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="max connected components",
+                                                ),
+                                                dcc.Input(
+                                                    id="input-max-components",
+                                                    type="number",
+                                                    value=default_max_dim,
+                                                    min=1,
+                                                    className="value",
+                                                ),
+                                            ],
+                                        ),
+                                    ],
+                                ),
+                            ]
+                        ),
+                        html.Div(
+                            children=[
+                                html.H2("Prominence Vineyard"),
+                                html.Div(
+                                    className="parameters",
+                                ),
+                            ]
+                        ),
+                        dcc.Graph(id="hilbert-plot", figure=blank_figure()),
+                        html.Div(
+                            className="fake-plot",
+                        ),
+                    ],
+                ),
             ],
         )
         self._app.callback(
@@ -117,12 +225,20 @@ class PersistableInteractive:
         )(self.compute_ccf)
 
         self._app.callback(
-            dash.Output("hilbert-plot", "figure"), [dash.Input("stored-ccf", "data"), dash.Input("input-max-components", "value")] , True
+            dash.Output("hilbert-plot", "figure"),
+            [
+                dash.Input("stored-ccf", "data"),
+                dash.Input("input-max-components", "value"),
+            ],
+            True,
         )(self.draw_ccf)
 
         # self._app.callback( dash.Output("my-output", "children"),
         #                    [dash.Input("print-button", "n_clicks") ], True)(self.test_print)
-        self._app.run_server(mode="inline")
+        if jupyter == True:
+            self._app.run_server(mode="inline")
+        else:
+            self._app.run_server(debug=debug)
 
     def compute_ccf(
         self,
@@ -133,9 +249,9 @@ class PersistableInteractive:
         log_granularity,
         num_jobs,
     ):
-        max_k = max_k
-        min_s = min_s
-        max_s = max_s
+        max_k = float(max_k)
+        min_s = float(min_s)
+        max_s = float(max_s)
         granularity = 2**log_granularity
         num_jobs = int(num_jobs)
         ss, ks, hf = self._persistable.compute_hilbert_function(
@@ -162,11 +278,10 @@ class PersistableInteractive:
 
         fig = go.Figure(
             layout=go.Layout(
-                height=500,
-                width=650,
-                title="component counting function",
-                xaxis_title = "distance scale",
-                yaxis_title = "density threshold"
+                # height=500,
+                # width=650,
+                xaxis_title="distance scale",
+                yaxis_title="density threshold",
             ),
         )
         fig.add_trace(go.Heatmap(df_to_plotly(ccf), zmin=0, zmax=max_components))

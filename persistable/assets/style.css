@@ -1,0 +1,37 @@
+html {
+    background-color: white;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 2fr 1fr;
+    row-gap: 10px;
+    column-gap: 40px;
+}
+
+.parameters {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    justify-content: flex-end;
+}
+
+.parameter {
+    display: flex;
+    flex-direction: row;
+}
+
+.parameter>.name {
+    width: 40%;
+}
+
+.parameter>.value {
+    width: 60%;
+}
+
+.fake-plot {
+    width: 100%;
+    height: 200px;
+    background-color: lightgrey;
+}
