@@ -1,6 +1,7 @@
 # Authors: Luis Scoccola
 # License: 3-clause BSD
 
+from re import A
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
@@ -8,12 +9,20 @@ from matplotlib.widgets import Button
 from matplotlib.patches import Polygon
 
 import plotly.graph_objects as go
+import plotly
 from jupyter_dash import JupyterDash
 import dash
 from dash import dcc
 from dash import html
 import pandas as pd
+import json
 
+def empty_figure():
+    fig = go.Figure(go.Scatter(x=[], y=[]))
+    fig.update_layout(template=None)
+    fig.update_xaxes(showgrid=False, showticklabels=False, zeroline=False)
+    fig.update_yaxes(showgrid=False, showticklabels=False, zeroline=False)
+    return fig
 
 class PersistableInteractive:
     # def _init_plot(self):
@@ -47,30 +56,34 @@ class PersistableInteractive:
         ## initialize the plots
 
         default_max_k = self._persistable._maxk
-        default_k_step = default_max_k / 20
+        default_k_step = default_max_k / 100
         default_min_s = self._persistable._connection_radius / 5
         default_max_s = self._persistable._connection_radius * 2
-        default_s_step = (default_max_s - default_min_s) / 20
+        default_s_step = (default_max_s - default_min_s) / 100
         default_log_granularity = 6
         default_num_jobs = 4
         default_max_dim = 15
-
-        def blank_figure():
-            fig = go.Figure(go.Scatter(x=[], y=[]))
-            fig.update_layout(template=None)
-            fig.update_xaxes(showgrid=False, showticklabels=False, zeroline=False)
-            fig.update_yaxes(showgrid=False, showticklabels=False, zeroline=False)
-            return fig
+        min_granularity = 4
+        max_granularity = 10
+        default_x_start_first_line = default_min_s
+        default_y_start_first_line = default_max_k / 4
+        default_x_end_first_line = (default_max_s + default_min_s) / 4
+        default_y_end_first_line = 0
+        default_x_start_second_line = default_min_s
+        default_y_start_second_line = default_max_k / 2
+        default_x_end_second_line = (default_max_s + default_min_s) / 2
+        default_y_end_second_line = 0
 
         if jupyter == True:
             self._app = JupyterDash(__name__)
         else:
-            self._app = dash.Dash()
+            self._app = dash.Dash(__name__)
         self._app.layout = html.Div(
             children=[
                 dcc.Store(id="stored-ccf"),
-                html.H1("title"),
-                html.P("prose"),
+                dcc.Store(id="stored-ccf-drawing"),
+                html.H1("Interactive parameter selection for Persistable"),
+                html.P("[brief description]"),
                 html.Div(
                     className="grid",
                     children=[
@@ -84,14 +97,17 @@ class PersistableInteractive:
                                             className="parameter",
                                             children=[
                                                 html.Span(
-                                                    className="name", children="max k"
+                                                    className="name",
+                                                    children="max density threshold",
                                                 ),
                                                 dcc.Input(
                                                     className="value",
-                                                    id="input-max-k",
+                                                    id="max-density-threshold",
                                                     type="number",
                                                     value=default_max_k,
                                                     min=0,
+                                                    debounce=True,
+                                                    step=default_k_step
                                                 ),
                                             ],
                                         ),
@@ -99,14 +115,17 @@ class PersistableInteractive:
                                             className="parameter",
                                             children=[
                                                 html.Span(
-                                                    className="name", children="min s"
+                                                    className="name",
+                                                    children="min distance scale",
                                                 ),
                                                 dcc.Input(
                                                     className="value",
-                                                    id="input-min-s",
+                                                    id="min-dist-scale",
                                                     type="number",
                                                     value=default_min_s,
                                                     min=0,
+                                                    debounce=True,
+                                                    step=default_s_step
                                                 ),
                                             ],
                                         ),
@@ -114,14 +133,17 @@ class PersistableInteractive:
                                             className="parameter",
                                             children=[
                                                 html.Span(
-                                                    className="name", children="max s"
+                                                    className="name",
+                                                    children="max distance scale",
                                                 ),
                                                 dcc.Input(
                                                     className="value",
-                                                    id="input-max-s",
+                                                    id="max-dist-scale",
                                                     type="number",
                                                     value=default_max_s,
                                                     min=0,
+                                                    debounce=True,
+                                                    step=default_s_step
                                                 ),
                                             ],
                                         ),
@@ -138,6 +160,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_num_jobs,
                                                     min=1,
+                                                    step=1,
                                                 ),
                                             ],
                                         ),
@@ -149,12 +172,14 @@ class PersistableInteractive:
                                                     children="granularity",
                                                 ),
                                                 dcc.Slider(
-                                                    1,
-                                                    9,
+                                                    min_granularity,
+                                                    max_granularity,
                                                     step=None,
                                                     marks={
                                                         i: str(2**i)
-                                                        for i in range(1, 10)
+                                                        for i in range(
+                                                            1, max_granularity + 1
+                                                        )
                                                     },
                                                     value=default_log_granularity,
                                                     id="input-log-granularity",
@@ -169,7 +194,7 @@ class PersistableInteractive:
                                                     className="name",
                                                 ),
                                                 html.Button(
-                                                    "compute CCF",
+                                                    "(re)compute component counting function",
                                                     id="compute-ccf-button",
                                                     className="value",
                                                 ),
@@ -188,6 +213,22 @@ class PersistableInteractive:
                                                     value=default_max_dim,
                                                     min=1,
                                                     className="value",
+                                                    step=1,
+                                                    debounce=True,
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="line selections",
+                                                ),
+                                                dcc.RadioItems(
+                                                    ["on", "off"],
+                                                    "off",
+                                                    id="display-line-selections",
                                                 ),
                                             ],
                                         ),
@@ -200,10 +241,166 @@ class PersistableInteractive:
                                 html.H2("Prominence Vineyard"),
                                 html.Div(
                                     className="parameters",
+                                    children=[
+                                        html.Div(
+                                            className="parameter",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="start first line",
+                                                ),
+                                                dcc.Input(
+                                                    className="value",
+                                                    id="x-start-first-line",
+                                                    type="number",
+                                                    value=default_x_start_first_line,
+                                                    min=0,
+                                                    step=default_s_step,
+                                                    debounce=True,
+                                                ),
+                                                dcc.Input(
+                                                    className="value",
+                                                    id="y-start-first-line",
+                                                    type="number",
+                                                    value=default_y_start_first_line,
+                                                    min=0,
+                                                    step=default_k_step,
+                                                    debounce=True,
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="end first line",
+                                                ),
+                                                dcc.Input(
+                                                    className="value",
+                                                    id="x-end-first-line",
+                                                    type="number",
+                                                    value=default_x_end_first_line,
+                                                    min=0,
+                                                    step=default_s_step,
+                                                    debounce=True,
+                                                ),
+                                                dcc.Input(
+                                                    className="value",
+                                                    id="y-end-first-line",
+                                                    type="number",
+                                                    value=default_y_end_first_line,
+                                                    min=0,
+                                                    step=default_k_step,
+                                                    debounce=True,
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="start second line",
+                                                ),
+                                                dcc.Input(
+                                                    className="value",
+                                                    id="x-start-second-line",
+                                                    type="number",
+                                                    value=default_x_start_second_line,
+                                                    min=0,
+                                                    step=default_s_step,
+                                                    debounce=True,
+                                                ),
+                                                dcc.Input(
+                                                    className="value",
+                                                    id="y-start-second-line",
+                                                    type="number",
+                                                    value=default_y_start_second_line,
+                                                    min=0,
+                                                    step=default_k_step,
+                                                    debounce=True,
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="end second line",
+                                                ),
+                                                dcc.Input(
+                                                    className="value",
+                                                    id="x-end-second-line",
+                                                    type="number",
+                                                    value=default_x_end_second_line,
+                                                    min=0,
+                                                    step=default_s_step,
+                                                    debounce=True,
+                                                ),
+                                                dcc.Input(
+                                                    className="value",
+                                                    id="y-end-second-line",
+                                                    type="number",
+                                                    value=default_y_end_second_line,
+                                                    min=0,
+                                                    step=default_k_step,
+                                                    debounce=True,
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                ),
+                                                html.Button(
+                                                    "compute prominence vineyard",
+                                                    id="compute-pv-button",
+                                                    className="value",
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="scale",
+                                                ),
+                                                dcc.RadioItems(
+                                                    ["linear", "logarithmic"],
+                                                    "logarithmic",
+                                                    id="input-prom-vin-scale",
+                                                ),
+                                            ],
+                                        ),
+                                    ],
                                 ),
                             ]
                         ),
-                        dcc.Graph(id="hilbert-plot", figure=blank_figure()),
+                        dcc.Graph(
+                            id="hilbert-plot",
+                            config={
+                                "displayModeBar": False,
+                                "modeBarButtonsToRemove": [
+                                    "toImage",
+                                    "pan",
+                                    "zoomIn",
+                                    "zoomOut",
+                                    "resetScale",
+                                    "lasso",
+                                    "select",
+                                ],
+                                # "modeBarButtonsToAdd": [
+                                #    "drawline",
+                                #    "eraseshape",
+                                # ],
+                                "displaylogo": False,
+                            },
+                        ),
                         html.Div(
                             className="fake-plot",
                         ),
@@ -211,13 +408,14 @@ class PersistableInteractive:
                 ),
             ],
         )
+
         self._app.callback(
             dash.Output("stored-ccf", "data"),
             [
                 dash.Input("compute-ccf-button", "n_clicks"),
-                dash.State("input-max-k", "value"),
-                dash.State("input-min-s", "value"),
-                dash.State("input-max-s", "value"),
+                dash.State("max-density-threshold", "value"),
+                dash.State("min-dist-scale", "value"),
+                dash.State("max-dist-scale", "value"),
                 dash.State("input-log-granularity", "value"),
                 dash.State("input-num-jobs", "value"),
             ],
@@ -225,20 +423,54 @@ class PersistableInteractive:
         )(self.compute_ccf)
 
         self._app.callback(
-            dash.Output("hilbert-plot", "figure"),
+            dash.Output("stored-ccf-drawing", "data"),
+            #dash.Output("hilbert-plot", "figure"),
             [
                 dash.Input("stored-ccf", "data"),
                 dash.Input("input-max-components", "value"),
             ],
-            True,
+            False,
         )(self.draw_ccf)
 
-        # self._app.callback( dash.Output("my-output", "children"),
-        #                    [dash.Input("print-button", "n_clicks") ], True)(self.test_print)
-        if jupyter == True:
+        self._app.callback(
+            dash.Output("hilbert-plot", "figure"),
+            [
+                dash.State("stored-ccf", "data"),
+                dash.Input("stored-ccf-drawing", "data"),
+                dash.Input("min-dist-scale", "value"),
+                dash.Input("max-dist-scale", "value"),
+                dash.Input("max-density-threshold", "value"),
+                dash.Input("display-line-selections", "value"),
+                dash.Input("x-start-first-line", "value"),
+                dash.Input("y-start-first-line", "value"),
+                dash.Input("x-end-first-line", "value"),
+                dash.Input("y-end-first-line", "value"),
+                dash.Input("x-start-second-line", "value"),
+                dash.Input("y-start-second-line", "value"),
+                dash.Input("x-end-second-line", "value"),
+                dash.Input("y-end-second-line", "value"),
+            ],
+            False,
+        )(self.draw_ccf_enclosing_box)
+
+
+        # self._app.callback(
+        #    dash.Output("click-data", "children"),
+        #    dash.Input("hilbert-plot", "clickData"),
+        # )(self.test)
+
+        if jupyter:
             self._app.run_server(mode="inline")
         else:
             self._app.run_server(debug=debug)
+
+    #def test(self, clickdata):
+    #    if clickdata is None:
+    #        return " "
+    #    p = clickdata["points"][0]
+    #    x = p["x"]
+    #    y = p["y"]
+    #    return str(x) + " , " + str(y)
 
     def compute_ccf(
         self,
@@ -265,8 +497,96 @@ class PersistableInteractive:
             date_format="iso", orient="split"
         )
 
-    def draw_ccf(self, ccf, max_components):
-        max_components = 0 if max_components is None else int(max_components)
+
+    def draw_ccf_enclosing_box(
+        self,
+        ccf,
+        ccf_drawing,
+        min_dist_scale,
+        max_dist_scale,
+        max_density_threshold,
+        display_line_selection,
+        x_start_first_line,
+        y_start_first_line,
+        x_end_first_line,
+        y_end_first_line,
+        x_start_second_line,
+        y_start_second_line,
+        x_end_second_line,
+        y_end_second_line,
+    ):
+        if ccf is None:
+            return empty_figure()
+
+        fig = plotly.io.from_json(ccf_drawing)
+
+        ccf = pd.read_json(ccf, orient="split")
+
+        def generate_red_box(xs, ys, text):
+            return go.Scatter(
+                x=xs,
+                y=ys,
+                fillcolor="rgba(255, 0, 0, 0.1)",
+                fill="toself",
+                mode="none",
+                text=text,
+                name="",
+            )
+
+        # draw left side of new enclosing box
+        fig.add_trace(
+            generate_red_box(
+                [min(ccf.columns), min_dist_scale, min_dist_scale, min(ccf.columns)],
+                [min(ccf.index), min(ccf.index), max(ccf.index), max(ccf.index)],
+                "Left side of new enclosing box",
+            )
+        )
+
+        # draw right side of new enclosing box
+        fig.add_trace(
+            generate_red_box(
+                [max_dist_scale, max(ccf.columns), max(ccf.columns), max_dist_scale],
+                [min(ccf.index), min(ccf.index), max(ccf.index), max(ccf.index)],
+                text="Right side of new enclosing box",
+            )
+        )
+
+        # draw top side of new enclosing box
+        fig.add_trace(
+            generate_red_box(
+                [min_dist_scale, max_dist_scale, max_dist_scale, min_dist_scale],
+                [max_density_threshold, max_density_threshold, max(ccf.index), max(ccf.index)],
+                text="Top side of new enclosing box",
+            )
+        )
+
+        if display_line_selection == "on":
+            fig.add_trace(
+                go.Scatter(
+                    x=[x_start_first_line, x_end_first_line],
+                    y=[y_start_first_line, y_end_first_line],
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=[x_start_second_line, x_end_second_line],
+                    y=[y_start_second_line, y_end_second_line],
+                )
+            )
+
+
+        return fig
+
+    def draw_ccf(
+        self,
+        ccf,
+        max_components,
+    ):
+
+
+        if ccf is None:
+            return empty_figure()
+
         ccf = pd.read_json(ccf, orient="split")
 
         def df_to_plotly(df):
@@ -282,65 +602,42 @@ class PersistableInteractive:
                 # width=650,
                 xaxis_title="distance scale",
                 yaxis_title="density threshold",
+                xaxis={"fixedrange": True},
+                yaxis={"fixedrange": True},
             ),
         )
-        fig.add_trace(go.Heatmap(df_to_plotly(ccf), zmin=0, zmax=max_components))
-        fig.update_traces(colorscale="greys")
-        fig.update_layout(coloraxis_showscale=False)
-        return fig
-
-    def _update_line_parameters(self, gap, line_index):
-        self._line_parameters = self._vineyard._parameters[line_index]
-        self._n_clusters = gap
-        return self._line_parameters, gap
-
-    def _clear_vineyard_parameter_bounds(self):
-        self._vineyard_parameter_bounds = {}
-        return self._vineyard_parameter_bounds
-
-    def _update_vineyard_parameter_bounds(self, point):
-        if "start1" not in self._vineyard_parameter_bounds:
-            self._vineyard_parameter_bounds["start1"] = point
-        elif "end1" not in self._vineyard_parameter_bounds:
-            st1 = self._vineyard_parameter_bounds["start1"]
-            if point[0] < st1[0] or point[1] > st1[1]:
-                return self._vineyard_parameter_bounds
-            self._vineyard_parameter_bounds["end1"] = point
-        elif "start2" not in self._vineyard_parameter_bounds:
-            self._vineyard_parameter_bounds["start2"] = point
-        elif "end2" not in self._vineyard_parameter_bounds:
-            st2 = self._vineyard_parameter_bounds["start2"]
-            if point[0] < st2[0] or point[1] > st2[1]:
-                return self._vineyard_parameter_bounds
-            self._vineyard_parameter_bounds["end2"] = point
-        else:
-            self._vineyard_parameter_bounds = {}
-            self._update_vineyard_parameter_bounds(point)
-        return self._vineyard_parameter_bounds
-
-    def plot_hilbert_function(self, xs, ys, max_dim, dimensions, colormap="binary"):
-        ax = self._hilbert_ax
-        cmap = cm.get_cmap(colormap)
-        im = ax.imshow(
-            dimensions[::-1],
-            cmap=cmap,
-            aspect="auto",
-            extent=[xs[0], xs[-1], ys[0], ys[-1]],
+        max_components = 0 if max_components is None else int(max_components)
+        fig.add_trace(
+            go.Heatmap(
+                df_to_plotly(ccf),
+                hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
+                zmin=0,
+                zmax=max_components,
+                showscale=False,
+                name="",
+            )
         )
-        im.set_clim(0, max_dim)
-        ax.set_xlabel("distance scale")
-        ax.set_ylabel("density threshold")
-        ax.set_title("component counting function")
-        ax.figure.canvas.draw_idle()
-        ax.figure.canvas.flush_events()
+        fig.update_traces(colorscale="greys")
 
-    def cluster(self):
-        if self._line_parameters is None:
-            raise Exception("No parameters for the line were given!")
-        else:
-            start, end = self._line_parameters
-            n_clusters = self._n_clusters
-        return self._persistable.cluster(n_clusters, start, end)
+        fig.update_layout(showlegend=False)
+        fig.update_xaxes(range=[min(ccf.columns), max(ccf.columns)])
+        fig.update_yaxes(range=[min(ccf.index), max(ccf.index)])
+        fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
+        fig.update_layout(clickmode="event+select")
+        # fig.update_layout(
+        #    dragmode="drawline",
+        #    newshape=dict(opacity=0.3, line=dict(color="darkblue", width=5)),
+        # )
+        #print(type(plotly.io.to_json(fig)))
+        return plotly.io.to_json(fig)
+
+    # def cluster(self):
+    #    if self._line_parameters is None:
+    #        raise Exception("No parameters for the line were given!")
+    #    else:
+    #        start, end = self._line_parameters
+    #        n_clusters = self._n_clusters
+    #    return self._persistable.cluster(n_clusters, start, end)
 
     def plot_prominence_vineyard(
         self,
@@ -409,19 +706,6 @@ class PersistableInteractive:
         ax.figure.canvas.draw_idle()
         ax.figure.canvas.flush_events()
 
-    def _plot_prominence_vineyard_button(self, event):
-        if len(self._vineyard_parameter_bounds.values()) < 4:
-            raise Exception("No parameters chosen!")
-        start1 = self._vineyard_parameter_bounds["start1"]
-        end1 = self._vineyard_parameter_bounds["end1"]
-        start2 = self._vineyard_parameter_bounds["start2"]
-        end2 = self._vineyard_parameter_bounds["end2"]
-
-        self._vineyard = self._persistable.compute_prominence_vineyard(
-            [start1, end1], [start2, end2]
-        )
-        self.plot_prominence_vineyard(self._vineyard)
-
     def _vineyard_on_parameter_selection(self, event):
         ax = self._vineyard_ax
         if event.inaxes != ax:
@@ -479,18 +763,6 @@ class PersistableInteractive:
 
                 ax.figure.canvas.draw_idle()
                 ax.figure.canvas.flush_events()
-
-    def _clear_hilbert_parameters(self):
-        if self._hilbert_current_points_plotted_on is not None:
-            self._hilbert_current_points_plotted_on.remove()
-            self._hilbert_current_points_plotted_on = None
-        if len(self._hilbert_current_lines_plotted_on) > 0:
-            for x in self._hilbert_current_lines_plotted_on:
-                x.pop(0).remove()
-            self._hilbert_current_lines_plotted_on = []
-        if self._hilbert_current_polygon_plotted_on is not None:
-            self._hilbert_current_polygon_plotted_on.remove()
-            self._hilbert_current_polygon_plotted_on = None
 
     def _draw_on_hilbert(self, vineyard_parameters):
         ax = self._hilbert_ax
