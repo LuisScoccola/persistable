@@ -35,11 +35,11 @@ h2 {
 }
 
 .parameter-single>.name {
-    width: 40%;
+    width: 30%;
 }
 
 .parameter-single>.value {
-    width: 60%;
+    width: 70%;
 }
 
 .parameter-double {
@@ -49,11 +49,11 @@ h2 {
 }
 
 .parameter-double>.name {
-    width: 40%;
+    width: 30%;
 }
 
 .parameter-double>.value {
-    width: 30%;
+    width: 35%;
 }
 
 .fake-plot {
@@ -84,4 +84,8 @@ input {
 
 input:valid, input:invalid {
     outline: none black;
+}
+
+[hidden] {
+    display: none !important;
 }

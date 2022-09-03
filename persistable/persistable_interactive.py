@@ -277,11 +277,13 @@ class PersistableInteractive:
                                                     ["on", "off"],
                                                     "off",
                                                     id="display-lines-selection",
+                                                    className="value",
                                                 ),
                                             ],
                                         ),
                                         html.Div(
                                             className="parameter-single",
+                                            id="endpoint-selection-div",
                                             children=[
                                                 html.Span(
                                                     className="name",
@@ -289,13 +291,14 @@ class PersistableInteractive:
                                                 ),
                                                 dcc.RadioItems(
                                                     [
-                                                        "1st line strt",
+                                                        "1st line start",
                                                         "1st line end",
-                                                        "2nd line strt",
+                                                        "2nd line start",
                                                         "2nd line end",
                                                     ],
-                                                    "1st line strt",
+                                                    "1st line start",
                                                     id="endpoint-selection",
+                                                    className="value",
                                                 ),
                                             ],
                                         ),
@@ -441,6 +444,7 @@ class PersistableInteractive:
                                                     ["linear", "logarithmic"],
                                                     "logarithmic",
                                                     id="input-prom-vin-scale",
+                                                    className="value",
                                                 ),
                                             ],
                                         ),
@@ -518,6 +522,13 @@ class PersistableInteractive:
             ],
             True,
         )(self.on_ccf_click)
+
+        self._app.callback(
+            dash.Output("endpoint-selection-div", "hidden"),
+            dash.Input("display-lines-selection", "value")
+        )(
+            lambda val: False if val=="on" else True
+        )
 
         self._app.long_callback(
             dash.Output("stored-ccf", "data"),
@@ -646,13 +657,13 @@ class PersistableInteractive:
     ):
         if display_lines_selection=="on":
             new_x, new_y = click_data["points"][0]["x"], click_data["points"][0]["y"]
-            if endpoint == "1st line strt":
+            if endpoint == "1st line start":
                 x_start_first_line = new_x
                 y_start_first_line = new_y
             elif endpoint == "1st line end":
                 x_end_first_line = new_x
                 y_end_first_line = new_y
-            elif endpoint == "2nd line strt":
+            elif endpoint == "2nd line start":
                 x_start_second_line = new_x
                 y_start_second_line = new_y
             elif endpoint == "2nd line end":
@@ -755,6 +766,18 @@ class PersistableInteractive:
 
         if display_line_selection == "on":
 
+            # draw polygon
+            fig.add_trace(go.Scatter(
+                x=[x_start_first_line, x_end_first_line, x_end_second_line, x_start_second_line ],
+                y=[y_start_first_line, y_end_first_line, y_end_second_line, y_start_second_line ],
+                fillcolor="rgba(0, 0, 255, 0.05)",
+                fill="toself",
+                mode="none",
+                hoverinfo="skip",
+                #text=text,
+                name="",
+            ))
+
             def generate_blue_line(xs, ys, text, different_marker=None):
                 if different_marker == None:
                     marker_styles = ["circle", "circle"]
@@ -766,7 +789,7 @@ class PersistableInteractive:
                     x=xs,
                     y=ys,
                     name=text + " line",
-                    text=[text + " line strt", text + " line end"],
+                    text=[text + " line start", text + " line end"],
                     marker=dict(size=20, color="blue"),
                     # hoverinfo="name+text",
                     marker_symbol=marker_styles,
@@ -776,13 +799,13 @@ class PersistableInteractive:
                     textposition="top center",
                 )
 
-            if endpoint == "1st line strt":
+            if endpoint == "1st line start":
                 first_line_endpoints = 0
                 second_line_endpoints = None
             elif endpoint == "1st line end":
                 first_line_endpoints = 1
                 second_line_endpoints = None
-            elif endpoint == "2nd line strt":
+            elif endpoint == "2nd line start":
                 first_line_endpoints = None
                 second_line_endpoints = 0
             elif endpoint == "2nd line end":
