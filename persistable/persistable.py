@@ -171,6 +171,7 @@ class Persistable:
 
     def compute_hilbert_function(
         self,
+        min_k,
         max_k,
         min_s,
         max_s,
@@ -186,6 +187,14 @@ class Persistable:
                 + str(max_k)
                 + " instead."
             )
+        if min_k >= max_k:
+            min_k = max_k / 2
+            warnings.warn(
+                "min_k too large, using min_k="
+                + str(min_k)
+                + " instead."
+            )
+
         # how many more ss than ks (note that getting more ss is very cheap)
         more_s_than_k = 10
         ss = np.linspace(
@@ -193,7 +202,7 @@ class Persistable:
             max_s,
             granularity * more_s_than_k,
         )
-        ks = np.linspace(0, max_k, granularity)
+        ks = np.linspace(min_k, max_k, granularity)
         hf = self._mpspace.hilbert_function(ks, ss, n_jobs=n_jobs)
         return ss, ks, hf
 

@@ -14,8 +14,12 @@ from jupyter_dash import JupyterDash
 import dash
 from dash import dcc
 from dash import html
+from dash.long_callback import DiskcacheLongCallbackManager
+
 import pandas as pd
 import json
+import diskcache
+
 
 def empty_figure():
     fig = go.Figure(go.Scatter(x=[], y=[]))
@@ -55,6 +59,7 @@ class PersistableInteractive:
 
         ## initialize the plots
 
+        default_min_k = 0
         default_max_k = self._persistable._maxk
         default_k_step = default_max_k / 100
         default_min_s = self._persistable._connection_radius / 5
@@ -64,20 +69,24 @@ class PersistableInteractive:
         default_num_jobs = 4
         default_max_dim = 15
         min_granularity = 4
-        max_granularity = 10
-        default_x_start_first_line = default_min_s
-        default_y_start_first_line = default_max_k / 4
-        default_x_end_first_line = (default_max_s + default_min_s) / 4
-        default_y_end_first_line = 0
-        default_x_start_second_line = default_min_s
-        default_y_start_second_line = default_max_k / 2
-        default_x_end_second_line = (default_max_s + default_min_s) / 2
-        default_y_end_second_line = 0
+        max_granularity = 8
+        defr = 6
+        default_x_start_first_line = (default_min_s + default_max_s) * (1/defr)
+        default_y_start_first_line = (default_min_k + default_max_k) * (1/2)
+        default_x_end_first_line = (default_max_s + default_min_s) * (1/2)
+        default_y_end_first_line = (default_min_k + default_max_k) * (1/defr)
+        default_x_start_second_line = (default_min_s + default_max_s) * (1/2)
+        default_y_start_second_line = (default_min_k + default_max_k) * ((defr-1)/defr)
+        default_x_end_second_line = (default_max_s + default_min_s) * ((defr-1)/defr)
+        default_y_end_second_line = (default_min_k + default_max_k) * (1/2)
+
+        cache = diskcache.Cache("./persistable-dash-cache")
+        long_callback_manager = DiskcacheLongCallbackManager(cache)
 
         if jupyter == True:
-            self._app = JupyterDash(__name__)
+            self._app = JupyterDash(__name__, long_callback_manager=long_callback_manager)
         else:
-            self._app = dash.Dash(__name__)
+            self._app = dash.Dash(__name__, long_callback_manager=long_callback_manager)
         self._app.layout = html.Div(
             children=[
                 dcc.Store(id="stored-ccf"),
@@ -98,7 +107,25 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="max density threshold",
+                                                    children="density threshold min",
+                                                ),
+                                                dcc.Input(
+                                                    className="value",
+                                                    id="min-density-threshold",
+                                                    type="number",
+                                                    value=default_min_k,
+                                                    min=0,
+                                                    debounce=True,
+                                                    #step=default_k_step
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="density threshold max",
                                                 ),
                                                 dcc.Input(
                                                     className="value",
@@ -107,16 +134,17 @@ class PersistableInteractive:
                                                     value=default_max_k,
                                                     min=0,
                                                     debounce=True,
-                                                    step=default_k_step
+                                                    #step=default_k_step
                                                 ),
                                             ],
                                         ),
+ 
                                         html.Div(
                                             className="parameter",
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="min distance scale",
+                                                    children="distance scale min",
                                                 ),
                                                 dcc.Input(
                                                     className="value",
@@ -125,7 +153,7 @@ class PersistableInteractive:
                                                     value=default_min_s,
                                                     min=0,
                                                     debounce=True,
-                                                    step=default_s_step
+                                                    #step=default_s_step
                                                 ),
                                             ],
                                         ),
@@ -134,7 +162,7 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="max distance scale",
+                                                    children="distance scale max",
                                                 ),
                                                 dcc.Input(
                                                     className="value",
@@ -143,7 +171,7 @@ class PersistableInteractive:
                                                     value=default_max_s,
                                                     min=0,
                                                     debounce=True,
-                                                    step=default_s_step
+                                                    #step=default_s_step
                                                 ),
                                             ],
                                         ),
@@ -247,7 +275,7 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="start first line",
+                                                    children="first line start",
                                                 ),
                                                 dcc.Input(
                                                     className="value",
@@ -255,7 +283,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_x_start_first_line,
                                                     min=0,
-                                                    step=default_s_step,
+                                                    #step=default_s_step,
                                                     debounce=True,
                                                 ),
                                                 dcc.Input(
@@ -264,7 +292,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_y_start_first_line,
                                                     min=0,
-                                                    step=default_k_step,
+                                                    #step=default_k_step,
                                                     debounce=True,
                                                 ),
                                             ],
@@ -274,7 +302,7 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="end first line",
+                                                    children="first line end",
                                                 ),
                                                 dcc.Input(
                                                     className="value",
@@ -282,7 +310,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_x_end_first_line,
                                                     min=0,
-                                                    step=default_s_step,
+                                                    #step=default_s_step,
                                                     debounce=True,
                                                 ),
                                                 dcc.Input(
@@ -291,7 +319,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_y_end_first_line,
                                                     min=0,
-                                                    step=default_k_step,
+                                                    #step=default_k_step,
                                                     debounce=True,
                                                 ),
                                             ],
@@ -301,7 +329,7 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="start second line",
+                                                    children="second line start ",
                                                 ),
                                                 dcc.Input(
                                                     className="value",
@@ -309,7 +337,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_x_start_second_line,
                                                     min=0,
-                                                    step=default_s_step,
+                                                    #step=default_s_step,
                                                     debounce=True,
                                                 ),
                                                 dcc.Input(
@@ -318,7 +346,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_y_start_second_line,
                                                     min=0,
-                                                    step=default_k_step,
+                                                    #step=default_k_step,
                                                     debounce=True,
                                                 ),
                                             ],
@@ -328,7 +356,7 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="end second line",
+                                                    children="second line end",
                                                 ),
                                                 dcc.Input(
                                                     className="value",
@@ -336,7 +364,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_x_end_second_line,
                                                     min=0,
-                                                    step=default_s_step,
+                                                    #step=default_s_step,
                                                     debounce=True,
                                                 ),
                                                 dcc.Input(
@@ -345,7 +373,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_y_end_second_line,
                                                     min=0,
-                                                    step=default_k_step,
+                                                    #step=default_k_step,
                                                     debounce=True,
                                                 ),
                                             ],
@@ -409,10 +437,11 @@ class PersistableInteractive:
             ],
         )
 
-        self._app.callback(
+        self._app.long_callback(
             dash.Output("stored-ccf", "data"),
             [
                 dash.Input("compute-ccf-button", "n_clicks"),
+                dash.State("min-density-threshold", "value"),
                 dash.State("max-density-threshold", "value"),
                 dash.State("min-dist-scale", "value"),
                 dash.State("max-dist-scale", "value"),
@@ -420,6 +449,7 @@ class PersistableInteractive:
                 dash.State("input-num-jobs", "value"),
             ],
             True,
+            running=[(dash.Output("compute-ccf-button", "disabled"), True, False)],
         )(self.compute_ccf)
 
         self._app.callback(
@@ -439,6 +469,7 @@ class PersistableInteractive:
                 dash.Input("stored-ccf-drawing", "data"),
                 dash.Input("min-dist-scale", "value"),
                 dash.Input("max-dist-scale", "value"),
+                dash.Input("min-density-threshold", "value"),
                 dash.Input("max-density-threshold", "value"),
                 dash.Input("display-line-selections", "value"),
                 dash.Input("x-start-first-line", "value"),
@@ -475,18 +506,21 @@ class PersistableInteractive:
     def compute_ccf(
         self,
         n_clicks,
+        min_k,
         max_k,
         min_s,
         max_s,
         log_granularity,
         num_jobs,
     ):
+        min_k = float(min_k)
         max_k = float(max_k)
         min_s = float(min_s)
         max_s = float(max_s)
         granularity = 2**log_granularity
         num_jobs = int(num_jobs)
         ss, ks, hf = self._persistable.compute_hilbert_function(
+            min_k,
             max_k,
             min_s,
             max_s,
@@ -504,6 +538,7 @@ class PersistableInteractive:
         ccf_drawing,
         min_dist_scale,
         max_dist_scale,
+        min_density_threshold,
         max_density_threshold,
         display_line_selection,
         x_start_first_line,
@@ -560,20 +595,34 @@ class PersistableInteractive:
             )
         )
 
+        # draw bottom side of new enclosing box
+        fig.add_trace(
+            generate_red_box(
+                [min_dist_scale, max_dist_scale, max_dist_scale, min_dist_scale],
+                [min_density_threshold, min_density_threshold, min(ccf.index), min(ccf.index)],
+                text="Bottom side of new enclosing box",
+            )
+        )
+
         if display_line_selection == "on":
             fig.add_trace(
                 go.Scatter(
                     x=[x_start_first_line, x_end_first_line],
                     y=[y_start_first_line, y_end_first_line],
+                    fillcolor="rgba(0, 0, 255, 1)",
+                    name="first line",
+                    text=["beginning", "end"]
                 )
             )
             fig.add_trace(
                 go.Scatter(
                     x=[x_start_second_line, x_end_second_line],
                     y=[y_start_second_line, y_end_second_line],
+                    fillcolor="rgba(0, 0, 255, 1)",
+                    name="second line",
+                    text=["beginning", "end"]
                 )
             )
-
 
         return fig
 

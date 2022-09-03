@@ -7,3 +7,6 @@ plotly
 dash
 jupyter_dash
 pandas
+diskcache
+multiprocess
+psutil
