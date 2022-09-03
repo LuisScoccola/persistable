@@ -17,7 +17,7 @@ h2 {
 .grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1.5fr 1fr;
+    grid-template-rows: 1fr 1.5fr;
     row-gap: 10px;
     column-gap: 40px;
 }
@@ -48,9 +48,9 @@ h2 {
     background-color: lightgrey;
 }
 
-/* turn off little arrow "dials" for inputs
+/* turn off little arrow "dials" for inputs*/
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0; 
-} */
+}

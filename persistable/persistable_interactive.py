@@ -92,7 +92,11 @@ class PersistableInteractive:
                 dcc.Store(id="stored-ccf"),
                 dcc.Store(id="stored-ccf-drawing"),
                 html.H1("Interactive parameter selection for Persistable"),
-                html.P("[brief description]"),
+                html.Details([
+                    html.Summary('Quick help'),
+                    html.Div('[to do]')
+                ]),
+                #html.Pre(id="test", style= {'border': 'thin lightgrey solid', 'overflowX': 'scroll' }),
                 html.Div(
                     className="grid",
                     children=[
@@ -138,7 +142,6 @@ class PersistableInteractive:
                                                 ),
                                             ],
                                         ),
- 
                                         html.Div(
                                             className="parameter",
                                             children=[
@@ -434,8 +437,23 @@ class PersistableInteractive:
                         ),
                     ],
                 ),
+                html.Details([
+                    html.Summary('Log and warnings'),
+                    html.Pre(id='log', style= {'border': 'thin lightgrey solid', 'overflowX': 'scroll' }),
+                ], open=True),
             ],
         )
+
+        self._app.callback(
+            dash.Output("log", "children"),
+            [
+                dash.Input("hilbert-plot", "clickData")
+            ],
+            True,
+        )(
+            lambda click_data : json.dumps(click_data)
+        )
+
 
         self._app.long_callback(
             dash.Output("stored-ccf", "data"),
@@ -609,18 +627,20 @@ class PersistableInteractive:
                 go.Scatter(
                     x=[x_start_first_line, x_end_first_line],
                     y=[y_start_first_line, y_end_first_line],
-                    fillcolor="rgba(0, 0, 255, 1)",
                     name="first line",
-                    text=["beginning", "end"]
+                    text=["start", "end"],
+                    marker=dict(size=20, color="blue"),
+                    hoverinfo="name+text"
                 )
             )
             fig.add_trace(
                 go.Scatter(
                     x=[x_start_second_line, x_end_second_line],
                     y=[y_start_second_line, y_end_second_line],
-                    fillcolor="rgba(0, 0, 255, 1)",
                     name="second line",
-                    text=["beginning", "end"]
+                    text=["start", "end"],
+                    marker=dict(size=20, color="blue"),
+                    hoverinfo="name+text"
                 )
             )
 
