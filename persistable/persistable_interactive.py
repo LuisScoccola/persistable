@@ -24,6 +24,7 @@ import diskcache
 
 PERSISTABLE_STDERR = "./persistable-stderr"
 PERSISTABLE_DASH_CACHE = "./persistable-dash-cache"
+#WARNINGS_GLOBAL = "test default"
 
 def empty_figure():
     fig = go.Figure(go.Scatter(x=[], y=[]))
@@ -46,21 +47,22 @@ class PersistableInteractive:
     def __init__(self, persistable, jupyter=False, debug=False):
         self._persistable = persistable
 
-        ## to be passed/computed later:
-        # user-selected bounds for the prominence vineyard
-        self._vineyard_parameter_bounds = {}
-        # user-selected start and end for a line
-        self._line_parameters = None
-        # user-selected number of clusters
-        self._n_clusters = None
-        # the computed prominence vineyard
-        self._vineyard = None
+        ### to be passed/computed later:
+        ## user-selected bounds for the prominence vineyard
+        #self._vineyard_parameter_bounds = {}
+        ## user-selected start and end for a line
+        #self._line_parameters = None
+        ## user-selected number of clusters
+        #self._n_clusters = None
+        ## the computed prominence vineyard
+        #self._vineyard = None
 
-        # prominence vineyard
-        self._gaps = []
-        self._gap_numbers = []
-        self._lines = []
-        self._line_index = []
+        ## prominence vineyard
+        #self._gaps = []
+        #self._gap_numbers = []
+        #self._lines = []
+        #self._line_index = []
+
 
         ## initialize the plots
 
@@ -92,7 +94,8 @@ class PersistableInteractive:
         # set temporary files
         cache = diskcache.Cache(PERSISTABLE_DASH_CACHE)
         long_callback_manager = DiskcacheLongCallbackManager(cache)
-        sys.stderr = open(PERSISTABLE_STDERR, "w")
+        with open(PERSISTABLE_STDERR, "w") as file:
+                file.close()
 
 
 
@@ -139,7 +142,7 @@ class PersistableInteractive:
                                     className="parameters",
                                     children=[
                                         html.Div(
-                                            className="parameter",
+                                            className="parameter-double",
                                             children=[
                                                 html.Span(
                                                     className="name",
@@ -166,7 +169,7 @@ class PersistableInteractive:
                                             ],
                                         ),
                                         html.Div(
-                                            className="parameter",
+                                            className="parameter-double",
                                             children=[
                                                 html.Span(
                                                     className="name",
@@ -193,7 +196,7 @@ class PersistableInteractive:
                                             ],
                                         ),
                                         html.Div(
-                                            className="parameter",
+                                            className="parameter-single",
                                             children=[
                                                 html.Span(
                                                     className="name",
@@ -210,7 +213,7 @@ class PersistableInteractive:
                                             ],
                                         ),
                                         html.Div(
-                                            className="parameter",
+                                            className="parameter-single",
                                             children=[
                                                 html.Span(
                                                     className="name",
@@ -233,7 +236,7 @@ class PersistableInteractive:
                                             ],
                                         ),
                                         html.Div(
-                                            className="parameter",
+                                            className="parameter-single",
                                             children=[
                                                 html.Span(
                                                     className="name",
@@ -246,7 +249,7 @@ class PersistableInteractive:
                                             ],
                                         ),
                                         html.Div(
-                                            className="parameter",
+                                            className="parameter-single",
                                             children=[
                                                 html.Span(
                                                     className="name",
@@ -264,7 +267,7 @@ class PersistableInteractive:
                                             ],
                                         ),
                                         html.Div(
-                                            className="parameter",
+                                            className="parameter-single",
                                             children=[
                                                 html.Span(
                                                     className="name",
@@ -278,7 +281,7 @@ class PersistableInteractive:
                                             ],
                                         ),
                                         html.Div(
-                                            className="parameter",
+                                            className="parameter-single",
                                             children=[
                                                 html.Span(
                                                     className="name",
@@ -286,12 +289,12 @@ class PersistableInteractive:
                                                 ),
                                                 dcc.RadioItems(
                                                     [
-                                                        "fst line strt",
-                                                        "fst line end",
-                                                        "snd line strt",
-                                                        "snd line end",
+                                                        "1st line strt",
+                                                        "1st line end",
+                                                        "2nd line strt",
+                                                        "2nd line end",
                                                     ],
-                                                    "fst line strt",
+                                                    "1st line strt",
                                                     id="endpoint-selection",
                                                 ),
                                             ],
@@ -307,7 +310,7 @@ class PersistableInteractive:
                                     className="parameters",
                                     children=[
                                         html.Div(
-                                            className="parameter",
+                                            className="parameter-double",
                                             children=[
                                                 html.Span(
                                                     className="name",
@@ -334,7 +337,7 @@ class PersistableInteractive:
                                             ],
                                         ),
                                         html.Div(
-                                            className="parameter",
+                                            className="parameter-double",
                                             children=[
                                                 html.Span(
                                                     className="name",
@@ -361,7 +364,7 @@ class PersistableInteractive:
                                             ],
                                         ),
                                         html.Div(
-                                            className="parameter",
+                                            className="parameter-double",
                                             children=[
                                                 html.Span(
                                                     className="name",
@@ -388,7 +391,7 @@ class PersistableInteractive:
                                             ],
                                         ),
                                         html.Div(
-                                            className="parameter",
+                                            className="parameter-double",
                                             children=[
                                                 html.Span(
                                                     className="name",
@@ -415,7 +418,7 @@ class PersistableInteractive:
                                             ],
                                         ),
                                         html.Div(
-                                            className="parameter",
+                                            className="parameter-single",
                                             children=[
                                                 html.Span(
                                                     className="name",
@@ -428,7 +431,7 @@ class PersistableInteractive:
                                             ],
                                         ),
                                         html.Div(
-                                            className="parameter",
+                                            className="parameter-single",
                                             children=[
                                                 html.Span(
                                                     className="name",
@@ -594,22 +597,35 @@ class PersistableInteractive:
         log_granularity,
         num_jobs,
     ):
-        open(PERSISTABLE_STDERR, 'w').close()
-        warnings.warn("test warning")
+        #open(PERSISTABLE_STDERR, 'w').close()
         min_k = float(min_k)
         max_k = float(max_k)
         min_s = float(min_s)
         max_s = float(max_s)
         granularity = 2**log_granularity
         num_jobs = int(num_jobs)
-        ss, ks, hf = self._persistable.compute_hilbert_function(
-            min_k,
-            max_k,
-            min_s,
-            max_s,
-            granularity,
-            n_jobs=num_jobs,
-        )
+
+        out = ""
+        with warnings.catch_warnings(record=True) as w:
+            # Cause all warnings to always be triggered.
+            # warnings.simplefilter("always")
+            warnings.warn("test warning")
+            ss, ks, hf = self._persistable.compute_hilbert_function(
+                min_k,
+                max_k,
+                min_s,
+                max_s,
+                granularity,
+                n_jobs=num_jobs,
+            )
+            for a in w:
+                out += warnings.formatwarning(a.message, a.category, a.filename, a.lineno)
+            print("the contents of out are:")
+            print(out)
+            with open(PERSISTABLE_STDERR, "w") as file:
+                file.write(out)
+
+
         return pd.DataFrame(hf, index=ks[:-1], columns=ss[:-1]).to_json(
             date_format="iso", orient="split"
         )
@@ -630,16 +646,16 @@ class PersistableInteractive:
     ):
         if display_lines_selection=="on":
             new_x, new_y = click_data["points"][0]["x"], click_data["points"][0]["y"]
-            if endpoint == "fst line strt":
+            if endpoint == "1st line strt":
                 x_start_first_line = new_x
                 y_start_first_line = new_y
-            elif endpoint == "fst line end":
+            elif endpoint == "1st line end":
                 x_end_first_line = new_x
                 y_end_first_line = new_y
-            elif endpoint == "snd line strt":
+            elif endpoint == "2nd line strt":
                 x_start_second_line = new_x
                 y_start_second_line = new_y
-            elif endpoint == "snd line end":
+            elif endpoint == "2nd line end":
                 x_end_second_line = new_x
                 y_end_second_line = new_y
         return (
@@ -760,16 +776,16 @@ class PersistableInteractive:
                     textposition="top center",
                 )
 
-            if endpoint == "fst line strt":
+            if endpoint == "1st line strt":
                 first_line_endpoints = 0
                 second_line_endpoints = None
-            elif endpoint == "fst line end":
+            elif endpoint == "1st line end":
                 first_line_endpoints = 1
                 second_line_endpoints = None
-            elif endpoint == "snd line strt":
+            elif endpoint == "2nd line strt":
                 first_line_endpoints = None
                 second_line_endpoints = 0
-            elif endpoint == "snd line end":
+            elif endpoint == "2nd line end":
                 first_line_endpoints = None
                 second_line_endpoints = 1
 
@@ -777,7 +793,7 @@ class PersistableInteractive:
                 generate_blue_line(
                     [x_start_first_line, x_end_first_line],
                     [y_start_first_line, y_end_first_line],
-                    "fst",
+                    "1st",
                     first_line_endpoints,
                 )
             )
@@ -785,7 +801,7 @@ class PersistableInteractive:
                 generate_blue_line(
                     [x_start_second_line, x_end_second_line],
                     [y_start_second_line, y_end_second_line],
-                    "snd",
+                    "2nd",
                     second_line_endpoints,
                 )
             )

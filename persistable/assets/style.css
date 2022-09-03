@@ -24,21 +24,36 @@ h2 {
 
 .parameters {
     display: flex;
-    flex-direction: column; gap: 3px;
+    flex-direction: column;
+    gap: 3px;
     /*justify-content: flex-end;*/
 }
 
-.parameter {
+.parameter-single {
     display: flex;
     flex-direction: row;
 }
 
-.parameter>.name {
+.parameter-single>.name {
     width: 40%;
 }
 
-.parameter>.value {
+.parameter-single>.value {
     width: 60%;
+}
+
+.parameter-double {
+    display: flex;
+    flex-direction: row;
+    gap: 2px;
+}
+
+.parameter-double>.name {
+    width: 40%;
+}
+
+.parameter-double>.value {
+    width: 30%;
 }
 
 .fake-plot {
