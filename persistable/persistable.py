@@ -142,7 +142,8 @@ class Persistable:
         start_end1,
         start_end2,
         n_parameters=50,
-        first_n_vines=20,
+        #first_n_vines=20,
+        n_jobs=4
     ):
         start1, end1 = start_end1
         start2, end2 = start_end2
@@ -166,8 +167,8 @@ class Persistable:
             )
         )
         startends = list(zip(starts, ends))
-        pds = self._mpspace.lambda_linkage_prominence_vineyard(startends)
-        return ProminenceVineyard(startends, pds, firstn=first_n_vines)
+        pds = self._mpspace.lambda_linkage_prominence_vineyard(startends, n_jobs = n_jobs)
+        return ProminenceVineyard(startends, pds)#, firstn=first_n_vines)
 
     def compute_hilbert_function(
         self,

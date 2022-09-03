@@ -5,10 +5,11 @@ import sys
 from re import A
 import numpy as np
 import warnings
-#import matplotlib.pyplot as plt
-#from matplotlib import cm
-#from matplotlib.widgets import Button
-#from matplotlib.patches import Polygon
+
+# import matplotlib.pyplot as plt
+# from matplotlib import cm
+# from matplotlib.widgets import Button
+# from matplotlib.patches import Polygon
 
 import plotly.graph_objects as go
 import plotly
@@ -24,7 +25,8 @@ import diskcache
 
 PERSISTABLE_STDERR = "./persistable-stderr"
 PERSISTABLE_DASH_CACHE = "./persistable-dash-cache"
-#WARNINGS_GLOBAL = "test default"
+# WARNINGS_GLOBAL = "test default"
+
 
 def empty_figure():
     fig = go.Figure(go.Scatter(x=[], y=[]))
@@ -49,20 +51,19 @@ class PersistableInteractive:
 
         ### to be passed/computed later:
         ## user-selected bounds for the prominence vineyard
-        #self._vineyard_parameter_bounds = {}
+        # self._vineyard_parameter_bounds = {}
         ## user-selected start and end for a line
-        #self._line_parameters = None
+        # self._line_parameters = None
         ## user-selected number of clusters
-        #self._n_clusters = None
+        # self._n_clusters = None
         ## the computed prominence vineyard
-        #self._vineyard = None
+        # self._vineyard = None
 
         ## prominence vineyard
-        #self._gaps = []
-        #self._gap_numbers = []
-        #self._lines = []
-        #self._line_index = []
-
+        # self._gaps = []
+        # self._gap_numbers = []
+        # self._lines = []
+        # self._line_index = []
 
         ## initialize the plots
 
@@ -75,6 +76,7 @@ class PersistableInteractive:
         default_log_granularity = 6
         default_num_jobs = 4
         default_max_dim = 15
+        default_max_vines = 20
         min_granularity = 4
         max_granularity = 8
         defr = 6
@@ -95,9 +97,7 @@ class PersistableInteractive:
         cache = diskcache.Cache(PERSISTABLE_DASH_CACHE)
         long_callback_manager = DiskcacheLongCallbackManager(cache)
         with open(PERSISTABLE_STDERR, "w") as file:
-                file.close()
-
-
+            file.close()
 
         if jupyter == True:
             self._app = JupyterDash(
@@ -111,27 +111,30 @@ class PersistableInteractive:
                 dcc.Store(id="stored-ccf"),
                 # contains the basic component counting function plot as a plotly figure
                 dcc.Store(id="stored-ccf-drawing"),
+                # contains the vineyard as a vineyard object
+                dcc.Store(id="stored-pv"),
+                # contains the basic prominence vineyard plot as a plotly figure
+                dcc.Store(id="stored-pv-drawing"),
                 dcc.Interval(
                     id="warnings-polling-interval",
-                    interval=(1/2)*1000,
-                    n_intervals=0
+                    interval=(1 / 2) * 1000,
+                    n_intervals=0,
                 ),
-                ### contains the current selected slice endpoint as a list
-                ##dcc.Store(id="selected-line-endpoint", data=json.dumps([])),
                 html.H1("Interactive parameter selection for Persistable"),
                 html.Details(
                     [
                         html.Summary("Quick help"),
-                        dcc.Markdown('''
+                        dcc.Markdown(
+                            """
                         - When setting a field, press enter to TODO
                         - Check the log, below, for warnings.
                         - The app takes a second or so to update the graphical interface after an interaction.
                         - Computing the component counting function and prominence vineyard can take a while, depending on the size and dimensionality of the dataset as well as other factors.
                         - TODO
-                        ''')
+                        """
+                        ),
                     ]
                 ),
-                # html.Pre(id="test", style= {'border': 'thin lightgrey solid', 'overflowX': 'scroll' }),
                 html.Div(
                     className="grid",
                     children=[
@@ -204,7 +207,7 @@ class PersistableInteractive:
                                                 ),
                                                 dcc.Input(
                                                     className="value",
-                                                    id="input-num-jobs",
+                                                    id="input-num-jobs-ccf",
                                                     type="number",
                                                     value=default_num_jobs,
                                                     min=1,
@@ -217,7 +220,7 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="granularity",
+                                                    children="granularity comp count func",
                                                 ),
                                                 dcc.Slider(
                                                     min_granularity,
@@ -230,7 +233,7 @@ class PersistableInteractive:
                                                         )
                                                     },
                                                     value=default_log_granularity,
-                                                    id="input-log-granularity",
+                                                    id="input-log-granularity-ccf",
                                                     className="value",
                                                 ),
                                             ],
@@ -425,11 +428,69 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
+                                                    children="number of cores",
+                                                ),
+                                                dcc.Input(
+                                                    className="value",
+                                                    id="input-num-jobs-pv",
+                                                    type="number",
+                                                    value=default_num_jobs,
+                                                    min=1,
+                                                    step=1,
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter-single",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="granularity vineyard",
+                                                ),
+                                                dcc.Slider(
+                                                    min_granularity,
+                                                    max_granularity,
+                                                    step=None,
+                                                    marks={
+                                                        i: str(2**i)
+                                                        for i in range(
+                                                            1, max_granularity + 1
+                                                        )
+                                                    },
+                                                    value=default_log_granularity-1,
+                                                    id="input-log-granularity-vineyard",
+                                                    className="value",
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter-single",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
                                                 ),
                                                 html.Button(
                                                     "compute prominence vineyard",
                                                     id="compute-pv-button",
                                                     className="value",
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter-single",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="max number vines",
+                                                ),
+                                                dcc.Input(
+                                                    id="input-max-vines",
+                                                    type="number",
+                                                    value=default_max_vines,
+                                                    min=1,
+                                                    className="value",
+                                                    step=1,
+                                                    debounce=True,
                                                 ),
                                             ],
                                         ),
@@ -455,7 +516,7 @@ class PersistableInteractive:
                         dcc.Graph(
                             id="cff-plot",
                             config={
-                                "responsive":True,
+                                "responsive": True,
                                 "displayModeBar": False,
                                 "modeBarButtonsToRemove": [
                                     "toImage",
@@ -466,15 +527,25 @@ class PersistableInteractive:
                                     "lasso",
                                     "select",
                                 ],
-                                # "modeBarButtonsToAdd": [
-                                #    "drawline",
-                                #    "eraseshape",
-                                # ],
                                 "displaylogo": False,
                             },
                         ),
-                        html.Div(
-                            className="fake-plot",
+                        dcc.Graph(
+                            id="pv-plot",
+                            config={
+                                "responsive": True,
+                                "displayModeBar": False,
+                                "modeBarButtonsToRemove": [
+                                    "toImage",
+                                    "pan",
+                                    "zoomIn",
+                                    "zoomOut",
+                                    "resetScale",
+                                    "lasso",
+                                    "select",
+                                ],
+                                "displaylogo": False,
+                            },
                         ),
                     ],
                 ),
@@ -496,7 +567,6 @@ class PersistableInteractive:
 
         self._app.callback(
             [
-                #dash.Output("log", "children"),
                 dash.Output("x-start-first-line", "value"),
                 dash.Output("y-start-first-line", "value"),
                 dash.Output("x-end-first-line", "value"),
@@ -506,7 +576,6 @@ class PersistableInteractive:
                 dash.Output("x-end-second-line", "value"),
                 dash.Output("y-end-second-line", "value"),
             ],
-            # dash.Output("selected-line-endpoint", "data"),
             [
                 dash.Input("cff-plot", "clickData"),
                 dash.State("display-lines-selection", "value"),
@@ -525,10 +594,8 @@ class PersistableInteractive:
 
         self._app.callback(
             dash.Output("endpoint-selection-div", "hidden"),
-            dash.Input("display-lines-selection", "value")
-        )(
-            lambda val: False if val=="on" else True
-        )
+            dash.Input("display-lines-selection", "value"),
+        )(lambda val: False if val == "on" else True)
 
         self._app.long_callback(
             dash.Output("stored-ccf", "data"),
@@ -538,8 +605,8 @@ class PersistableInteractive:
                 dash.State("max-density-threshold", "value"),
                 dash.State("min-dist-scale", "value"),
                 dash.State("max-dist-scale", "value"),
-                dash.State("input-log-granularity", "value"),
-                dash.State("input-num-jobs", "value"),
+                dash.State("input-log-granularity-ccf", "value"),
+                dash.State("input-num-jobs-ccf", "value"),
             ],
             True,
             running=[(dash.Output("compute-ccf-button", "disabled"), True, False)],
@@ -547,7 +614,6 @@ class PersistableInteractive:
 
         self._app.callback(
             dash.Output("stored-ccf-drawing", "data"),
-            # dash.Output("cff-plot", "figure"),
             [
                 dash.Input("stored-ccf", "data"),
                 dash.Input("input-max-components", "value"),
@@ -557,7 +623,6 @@ class PersistableInteractive:
 
         self._app.callback(
             dash.Output("cff-plot", "figure"),
-            # dash.Output("selected-line-endpoint", "data"),
             [
                 dash.State("stored-ccf", "data"),
                 dash.Input("stored-ccf-drawing", "data"),
@@ -585,6 +650,43 @@ class PersistableInteractive:
             False,
         )(self.print_log)
 
+        self._app.long_callback(
+            dash.Output("stored-pv", "data"),
+            [
+                dash.Input("compute-pv-button", "n_clicks"),
+                dash.State("x-start-first-line", "value"),
+                dash.State("y-start-first-line", "value"),
+                dash.State("x-end-first-line", "value"),
+                dash.State("y-end-first-line", "value"),
+                dash.State("x-start-second-line", "value"),
+                dash.State("y-start-second-line", "value"),
+                dash.State("x-end-second-line", "value"),
+                dash.State("y-end-second-line", "value"),
+                dash.State("input-log-granularity-ccf", "value"),
+                dash.State("input-num-jobs-ccf", "value"),
+            ],
+            True,
+            running=[(dash.Output("compute-pv-button", "disabled"), True, False)],
+        )(self.compute_pv)
+
+        self._app.callback(
+            dash.Output("stored-pv-drawing", "data"),
+            [
+                dash.Input("stored-pv", "data"),
+                dash.Input("input-max-vines", "value"),
+                dash.Input("input-prom-vin-scale", "value"),
+            ],
+            False,
+        )(self.draw_pv)
+
+        self._app.callback(
+            dash.Output("pv-plot", "figure"),
+            [
+                dash.State("stored-pv", "data"),
+                dash.Input("stored-pv-drawing", "data"),
+            ]
+        )(self.draw_pv_post)
+
         if jupyter:
             self._app.run_server(mode="inline")
         else:
@@ -608,11 +710,6 @@ class PersistableInteractive:
         log_granularity,
         num_jobs,
     ):
-        #open(PERSISTABLE_STDERR, 'w').close()
-        min_k = float(min_k)
-        max_k = float(max_k)
-        min_s = float(min_s)
-        max_s = float(max_s)
         granularity = 2**log_granularity
         num_jobs = int(num_jobs)
 
@@ -630,12 +727,11 @@ class PersistableInteractive:
                 n_jobs=num_jobs,
             )
             for a in w:
-                out += warnings.formatwarning(a.message, a.category, a.filename, a.lineno)
-            print("the contents of out are:")
-            print(out)
+                out += warnings.formatwarning(
+                    a.message, a.category, a.filename, a.lineno
+                )
             with open(PERSISTABLE_STDERR, "w") as file:
                 file.write(out)
-
 
         return pd.DataFrame(hf, index=ks[:-1], columns=ss[:-1]).to_json(
             date_format="iso", orient="split"
@@ -655,7 +751,7 @@ class PersistableInteractive:
         x_end_second_line,
         y_end_second_line,
     ):
-        if display_lines_selection=="on":
+        if display_lines_selection == "on":
             new_x, new_y = click_data["points"][0]["x"], click_data["points"][0]["y"]
             if endpoint == "1st line start":
                 x_start_first_line = new_x
@@ -670,7 +766,7 @@ class PersistableInteractive:
                 x_end_second_line = new_x
                 y_end_second_line = new_y
         return (
-            #json.dumps(click_data),
+            # json.dumps(click_data),
             x_start_first_line,
             y_start_first_line,
             x_end_first_line,
@@ -767,16 +863,28 @@ class PersistableInteractive:
         if display_line_selection == "on":
 
             # draw polygon
-            fig.add_trace(go.Scatter(
-                x=[x_start_first_line, x_end_first_line, x_end_second_line, x_start_second_line ],
-                y=[y_start_first_line, y_end_first_line, y_end_second_line, y_start_second_line ],
-                fillcolor="rgba(0, 0, 255, 0.05)",
-                fill="toself",
-                mode="none",
-                hoverinfo="skip",
-                #text=text,
-                name="",
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=[
+                        x_start_first_line,
+                        x_end_first_line,
+                        x_end_second_line,
+                        x_start_second_line,
+                    ],
+                    y=[
+                        y_start_first_line,
+                        y_end_first_line,
+                        y_end_second_line,
+                        y_start_second_line,
+                    ],
+                    fillcolor="rgba(0, 0, 255, 0.05)",
+                    fill="toself",
+                    mode="none",
+                    hoverinfo="skip",
+                    # text=text,
+                    name="",
+                )
+            )
 
             def generate_blue_line(xs, ys, text, different_marker=None):
                 if different_marker == None:
@@ -790,7 +898,7 @@ class PersistableInteractive:
                     y=ys,
                     name=text + " line",
                     text=[text + " line start", text + " line end"],
-                    marker=dict(size=20, color="blue"),
+                    marker=dict(size=15, color="blue"),
                     # hoverinfo="name+text",
                     marker_symbol=marker_styles,
                     hoverinfo="skip",
@@ -838,7 +946,6 @@ class PersistableInteractive:
         ccf,
         max_components,
     ):
-
         if ccf is None:
             return empty_figure()
 
@@ -887,13 +994,68 @@ class PersistableInteractive:
         # print(type(plotly.io.to_json(fig)))
         return plotly.io.to_json(fig)
 
-    # def cluster(self):
-    #    if self._line_parameters is None:
-    #        raise Exception("No parameters for the line were given!")
-    #    else:
-    #        start, end = self._line_parameters
-    #        n_clusters = self._n_clusters
-    #    return self._persistable.cluster(n_clusters, start, end)
+    def compute_pv(
+        self,
+        n_clicks,
+        x_start_first_line,
+        y_start_first_line,
+        x_end_first_line,
+        y_end_first_line,
+        x_start_second_line,
+        y_start_second_line,
+        x_end_second_line,
+        y_end_second_line,
+        log_granularity,
+        num_jobs,
+    ):
+        granularity = 2**log_granularity
+        num_jobs = int(num_jobs)
+
+        out = ""
+        with warnings.catch_warnings(record=True) as w:
+            # Cause all warnings to always be triggered.
+            # warnings.simplefilter("always")
+            warnings.warn("test warning")
+            pv = self._persistable.compute_prominence_vineyard(
+                [
+                    [x_start_first_line, y_start_first_line],
+                    [x_end_first_line, y_end_first_line],
+                ],
+                [
+                    [x_start_second_line, y_start_second_line],
+                    [x_end_second_line, y_end_second_line],
+                ],
+                n_parameters=granularity,
+                n_jobs = num_jobs
+            )
+            for a in w:
+                out += warnings.formatwarning(
+                    a.message, a.category, a.filename, a.lineno
+                )
+            with open(PERSISTABLE_STDERR, "w") as file:
+                file.write(out)
+
+        return json.dumps(pv.__dict__)
+
+    def draw_pv(
+        self,
+        pv,
+        max_vines,
+        scale,
+    ):
+        return plotly.io.to_json(empty_figure())
+
+    def draw_pv_post(
+        self,
+        pv,
+        pv_drawing,
+    ):
+        if pv is None:
+            return empty_figure()
+
+        return plotly.io.from_json(pv_drawing)
+
+
 
     def plot_prominence_vineyard(
         self,

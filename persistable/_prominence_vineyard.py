@@ -8,12 +8,12 @@ class ProminenceVineyard:
         self,
         parameters,
         prominence_diagrams,
-        firstn=20,
+        #firstn=20,
     ):
-        self._firstn = firstn
-        self._parameters = parameters
+        #self._firstn = firstn
+        self._parameters = list(parameters)
         self._parameter_indices = list(range(len(parameters)))
-        self._prominence_diagrams = [pd[:firstn] for pd in prominence_diagrams]
+        self._prominence_diagrams = [list(pd) for pd in prominence_diagrams]
 
     def _vineyard_to_vines(self):
         times = self._parameter_indices
