@@ -196,7 +196,7 @@ class Persistable:
             )
 
         # how many more ss than ks (note that getting more ss is very cheap)
-        more_s_than_k = 10
+        more_s_than_k = 5
         ss = np.linspace(
             min_s,
             max_s,

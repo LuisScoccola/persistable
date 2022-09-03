@@ -6,7 +6,7 @@ html {
 }
 
 h1 {
-    text-align: center;
+    text-align: left;
 }
 
 h2 {
@@ -24,8 +24,7 @@ h2 {
 
 .parameters {
     display: flex;
-    flex-direction: column;
-    gap: 3px;
+    flex-direction: column; gap: 3px;
     /*justify-content: flex-end;*/
 }
 
@@ -48,9 +47,13 @@ h2 {
     background-color: lightgrey;
 }
 
-/* turn off little arrow "dials" for inputs*/
+/* turn off little arrow "dials" for inputs
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0; 
+}*/
+
+input { 
+    text-align: right; 
 }

@@ -28,6 +28,7 @@ def empty_figure():
     fig.update_yaxes(showgrid=False, showticklabels=False, zeroline=False)
     return fig
 
+
 class PersistableInteractive:
     # def _init_plot(self):
     #    if not plt.fignum_exists(self._fig_num):
@@ -71,32 +72,50 @@ class PersistableInteractive:
         min_granularity = 4
         max_granularity = 8
         defr = 6
-        default_x_start_first_line = (default_min_s + default_max_s) * (1/defr)
-        default_y_start_first_line = (default_min_k + default_max_k) * (1/2)
-        default_x_end_first_line = (default_max_s + default_min_s) * (1/2)
-        default_y_end_first_line = (default_min_k + default_max_k) * (1/defr)
-        default_x_start_second_line = (default_min_s + default_max_s) * (1/2)
-        default_y_start_second_line = (default_min_k + default_max_k) * ((defr-1)/defr)
-        default_x_end_second_line = (default_max_s + default_min_s) * ((defr-1)/defr)
-        default_y_end_second_line = (default_min_k + default_max_k) * (1/2)
+        default_x_start_first_line = (default_min_s + default_max_s) * (1 / defr)
+        default_y_start_first_line = (default_min_k + default_max_k) * (1 / 2)
+        default_x_end_first_line = (default_max_s + default_min_s) * (1 / 2)
+        default_y_end_first_line = (default_min_k + default_max_k) * (1 / defr)
+        default_x_start_second_line = (default_min_s + default_max_s) * (1 / 2)
+        default_y_start_second_line = (default_min_k + default_max_k) * (
+            (defr - 1) / defr
+        )
+        default_x_end_second_line = (default_max_s + default_min_s) * (
+            (defr - 1) / defr
+        )
+        default_y_end_second_line = (default_min_k + default_max_k) * (1 / 2)
 
         cache = diskcache.Cache("./persistable-dash-cache")
         long_callback_manager = DiskcacheLongCallbackManager(cache)
 
         if jupyter == True:
-            self._app = JupyterDash(__name__, long_callback_manager=long_callback_manager)
+            self._app = JupyterDash(
+                __name__, long_callback_manager=long_callback_manager
+            )
         else:
             self._app = dash.Dash(__name__, long_callback_manager=long_callback_manager)
         self._app.layout = html.Div(
             children=[
+                # contains the component counting function as a pandas dataframe
                 dcc.Store(id="stored-ccf"),
+                # contains the basic component counting function plot as a plotly figure
                 dcc.Store(id="stored-ccf-drawing"),
+                ### contains the current selected slice endpoint as a list
+                ##dcc.Store(id="selected-line-endpoint", data=json.dumps([])),
                 html.H1("Interactive parameter selection for Persistable"),
-                html.Details([
-                    html.Summary('Quick help'),
-                    html.Div('[to do]')
-                ]),
-                #html.Pre(id="test", style= {'border': 'thin lightgrey solid', 'overflowX': 'scroll' }),
+                html.Details(
+                    [
+                        html.Summary("Quick help"),
+                        dcc.Markdown('''
+                        Keep in mind:
+                        - When setting a field, press enter to [to do]
+                        - The app takes a second or so to update the graphical interface after an interaction.
+                        - Computing the component counting function and prominence vineyard can take a while, depending on the size and dimensionality of the dataset as well as other factors.
+                        - [to do]
+                        ''')
+                    ]
+                ),
+                # html.Pre(id="test", style= {'border': 'thin lightgrey solid', 'overflowX': 'scroll' }),
                 html.Div(
                     className="grid",
                     children=[
@@ -111,7 +130,7 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="density threshold min",
+                                                    children="density threshold min/max",
                                                 ),
                                                 dcc.Input(
                                                     className="value",
@@ -120,16 +139,7 @@ class PersistableInteractive:
                                                     value=default_min_k,
                                                     min=0,
                                                     debounce=True,
-                                                    #step=default_k_step
-                                                ),
-                                            ],
-                                        ),
-                                        html.Div(
-                                            className="parameter",
-                                            children=[
-                                                html.Span(
-                                                    className="name",
-                                                    children="density threshold max",
+                                                    step=default_k_step,
                                                 ),
                                                 dcc.Input(
                                                     className="value",
@@ -138,7 +148,7 @@ class PersistableInteractive:
                                                     value=default_max_k,
                                                     min=0,
                                                     debounce=True,
-                                                    #step=default_k_step
+                                                    step=default_k_step,
                                                 ),
                                             ],
                                         ),
@@ -147,7 +157,7 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="distance scale min",
+                                                    children="distance scale min/max",
                                                 ),
                                                 dcc.Input(
                                                     className="value",
@@ -156,16 +166,7 @@ class PersistableInteractive:
                                                     value=default_min_s,
                                                     min=0,
                                                     debounce=True,
-                                                    #step=default_s_step
-                                                ),
-                                            ],
-                                        ),
-                                        html.Div(
-                                            className="parameter",
-                                            children=[
-                                                html.Span(
-                                                    className="name",
-                                                    children="distance scale max",
+                                                    step=default_s_step,
                                                 ),
                                                 dcc.Input(
                                                     className="value",
@@ -174,7 +175,7 @@ class PersistableInteractive:
                                                     value=default_max_s,
                                                     min=0,
                                                     debounce=True,
-                                                    #step=default_s_step
+                                                    step=default_s_step,
                                                 ),
                                             ],
                                         ),
@@ -254,12 +255,31 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="line selections",
+                                                    children="lines selection",
                                                 ),
                                                 dcc.RadioItems(
                                                     ["on", "off"],
                                                     "off",
-                                                    id="display-line-selections",
+                                                    id="display-lines-selection",
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="endpoint selection",
+                                                ),
+                                                dcc.RadioItems(
+                                                    [
+                                                        "fst line strt",
+                                                        "fst line end",
+                                                        "snd line strt",
+                                                        "snd line end",
+                                                    ],
+                                                    "fst line strt",
+                                                    id="endpoint-selection",
                                                 ),
                                             ],
                                         ),
@@ -286,7 +306,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_x_start_first_line,
                                                     min=0,
-                                                    #step=default_s_step,
+                                                    step=default_s_step,
                                                     debounce=True,
                                                 ),
                                                 dcc.Input(
@@ -295,7 +315,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_y_start_first_line,
                                                     min=0,
-                                                    #step=default_k_step,
+                                                    step=default_k_step,
                                                     debounce=True,
                                                 ),
                                             ],
@@ -313,7 +333,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_x_end_first_line,
                                                     min=0,
-                                                    #step=default_s_step,
+                                                    step=default_s_step,
                                                     debounce=True,
                                                 ),
                                                 dcc.Input(
@@ -322,7 +342,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_y_end_first_line,
                                                     min=0,
-                                                    #step=default_k_step,
+                                                    step=default_k_step,
                                                     debounce=True,
                                                 ),
                                             ],
@@ -340,7 +360,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_x_start_second_line,
                                                     min=0,
-                                                    #step=default_s_step,
+                                                    step=default_s_step,
                                                     debounce=True,
                                                 ),
                                                 dcc.Input(
@@ -349,7 +369,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_y_start_second_line,
                                                     min=0,
-                                                    #step=default_k_step,
+                                                    step=default_k_step,
                                                     debounce=True,
                                                 ),
                                             ],
@@ -367,7 +387,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_x_end_second_line,
                                                     min=0,
-                                                    #step=default_s_step,
+                                                    step=default_s_step,
                                                     debounce=True,
                                                 ),
                                                 dcc.Input(
@@ -376,7 +396,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_y_end_second_line,
                                                     min=0,
-                                                    #step=default_k_step,
+                                                    step=default_k_step,
                                                     debounce=True,
                                                 ),
                                             ],
@@ -399,7 +419,7 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="scale",
+                                                    children="prominence scale",
                                                 ),
                                                 dcc.RadioItems(
                                                     ["linear", "logarithmic"],
@@ -437,23 +457,50 @@ class PersistableInteractive:
                         ),
                     ],
                 ),
-                html.Details([
-                    html.Summary('Log and warnings'),
-                    html.Pre(id='log', style= {'border': 'thin lightgrey solid', 'overflowX': 'scroll' }),
-                ], open=True),
+                html.Details(
+                    [
+                        html.Summary("Log and warnings"),
+                        html.Pre(
+                            id="log",
+                            style={
+                                "border": "thin lightgrey solid",
+                                "overflowX": "scroll",
+                            },
+                        ),
+                    ],
+                    open=True,
+                ),
             ],
         )
 
         self._app.callback(
-            dash.Output("log", "children"),
             [
-                dash.Input("hilbert-plot", "clickData")
+                dash.Output("log", "children"),
+                dash.Output("x-start-first-line", "value"),
+                dash.Output("y-start-first-line", "value"),
+                dash.Output("x-end-first-line", "value"),
+                dash.Output("y-end-first-line", "value"),
+                dash.Output("x-start-second-line", "value"),
+                dash.Output("y-start-second-line", "value"),
+                dash.Output("x-end-second-line", "value"),
+                dash.Output("y-end-second-line", "value"),
+            ],
+            # dash.Output("selected-line-endpoint", "data"),
+            [
+                dash.Input("hilbert-plot", "clickData"),
+                dash.State("display-lines-selection", "value"),
+                dash.State("endpoint-selection", "value"),
+                dash.State("x-start-first-line", "value"),
+                dash.State("y-start-first-line", "value"),
+                dash.State("x-end-first-line", "value"),
+                dash.State("y-end-first-line", "value"),
+                dash.State("x-start-second-line", "value"),
+                dash.State("y-start-second-line", "value"),
+                dash.State("x-end-second-line", "value"),
+                dash.State("y-end-second-line", "value"),
             ],
             True,
-        )(
-            lambda click_data : json.dumps(click_data)
-        )
-
+        )(self.on_ccf_click)
 
         self._app.long_callback(
             dash.Output("stored-ccf", "data"),
@@ -472,7 +519,7 @@ class PersistableInteractive:
 
         self._app.callback(
             dash.Output("stored-ccf-drawing", "data"),
-            #dash.Output("hilbert-plot", "figure"),
+            # dash.Output("hilbert-plot", "figure"),
             [
                 dash.Input("stored-ccf", "data"),
                 dash.Input("input-max-components", "value"),
@@ -482,6 +529,7 @@ class PersistableInteractive:
 
         self._app.callback(
             dash.Output("hilbert-plot", "figure"),
+            # dash.Output("selected-line-endpoint", "data"),
             [
                 dash.State("stored-ccf", "data"),
                 dash.Input("stored-ccf-drawing", "data"),
@@ -489,7 +537,7 @@ class PersistableInteractive:
                 dash.Input("max-dist-scale", "value"),
                 dash.Input("min-density-threshold", "value"),
                 dash.Input("max-density-threshold", "value"),
-                dash.Input("display-line-selections", "value"),
+                dash.Input("display-lines-selection", "value"),
                 dash.Input("x-start-first-line", "value"),
                 dash.Input("y-start-first-line", "value"),
                 dash.Input("x-end-first-line", "value"),
@@ -498,10 +546,10 @@ class PersistableInteractive:
                 dash.Input("y-start-second-line", "value"),
                 dash.Input("x-end-second-line", "value"),
                 dash.Input("y-end-second-line", "value"),
+                dash.Input("endpoint-selection", "value"),
             ],
             False,
         )(self.draw_ccf_enclosing_box)
-
 
         # self._app.callback(
         #    dash.Output("click-data", "children"),
@@ -512,14 +560,6 @@ class PersistableInteractive:
             self._app.run_server(mode="inline")
         else:
             self._app.run_server(debug=debug)
-
-    #def test(self, clickdata):
-    #    if clickdata is None:
-    #        return " "
-    #    p = clickdata["points"][0]
-    #    x = p["x"]
-    #    y = p["y"]
-    #    return str(x) + " , " + str(y)
 
     def compute_ccf(
         self,
@@ -549,6 +589,45 @@ class PersistableInteractive:
             date_format="iso", orient="split"
         )
 
+    def on_ccf_click(
+        self,
+        click_data,
+        display_lines_selection,
+        endpoint,
+        x_start_first_line,
+        y_start_first_line,
+        x_end_first_line,
+        y_end_first_line,
+        x_start_second_line,
+        y_start_second_line,
+        x_end_second_line,
+        y_end_second_line,
+    ):
+        if display_lines_selection=="on":
+            new_x, new_y = click_data["points"][0]["x"], click_data["points"][0]["y"]
+            if endpoint == "fst line strt":
+                x_start_first_line = new_x
+                y_start_first_line = new_y
+            elif endpoint == "fst line end":
+                x_end_first_line = new_x
+                y_end_first_line = new_y
+            elif endpoint == "snd line strt":
+                x_start_second_line = new_x
+                y_start_second_line = new_y
+            elif endpoint == "snd line end":
+                x_end_second_line = new_x
+                y_end_second_line = new_y
+        return (
+            json.dumps(click_data),
+            x_start_first_line,
+            y_start_first_line,
+            x_end_first_line,
+            y_end_first_line,
+            x_start_second_line,
+            y_start_second_line,
+            x_end_second_line,
+            y_end_second_line,
+        )
 
     def draw_ccf_enclosing_box(
         self,
@@ -567,6 +646,7 @@ class PersistableInteractive:
         y_start_second_line,
         x_end_second_line,
         y_end_second_line,
+        endpoint,
     ):
         if ccf is None:
             return empty_figure()
@@ -608,7 +688,12 @@ class PersistableInteractive:
         fig.add_trace(
             generate_red_box(
                 [min_dist_scale, max_dist_scale, max_dist_scale, min_dist_scale],
-                [max_density_threshold, max_density_threshold, max(ccf.index), max(ccf.index)],
+                [
+                    max_density_threshold,
+                    max_density_threshold,
+                    max(ccf.index),
+                    max(ccf.index),
+                ],
                 text="Top side of new enclosing box",
             )
         )
@@ -617,41 +702,78 @@ class PersistableInteractive:
         fig.add_trace(
             generate_red_box(
                 [min_dist_scale, max_dist_scale, max_dist_scale, min_dist_scale],
-                [min_density_threshold, min_density_threshold, min(ccf.index), min(ccf.index)],
+                [
+                    min_density_threshold,
+                    min_density_threshold,
+                    min(ccf.index),
+                    min(ccf.index),
+                ],
                 text="Bottom side of new enclosing box",
             )
         )
 
         if display_line_selection == "on":
-            fig.add_trace(
-                go.Scatter(
-                    x=[x_start_first_line, x_end_first_line],
-                    y=[y_start_first_line, y_end_first_line],
-                    name="first line",
-                    text=["start", "end"],
+
+            def generate_blue_line(xs, ys, text, different_marker=None):
+                if different_marker == None:
+                    marker_styles = ["circle", "circle"]
+                elif different_marker == 0:
+                    marker_styles = ["x", "circle"]
+                elif different_marker == 1:
+                    marker_styles = ["circle", "x"]
+                return go.Scatter(
+                    x=xs,
+                    y=ys,
+                    name=text + " line",
+                    text=[text + " line strt", text + " line end"],
                     marker=dict(size=20, color="blue"),
-                    hoverinfo="name+text"
+                    # hoverinfo="name+text",
+                    marker_symbol=marker_styles,
+                    hoverinfo="skip",
+                    showlegend=False,
+                    mode="markers+lines+text",
+                    textposition="top center",
+                )
+
+            if endpoint == "fst line strt":
+                first_line_endpoints = 0
+                second_line_endpoints = None
+            elif endpoint == "fst line end":
+                first_line_endpoints = 1
+                second_line_endpoints = None
+            elif endpoint == "snd line strt":
+                first_line_endpoints = None
+                second_line_endpoints = 0
+            elif endpoint == "snd line end":
+                first_line_endpoints = None
+                second_line_endpoints = 1
+
+            fig.add_trace(
+                generate_blue_line(
+                    [x_start_first_line, x_end_first_line],
+                    [y_start_first_line, y_end_first_line],
+                    "fst",
+                    first_line_endpoints,
                 )
             )
             fig.add_trace(
-                go.Scatter(
-                    x=[x_start_second_line, x_end_second_line],
-                    y=[y_start_second_line, y_end_second_line],
-                    name="second line",
-                    text=["start", "end"],
-                    marker=dict(size=20, color="blue"),
-                    hoverinfo="name+text"
+                generate_blue_line(
+                    [x_start_second_line, x_end_second_line],
+                    [y_start_second_line, y_end_second_line],
+                    "snd",
+                    second_line_endpoints,
                 )
             )
 
         return fig
+        ### also return an empty list represeting the fact that no endpoint is now selected in the ccf plot
+        ##return fig, json.dumps([])
 
     def draw_ccf(
         self,
         ccf,
         max_components,
     ):
-
 
         if ccf is None:
             return empty_figure()
@@ -697,7 +819,7 @@ class PersistableInteractive:
         #    dragmode="drawline",
         #    newshape=dict(opacity=0.3, line=dict(color="darkblue", width=5)),
         # )
-        #print(type(plotly.io.to_json(fig)))
+        # print(type(plotly.io.to_json(fig)))
         return plotly.io.to_json(fig)
 
     # def cluster(self):
