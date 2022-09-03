@@ -1,12 +1,14 @@
 # Authors: Luis Scoccola
 # License: 3-clause BSD
 
+import sys
 from re import A
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from matplotlib.widgets import Button
-from matplotlib.patches import Polygon
+import warnings
+#import matplotlib.pyplot as plt
+#from matplotlib import cm
+#from matplotlib.widgets import Button
+#from matplotlib.patches import Polygon
 
 import plotly.graph_objects as go
 import plotly
@@ -20,6 +22,8 @@ import pandas as pd
 import json
 import diskcache
 
+PERSISTABLE_STDERR = "./persistable-stderr"
+PERSISTABLE_DASH_CACHE = "./persistable-dash-cache"
 
 def empty_figure():
     fig = go.Figure(go.Scatter(x=[], y=[]))
@@ -85,8 +89,12 @@ class PersistableInteractive:
         )
         default_y_end_second_line = (default_min_k + default_max_k) * (1 / 2)
 
-        cache = diskcache.Cache("./persistable-dash-cache")
+        # set temporary files
+        cache = diskcache.Cache(PERSISTABLE_DASH_CACHE)
         long_callback_manager = DiskcacheLongCallbackManager(cache)
+        sys.stderr = open(PERSISTABLE_STDERR, "w")
+
+
 
         if jupyter == True:
             self._app = JupyterDash(
@@ -100,6 +108,11 @@ class PersistableInteractive:
                 dcc.Store(id="stored-ccf"),
                 # contains the basic component counting function plot as a plotly figure
                 dcc.Store(id="stored-ccf-drawing"),
+                dcc.Interval(
+                    id="warnings-polling-interval",
+                    interval=(1/2)*1000,
+                    n_intervals=0
+                ),
                 ### contains the current selected slice endpoint as a list
                 ##dcc.Store(id="selected-line-endpoint", data=json.dumps([])),
                 html.H1("Interactive parameter selection for Persistable"),
@@ -107,11 +120,11 @@ class PersistableInteractive:
                     [
                         html.Summary("Quick help"),
                         dcc.Markdown('''
-                        Keep in mind:
-                        - When setting a field, press enter to [to do]
+                        - When setting a field, press enter to TODO
+                        - Check the log, below, for warnings.
                         - The app takes a second or so to update the graphical interface after an interaction.
                         - Computing the component counting function and prominence vineyard can take a while, depending on the size and dimensionality of the dataset as well as other factors.
-                        - [to do]
+                        - TODO
                         ''')
                     ]
                 ),
@@ -433,8 +446,9 @@ class PersistableInteractive:
                             ]
                         ),
                         dcc.Graph(
-                            id="hilbert-plot",
+                            id="cff-plot",
                             config={
+                                "responsive":True,
                                 "displayModeBar": False,
                                 "modeBarButtonsToRemove": [
                                     "toImage",
@@ -459,7 +473,7 @@ class PersistableInteractive:
                 ),
                 html.Details(
                     [
-                        html.Summary("Log and warnings"),
+                        html.Summary("Warnings"),
                         html.Pre(
                             id="log",
                             style={
@@ -475,7 +489,7 @@ class PersistableInteractive:
 
         self._app.callback(
             [
-                dash.Output("log", "children"),
+                #dash.Output("log", "children"),
                 dash.Output("x-start-first-line", "value"),
                 dash.Output("y-start-first-line", "value"),
                 dash.Output("x-end-first-line", "value"),
@@ -487,7 +501,7 @@ class PersistableInteractive:
             ],
             # dash.Output("selected-line-endpoint", "data"),
             [
-                dash.Input("hilbert-plot", "clickData"),
+                dash.Input("cff-plot", "clickData"),
                 dash.State("display-lines-selection", "value"),
                 dash.State("endpoint-selection", "value"),
                 dash.State("x-start-first-line", "value"),
@@ -519,7 +533,7 @@ class PersistableInteractive:
 
         self._app.callback(
             dash.Output("stored-ccf-drawing", "data"),
-            # dash.Output("hilbert-plot", "figure"),
+            # dash.Output("cff-plot", "figure"),
             [
                 dash.Input("stored-ccf", "data"),
                 dash.Input("input-max-components", "value"),
@@ -528,7 +542,7 @@ class PersistableInteractive:
         )(self.draw_ccf)
 
         self._app.callback(
-            dash.Output("hilbert-plot", "figure"),
+            dash.Output("cff-plot", "figure"),
             # dash.Output("selected-line-endpoint", "data"),
             [
                 dash.State("stored-ccf", "data"),
@@ -551,15 +565,24 @@ class PersistableInteractive:
             False,
         )(self.draw_ccf_enclosing_box)
 
-        # self._app.callback(
-        #    dash.Output("click-data", "children"),
-        #    dash.Input("hilbert-plot", "clickData"),
-        # )(self.test)
+        self._app.callback(
+            dash.Output("log", "children"),
+            dash.Input("warnings-polling-interval", "n_intervals"),
+            False,
+        )(self.print_log)
 
         if jupyter:
             self._app.run_server(mode="inline")
         else:
             self._app.run_server(debug=debug)
+
+    def print_log(
+        self,
+        n_intervals,
+    ):
+        with open(PERSISTABLE_STDERR, "r") as file:
+            out = file.read()
+        return out
 
     def compute_ccf(
         self,
@@ -571,6 +594,8 @@ class PersistableInteractive:
         log_granularity,
         num_jobs,
     ):
+        open(PERSISTABLE_STDERR, 'w').close()
+        warnings.warn("test warning")
         min_k = float(min_k)
         max_k = float(max_k)
         min_s = float(min_s)
@@ -618,7 +643,7 @@ class PersistableInteractive:
                 x_end_second_line = new_x
                 y_end_second_line = new_y
         return (
-            json.dumps(click_data),
+            #json.dumps(click_data),
             x_start_first_line,
             y_start_first_line,
             x_end_first_line,
@@ -718,9 +743,9 @@ class PersistableInteractive:
                 if different_marker == None:
                     marker_styles = ["circle", "circle"]
                 elif different_marker == 0:
-                    marker_styles = ["x", "circle"]
+                    marker_styles = ["circle-open", "circle"]
                 elif different_marker == 1:
-                    marker_styles = ["circle", "x"]
+                    marker_styles = ["circle", "circle-open"]
                 return go.Scatter(
                     x=xs,
                     y=ys,
@@ -811,6 +836,7 @@ class PersistableInteractive:
         fig.update_traces(colorscale="greys")
 
         fig.update_layout(showlegend=False)
+        fig.update_layout(autosize=True)
         fig.update_xaxes(range=[min(ccf.columns), max(ccf.columns)])
         fig.update_yaxes(range=[min(ccf.index), max(ccf.index)])
         fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))

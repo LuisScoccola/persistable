@@ -42,8 +42,8 @@ h2 {
 }
 
 .fake-plot {
-    width: 100%;
-    height: 200px;
+    /*width: 100%;*/
+    height: 450px;
     background-color: lightgrey;
 }
 
@@ -56,4 +56,17 @@ input::-webkit-inner-spin-button {
 
 input { 
     text-align: right; 
+}
+
+#log {
+    max-height: 150px;
+}
+
+/*
+#cff-plot {
+    height: 450px;
+}*/
+
+input:valid, input:invalid {
+    outline: none black;
 }
