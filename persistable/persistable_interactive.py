@@ -1,8 +1,7 @@
 # Authors: Luis Scoccola
 # License: 3-clause BSD
 
-import sys
-from re import A
+#from re import A
 import numpy as np
 import warnings
 
@@ -27,45 +26,70 @@ PERSISTABLE_STDERR = "./persistable-stderr"
 PERSISTABLE_DASH_CACHE = "./persistable-dash-cache"
 # WARNINGS_GLOBAL = "test default"
 
+X_START_FIRST_LINE = "x-start-first-line"
+Y_START_FIRST_LINE = "y-start-first-line"
+X_END_FIRST_LINE = "x-end-first-line"
+Y_END_FIRST_LINE = "y-end-first-line"
+X_START_SECOND_LINE = "x-start-second-line"
+Y_START_SECOND_LINE = "y-start-second-line"
+X_END_SECOND_LINE = "x-end-second-line"
+Y_END_SECOND_LINE = "y-end-second-line"
+CFF_PLOT = "cff-plot"
+DISPLAY_LINES_SELECTION = "display-lines-selection"
+ENDPOINT_SELECTION = "endpoint-selection"
+STORED_CCF = "stored-ccf"
+STORED_CCF_DRAWING = "stored-ccf-drawing"
+MIN_DIST_SCALE = "min-dist-scale"
+MAX_DIST_SCALE = "max-dist-scale"
+MIN_DENSITY_THRESHOLD = "min-density-threshold"
+MAX_DESNITY_THRESHOLD = "max-density-threshold"
+ENDPOINT_SELECTION_DIV = "endpoint-selection-div"
+PARAMETER_SELECTION_DIV = "parameter-selection-div"
+DISPLAY_PARAMETER_SELECTION = "display-parameter-selection"
+COMPUTE_CCF_BUTTON = "compute-ccf-button"
+INPUT_LOG_GRANULARITY_CCF = "input-log-granularity-ccf"
+INPUT_NUM_JOBS_CCF = "input-num-jobs-ccf"
+INPUT_MAX_COMPONENTS = "input-max-components"
+LOG = "log"
+WARNINGS_POLLING_INTERVAL = "warnings-polling-interval"
+STORED_PV = "stored-pv"
+INPUT_MAX_VINES = "input-max-vines"
+INPUT_PROM_VIN_SCALE = "input-prom-vin-scale"
+COMPUTE_PV_BUTTON = "compute-pv-button"
+PV_PLOT = "pv-plot"
+STORED_PV_DRAWING = "stored-pv-drawing"
+
+VALUE = "value"
+CLICKDATA = "clickData"
+HIDDEN = "hidden"
+DATA = "data"
+N_CLICKS = "n_clicks"
+DISABLED = "disabled"
+FIGURE = "figure"
+CHILDREN = "children"
+N_INTERVALS = "n_intervals"
+
 
 def empty_figure():
-    fig = go.Figure(go.Scatter(x=[], y=[]))
+    fig = go.Figure(
+        layout=go.Layout(
+            xaxis={"fixedrange": True},
+            yaxis={"fixedrange": True},
+        )
+    )
+    fig.add_trace(go.Scatter(x=[], y=[]))
     fig.update_layout(template=None)
+    fig.update_layout(autosize=True)
     fig.update_xaxes(showgrid=False, showticklabels=False, zeroline=False)
     fig.update_yaxes(showgrid=False, showticklabels=False, zeroline=False)
+    fig.update_layout(clickmode="none")
     return fig
 
 
 class PersistableInteractive:
-    # def _init_plot(self):
-    #    if not plt.fignum_exists(self._fig_num):
-    #        fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-    #        plt.subplots_adjust(bottom=0.2)
-    #        self._fig = fig
-    #        self._hilbert_ax = axes[0]
-    #        self._vineyard_ax = axes[1]
-    #        self._fig_num = fig.number
-
     def __init__(self, persistable, jupyter=False, debug=False):
+
         self._persistable = persistable
-
-        ### to be passed/computed later:
-        ## user-selected bounds for the prominence vineyard
-        # self._vineyard_parameter_bounds = {}
-        ## user-selected start and end for a line
-        # self._line_parameters = None
-        ## user-selected number of clusters
-        # self._n_clusters = None
-        ## the computed prominence vineyard
-        # self._vineyard = None
-
-        ## prominence vineyard
-        # self._gaps = []
-        # self._gap_numbers = []
-        # self._lines = []
-        # self._line_index = []
-
-        ## initialize the plots
 
         default_min_k = 0
         default_max_k = self._persistable._maxk
@@ -108,15 +132,15 @@ class PersistableInteractive:
         self._app.layout = html.Div(
             children=[
                 # contains the component counting function as a pandas dataframe
-                dcc.Store(id="stored-ccf"),
+                dcc.Store(id=STORED_CCF),
                 # contains the basic component counting function plot as a plotly figure
-                dcc.Store(id="stored-ccf-drawing"),
+                dcc.Store(id=STORED_CCF_DRAWING),
                 # contains the vineyard as a vineyard object
-                dcc.Store(id="stored-pv"),
+                dcc.Store(id=STORED_PV),
                 # contains the basic prominence vineyard plot as a plotly figure
-                dcc.Store(id="stored-pv-drawing"),
+                dcc.Store(id=STORED_PV_DRAWING),
                 dcc.Interval(
-                    id="warnings-polling-interval",
+                    id=WARNINGS_POLLING_INTERVAL,
                     interval=(1 / 2) * 1000,
                     n_intervals=0,
                 ),
@@ -152,8 +176,8 @@ class PersistableInteractive:
                                                     children="density threshold min/max",
                                                 ),
                                                 dcc.Input(
-                                                    className="value",
-                                                    id="min-density-threshold",
+                                                    className=VALUE,
+                                                    id=MIN_DENSITY_THRESHOLD,
                                                     type="number",
                                                     value=default_min_k,
                                                     min=0,
@@ -161,8 +185,8 @@ class PersistableInteractive:
                                                     step=default_k_step,
                                                 ),
                                                 dcc.Input(
-                                                    className="value",
-                                                    id="max-density-threshold",
+                                                    className=VALUE,
+                                                    id=MAX_DESNITY_THRESHOLD,
                                                     type="number",
                                                     value=default_max_k,
                                                     min=0,
@@ -179,8 +203,8 @@ class PersistableInteractive:
                                                     children="distance scale min/max",
                                                 ),
                                                 dcc.Input(
-                                                    className="value",
-                                                    id="min-dist-scale",
+                                                    className=VALUE,
+                                                    id=MIN_DIST_SCALE,
                                                     type="number",
                                                     value=default_min_s,
                                                     min=0,
@@ -188,8 +212,8 @@ class PersistableInteractive:
                                                     step=default_s_step,
                                                 ),
                                                 dcc.Input(
-                                                    className="value",
-                                                    id="max-dist-scale",
+                                                    className=VALUE,
+                                                    id=MAX_DIST_SCALE,
                                                     type="number",
                                                     value=default_max_s,
                                                     min=0,
@@ -206,8 +230,8 @@ class PersistableInteractive:
                                                     children="number of cores",
                                                 ),
                                                 dcc.Input(
-                                                    className="value",
-                                                    id="input-num-jobs-ccf",
+                                                    className=VALUE,
+                                                    id=INPUT_NUM_JOBS_CCF,
                                                     type="number",
                                                     value=default_num_jobs,
                                                     min=1,
@@ -233,8 +257,8 @@ class PersistableInteractive:
                                                         )
                                                     },
                                                     value=default_log_granularity,
-                                                    id="input-log-granularity-ccf",
-                                                    className="value",
+                                                    id=INPUT_LOG_GRANULARITY_CCF,
+                                                    className=VALUE,
                                                 ),
                                             ],
                                         ),
@@ -246,8 +270,8 @@ class PersistableInteractive:
                                                 ),
                                                 html.Button(
                                                     "(re)compute component counting function",
-                                                    id="compute-ccf-button",
-                                                    className="value",
+                                                    id=COMPUTE_CCF_BUTTON,
+                                                    className=VALUE,
                                                 ),
                                             ],
                                         ),
@@ -259,11 +283,11 @@ class PersistableInteractive:
                                                     children="max connected components",
                                                 ),
                                                 dcc.Input(
-                                                    id="input-max-components",
+                                                    id=INPUT_MAX_COMPONENTS,
                                                     type="number",
                                                     value=default_max_dim,
                                                     min=1,
-                                                    className="value",
+                                                    className=VALUE,
                                                     step=1,
                                                     debounce=True,
                                                 ),
@@ -279,14 +303,14 @@ class PersistableInteractive:
                                                 dcc.RadioItems(
                                                     ["on", "off"],
                                                     "off",
-                                                    id="display-lines-selection",
-                                                    className="value",
+                                                    id=DISPLAY_LINES_SELECTION,
+                                                    className=VALUE,
                                                 ),
                                             ],
                                         ),
                                         html.Div(
                                             className="parameter-single",
-                                            id="endpoint-selection-div",
+                                            id=ENDPOINT_SELECTION_DIV,
                                             children=[
                                                 html.Span(
                                                     className="name",
@@ -300,8 +324,8 @@ class PersistableInteractive:
                                                         "2nd line end",
                                                     ],
                                                     "1st line start",
-                                                    id="endpoint-selection",
-                                                    className="value",
+                                                    id=ENDPOINT_SELECTION,
+                                                    className=VALUE,
                                                 ),
                                             ],
                                         ),
@@ -320,11 +344,11 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="first line start",
+                                                    children="first line start x/y",
                                                 ),
                                                 dcc.Input(
-                                                    className="value",
-                                                    id="x-start-first-line",
+                                                    className=VALUE,
+                                                    id=X_START_FIRST_LINE,
                                                     type="number",
                                                     value=default_x_start_first_line,
                                                     min=0,
@@ -332,8 +356,8 @@ class PersistableInteractive:
                                                     debounce=True,
                                                 ),
                                                 dcc.Input(
-                                                    className="value",
-                                                    id="y-start-first-line",
+                                                    className=VALUE,
+                                                    id=Y_START_FIRST_LINE,
                                                     type="number",
                                                     value=default_y_start_first_line,
                                                     min=0,
@@ -347,11 +371,11 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="first line end",
+                                                    children="first line end x/y",
                                                 ),
                                                 dcc.Input(
-                                                    className="value",
-                                                    id="x-end-first-line",
+                                                    className=VALUE,
+                                                    id=X_END_FIRST_LINE,
                                                     type="number",
                                                     value=default_x_end_first_line,
                                                     min=0,
@@ -359,8 +383,8 @@ class PersistableInteractive:
                                                     debounce=True,
                                                 ),
                                                 dcc.Input(
-                                                    className="value",
-                                                    id="y-end-first-line",
+                                                    className=VALUE,
+                                                    id=Y_END_FIRST_LINE,
                                                     type="number",
                                                     value=default_y_end_first_line,
                                                     min=0,
@@ -374,11 +398,11 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="second line start ",
+                                                    children="second line start x/y",
                                                 ),
                                                 dcc.Input(
-                                                    className="value",
-                                                    id="x-start-second-line",
+                                                    className=VALUE,
+                                                    id=X_START_SECOND_LINE,
                                                     type="number",
                                                     value=default_x_start_second_line,
                                                     min=0,
@@ -386,8 +410,8 @@ class PersistableInteractive:
                                                     debounce=True,
                                                 ),
                                                 dcc.Input(
-                                                    className="value",
-                                                    id="y-start-second-line",
+                                                    className=VALUE,
+                                                    id=Y_START_SECOND_LINE,
                                                     type="number",
                                                     value=default_y_start_second_line,
                                                     min=0,
@@ -401,11 +425,11 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="second line end",
+                                                    children="second line end x/y",
                                                 ),
                                                 dcc.Input(
-                                                    className="value",
-                                                    id="x-end-second-line",
+                                                    className=VALUE,
+                                                    id=X_END_SECOND_LINE,
                                                     type="number",
                                                     value=default_x_end_second_line,
                                                     min=0,
@@ -413,8 +437,8 @@ class PersistableInteractive:
                                                     debounce=True,
                                                 ),
                                                 dcc.Input(
-                                                    className="value",
-                                                    id="y-end-second-line",
+                                                    className=VALUE,
+                                                    id=Y_END_SECOND_LINE,
                                                     type="number",
                                                     value=default_y_end_second_line,
                                                     min=0,
@@ -431,7 +455,7 @@ class PersistableInteractive:
                                                     children="number of cores",
                                                 ),
                                                 dcc.Input(
-                                                    className="value",
+                                                    className=VALUE,
                                                     id="input-num-jobs-pv",
                                                     type="number",
                                                     value=default_num_jobs,
@@ -457,9 +481,9 @@ class PersistableInteractive:
                                                             1, max_granularity + 1
                                                         )
                                                     },
-                                                    value=default_log_granularity-1,
+                                                    value=default_log_granularity - 1,
                                                     id="input-log-granularity-vineyard",
-                                                    className="value",
+                                                    className=VALUE,
                                                 ),
                                             ],
                                         ),
@@ -471,8 +495,8 @@ class PersistableInteractive:
                                                 ),
                                                 html.Button(
                                                     "compute prominence vineyard",
-                                                    id="compute-pv-button",
-                                                    className="value",
+                                                    id=COMPUTE_PV_BUTTON,
+                                                    className=VALUE,
                                                 ),
                                             ],
                                         ),
@@ -484,11 +508,11 @@ class PersistableInteractive:
                                                     children="max number vines",
                                                 ),
                                                 dcc.Input(
-                                                    id="input-max-vines",
+                                                    id=INPUT_MAX_VINES,
                                                     type="number",
                                                     value=default_max_vines,
                                                     min=1,
-                                                    className="value",
+                                                    className=VALUE,
                                                     step=1,
                                                     debounce=True,
                                                 ),
@@ -504,8 +528,60 @@ class PersistableInteractive:
                                                 dcc.RadioItems(
                                                     ["linear", "logarithmic"],
                                                     "logarithmic",
-                                                    id="input-prom-vin-scale",
-                                                    className="value",
+                                                    id=INPUT_PROM_VIN_SCALE,
+                                                    className=VALUE,
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter-single",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="parameter selection",
+                                                ),
+                                                dcc.RadioItems(
+                                                    ["on", "off"],
+                                                    "off",
+                                                    id=DISPLAY_PARAMETER_SELECTION,
+                                                    className=VALUE,
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="parameter-double",
+                                            id=PARAMETER_SELECTION_DIV,
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="line/gap",
+                                                ),
+                                                #dcc.RadioItems(
+                                                #    [
+                                                #        "1st line start",
+                                                #        "1st line end",
+                                                #        "2nd line start",
+                                                #        "2nd line end",
+                                                #    ],
+                                                #    "1st line start",
+                                                #    id=ENDPOINT_SELECTION,
+                                                #    className=VALUE,
+                                                #),
+                                                dcc.Input(
+                                                    className=VALUE,
+                                                    id="input-line",
+                                                    type="number",
+                                                    value=1,
+                                                    min=1,
+                                                    debounce=True,
+                                                ),
+                                                dcc.Input(
+                                                    className=VALUE,
+                                                    id="gap",
+                                                    type="number",
+                                                    value=1,
+                                                    min=1,
+                                                    debounce=True,
                                                 ),
                                             ],
                                         ),
@@ -514,7 +590,8 @@ class PersistableInteractive:
                             ]
                         ),
                         dcc.Graph(
-                            id="cff-plot",
+                            id=CFF_PLOT,
+                            figure=empty_figure(),
                             config={
                                 "responsive": True,
                                 "displayModeBar": False,
@@ -531,7 +608,8 @@ class PersistableInteractive:
                             },
                         ),
                         dcc.Graph(
-                            id="pv-plot",
+                            id=PV_PLOT,
+                            figure=empty_figure(),
                             config={
                                 "responsive": True,
                                 "displayModeBar": False,
@@ -553,7 +631,7 @@ class PersistableInteractive:
                     [
                         html.Summary("Warnings"),
                         html.Pre(
-                            id="log",
+                            id=LOG,
                             style={
                                 "border": "thin lightgrey solid",
                                 "overflowX": "scroll",
@@ -565,126 +643,132 @@ class PersistableInteractive:
             ],
         )
 
+
         self._app.callback(
             [
-                dash.Output("x-start-first-line", "value"),
-                dash.Output("y-start-first-line", "value"),
-                dash.Output("x-end-first-line", "value"),
-                dash.Output("y-end-first-line", "value"),
-                dash.Output("x-start-second-line", "value"),
-                dash.Output("y-start-second-line", "value"),
-                dash.Output("x-end-second-line", "value"),
-                dash.Output("y-end-second-line", "value"),
+                dash.Output(X_START_FIRST_LINE, VALUE),
+                dash.Output(Y_START_FIRST_LINE, VALUE),
+                dash.Output(X_END_FIRST_LINE, VALUE),
+                dash.Output(Y_END_FIRST_LINE, VALUE),
+                dash.Output(X_START_SECOND_LINE, VALUE),
+                dash.Output(Y_START_SECOND_LINE, VALUE),
+                dash.Output(X_END_SECOND_LINE, VALUE),
+                dash.Output(Y_END_SECOND_LINE, VALUE),
             ],
             [
-                dash.Input("cff-plot", "clickData"),
-                dash.State("display-lines-selection", "value"),
-                dash.State("endpoint-selection", "value"),
-                dash.State("x-start-first-line", "value"),
-                dash.State("y-start-first-line", "value"),
-                dash.State("x-end-first-line", "value"),
-                dash.State("y-end-first-line", "value"),
-                dash.State("x-start-second-line", "value"),
-                dash.State("y-start-second-line", "value"),
-                dash.State("x-end-second-line", "value"),
-                dash.State("y-end-second-line", "value"),
+                dash.Input(CFF_PLOT, CLICKDATA),
+                dash.State(DISPLAY_LINES_SELECTION, VALUE),
+                dash.State(ENDPOINT_SELECTION, VALUE),
+                dash.State(X_START_FIRST_LINE, VALUE),
+                dash.State(Y_START_FIRST_LINE, VALUE),
+                dash.State(X_END_FIRST_LINE, VALUE),
+                dash.State(Y_END_FIRST_LINE, VALUE),
+                dash.State(X_START_SECOND_LINE, VALUE),
+                dash.State(Y_START_SECOND_LINE, VALUE),
+                dash.State(X_END_SECOND_LINE, VALUE),
+                dash.State(Y_END_SECOND_LINE, VALUE),
             ],
             True,
         )(self.on_ccf_click)
 
         self._app.callback(
-            dash.Output("endpoint-selection-div", "hidden"),
-            dash.Input("display-lines-selection", "value"),
+            dash.Output(ENDPOINT_SELECTION_DIV, HIDDEN),
+            dash.Input(DISPLAY_LINES_SELECTION, VALUE),
+        )(lambda val: False if val == "on" else True)
+
+        self._app.callback(
+            dash.Output(PARAMETER_SELECTION_DIV, HIDDEN),
+            dash.Input(DISPLAY_PARAMETER_SELECTION, VALUE),
         )(lambda val: False if val == "on" else True)
 
         self._app.long_callback(
-            dash.Output("stored-ccf", "data"),
+            dash.Output(STORED_CCF, DATA),
             [
-                dash.Input("compute-ccf-button", "n_clicks"),
-                dash.State("min-density-threshold", "value"),
-                dash.State("max-density-threshold", "value"),
-                dash.State("min-dist-scale", "value"),
-                dash.State("max-dist-scale", "value"),
-                dash.State("input-log-granularity-ccf", "value"),
-                dash.State("input-num-jobs-ccf", "value"),
+                dash.Input(COMPUTE_CCF_BUTTON, N_CLICKS),
+                dash.State(MIN_DENSITY_THRESHOLD, VALUE),
+                dash.State(MAX_DESNITY_THRESHOLD, VALUE),
+                dash.State(MIN_DIST_SCALE, VALUE),
+                dash.State(MAX_DIST_SCALE, VALUE),
+                dash.State(INPUT_LOG_GRANULARITY_CCF, VALUE),
+                dash.State(INPUT_NUM_JOBS_CCF, VALUE),
             ],
             True,
-            running=[(dash.Output("compute-ccf-button", "disabled"), True, False)],
+            running=[(dash.Output(COMPUTE_CCF_BUTTON, DISABLED), True, False)],
         )(self.compute_ccf)
 
         self._app.callback(
-            dash.Output("stored-ccf-drawing", "data"),
+            dash.Output(STORED_CCF_DRAWING, DATA),
             [
-                dash.Input("stored-ccf", "data"),
-                dash.Input("input-max-components", "value"),
+                dash.Input(STORED_CCF, DATA),
+                dash.Input(INPUT_MAX_COMPONENTS, VALUE),
             ],
             False,
         )(self.draw_ccf)
 
         self._app.callback(
-            dash.Output("cff-plot", "figure"),
+            dash.Output(CFF_PLOT, FIGURE),
             [
-                dash.State("stored-ccf", "data"),
-                dash.Input("stored-ccf-drawing", "data"),
-                dash.Input("min-dist-scale", "value"),
-                dash.Input("max-dist-scale", "value"),
-                dash.Input("min-density-threshold", "value"),
-                dash.Input("max-density-threshold", "value"),
-                dash.Input("display-lines-selection", "value"),
-                dash.Input("x-start-first-line", "value"),
-                dash.Input("y-start-first-line", "value"),
-                dash.Input("x-end-first-line", "value"),
-                dash.Input("y-end-first-line", "value"),
-                dash.Input("x-start-second-line", "value"),
-                dash.Input("y-start-second-line", "value"),
-                dash.Input("x-end-second-line", "value"),
-                dash.Input("y-end-second-line", "value"),
-                dash.Input("endpoint-selection", "value"),
+                dash.State(STORED_CCF, DATA),
+                dash.Input(STORED_CCF_DRAWING, DATA),
+                dash.Input(MIN_DIST_SCALE, VALUE),
+                dash.Input(MAX_DIST_SCALE, VALUE),
+                dash.Input(MIN_DENSITY_THRESHOLD, VALUE),
+                dash.Input(MAX_DESNITY_THRESHOLD, VALUE),
+                dash.Input(DISPLAY_LINES_SELECTION, VALUE),
+                dash.Input(X_START_FIRST_LINE, VALUE),
+                dash.Input(Y_START_FIRST_LINE, VALUE),
+                dash.Input(X_END_FIRST_LINE, VALUE),
+                dash.Input(Y_END_FIRST_LINE, VALUE),
+                dash.Input(X_START_SECOND_LINE, VALUE),
+                dash.Input(Y_START_SECOND_LINE, VALUE),
+                dash.Input(X_END_SECOND_LINE, VALUE),
+                dash.Input(Y_END_SECOND_LINE, VALUE),
+                dash.Input(ENDPOINT_SELECTION, VALUE),
             ],
             False,
         )(self.draw_ccf_enclosing_box)
 
         self._app.callback(
-            dash.Output("log", "children"),
-            dash.Input("warnings-polling-interval", "n_intervals"),
+            dash.Output(LOG, CHILDREN),
+            dash.Input(WARNINGS_POLLING_INTERVAL, N_INTERVALS),
             False,
         )(self.print_log)
 
         self._app.long_callback(
-            dash.Output("stored-pv", "data"),
+            dash.Output(STORED_PV, DATA),
             [
-                dash.Input("compute-pv-button", "n_clicks"),
-                dash.State("x-start-first-line", "value"),
-                dash.State("y-start-first-line", "value"),
-                dash.State("x-end-first-line", "value"),
-                dash.State("y-end-first-line", "value"),
-                dash.State("x-start-second-line", "value"),
-                dash.State("y-start-second-line", "value"),
-                dash.State("x-end-second-line", "value"),
-                dash.State("y-end-second-line", "value"),
-                dash.State("input-log-granularity-ccf", "value"),
-                dash.State("input-num-jobs-ccf", "value"),
+                dash.Input(COMPUTE_PV_BUTTON, N_CLICKS),
+                dash.State(X_START_FIRST_LINE, VALUE),
+                dash.State(Y_START_FIRST_LINE, VALUE),
+                dash.State(X_END_FIRST_LINE, VALUE),
+                dash.State(Y_END_FIRST_LINE, VALUE),
+                dash.State(X_START_SECOND_LINE, VALUE),
+                dash.State(Y_START_SECOND_LINE, VALUE),
+                dash.State(X_END_SECOND_LINE, VALUE),
+                dash.State(Y_END_SECOND_LINE, VALUE),
+                dash.State(INPUT_LOG_GRANULARITY_CCF, VALUE),
+                dash.State(INPUT_NUM_JOBS_CCF, VALUE),
             ],
             True,
-            running=[(dash.Output("compute-pv-button", "disabled"), True, False)],
+            running=[(dash.Output(COMPUTE_PV_BUTTON, DISABLED), True, False)],
         )(self.compute_pv)
 
         self._app.callback(
-            dash.Output("stored-pv-drawing", "data"),
+            dash.Output(STORED_PV_DRAWING, DATA),
             [
-                dash.Input("stored-pv", "data"),
-                dash.Input("input-max-vines", "value"),
-                dash.Input("input-prom-vin-scale", "value"),
+                dash.Input(STORED_PV, DATA),
+                dash.Input(INPUT_MAX_VINES, VALUE),
+                dash.Input(INPUT_PROM_VIN_SCALE, VALUE),
             ],
             False,
         )(self.draw_pv)
 
         self._app.callback(
-            dash.Output("pv-plot", "figure"),
+            dash.Output(PV_PLOT, FIGURE),
             [
-                dash.State("stored-pv", "data"),
-                dash.Input("stored-pv-drawing", "data"),
-            ]
+                dash.State(STORED_PV, DATA),
+                dash.Input(STORED_PV_DRAWING, DATA),
+            ],
         )(self.draw_pv_post)
 
         if jupyter:
@@ -717,7 +801,7 @@ class PersistableInteractive:
         with warnings.catch_warnings(record=True) as w:
             # Cause all warnings to always be triggered.
             # warnings.simplefilter("always")
-            warnings.warn("test warning")
+            #warnings.warn("test warning")
             ss, ks, hf = self._persistable.compute_hilbert_function(
                 min_k,
                 max_k,
@@ -960,8 +1044,6 @@ class PersistableInteractive:
 
         fig = go.Figure(
             layout=go.Layout(
-                # height=500,
-                # width=650,
                 xaxis_title="distance scale",
                 yaxis_title="density threshold",
                 xaxis={"fixedrange": True},
@@ -1015,7 +1097,6 @@ class PersistableInteractive:
         with warnings.catch_warnings(record=True) as w:
             # Cause all warnings to always be triggered.
             # warnings.simplefilter("always")
-            warnings.warn("test warning")
             pv = self._persistable.compute_prominence_vineyard(
                 [
                     [x_start_first_line, y_start_first_line],
@@ -1026,7 +1107,7 @@ class PersistableInteractive:
                     [x_end_second_line, y_end_second_line],
                 ],
                 n_parameters=granularity,
-                n_jobs = num_jobs
+                n_jobs=num_jobs,
             )
             for a in w:
                 out += warnings.formatwarning(
@@ -1054,8 +1135,6 @@ class PersistableInteractive:
             return empty_figure()
 
         return plotly.io.from_json(pv_drawing)
-
-
 
     def plot_prominence_vineyard(
         self,
@@ -1115,7 +1194,7 @@ class PersistableInteractive:
         ax.set_xlabel("parameter")
         if log_prominence:
             ax.set_ylabel("log-prominence")
-            ax.set_yscale("log")
+            ax.set_yscale(LOG)
         else:
             ax.set_ylabel("prominence")
         values = np.array(self._vineyard_values)
@@ -1124,142 +1203,143 @@ class PersistableInteractive:
         ax.figure.canvas.draw_idle()
         ax.figure.canvas.flush_events()
 
-    def _vineyard_on_parameter_selection(self, event):
-        ax = self._vineyard_ax
-        if event.inaxes != ax:
-            return
 
-        if event.button == 1:
-            # info = ""
-
-            # gaps
-            gap = None
-            aas = []
-            for aa, artist in enumerate(self._gaps):
-                cont, _ = artist.contains(event)
-                if not cont:
-                    continue
-                aas.append(aa)
-            if len(aas) > 0:
-                # aa = aas[-1]
-                gap = aas[-1]
-                # lbl = self._gap_numbers[aa]
-                # info += "gap: " + str(lbl) + ";    "
-
-            # lines
-            line_index = None
-            aas = []
-            for aa, artist in enumerate(self._lines):
-                cont, _ = artist.contains(event)
-                if not cont:
-                    continue
-                aas.append(aa)
-            if len(aas) > 0:
-                # aa = aas[-1]
-                line_index = aas[-1]
-                # lbl = self._line_index[aa]
-                # info += "line: " + str(lbl) + ";    "
-
-            if gap is not None and line_index is not None:
-                parameters, n_clusters = self._update_line_parameters(
-                    gap + 1, line_index
-                )
-                if self._vineyard_current_points_plotted_on is not None:
-                    self._vineyard_current_points_plotted_on.remove()
-                self._vineyard_current_points_plotted_on = ax.scatter(
-                    [event.xdata], [event.ydata], c="blue", s=40
-                )
-
-                info = "Parameter ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}), with n_clusters = {:d} selected.".format(
-                    parameters[0][0],
-                    parameters[0][1],
-                    parameters[1][0],
-                    parameters[1][1],
-                    n_clusters,
-                )
-                ax.format_coord = lambda x, y: info
-
-                ax.figure.canvas.draw_idle()
-                ax.figure.canvas.flush_events()
-
-    def _draw_on_hilbert(self, vineyard_parameters):
-        ax = self._hilbert_ax
-        points = np.array(list(vineyard_parameters.values()))
-
-        self._hilbert_current_points_plotted_on = ax.scatter(
-            points[:, 0], points[:, 1], c="blue", s=10
-        )
-        if len(points) >= 2:
-            self._hilbert_current_lines_plotted_on.append(
-                ax.plot(
-                    [points[0, 0], points[1, 0]],
-                    [points[0, 1], points[1, 1]],
-                    c="blue",
-                    linewidth=1,
-                )
-            )
-        if len(points) >= 4:
-            self._hilbert_current_lines_plotted_on.append(
-                ax.plot(
-                    [points[2, 0], points[3, 0]],
-                    [points[2, 1], points[3, 1]],
-                    c="blue",
-                    linewidth=1,
-                )
-            )
-            polygon = Polygon(
-                [points[0], points[1], points[3], points[2]],
-                True,
-                color="red",
-                alpha=0.1,
-            )
-            ax.add_patch(polygon)
-            self._hilbert_current_polygon_plotted_on = polygon
-        if len(points) >= 4:
-            info = "Prominence vineyard with ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}) to ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}) selected.".format(
-                points[0, 0],
-                points[0, 1],
-                points[1, 0],
-                points[1, 1],
-                points[2, 0],
-                points[2, 1],
-                points[3, 0],
-                points[3, 1],
-            )
-            ax.format_coord = lambda x, y: info
-
-        ax.figure.canvas.draw_idle()
-        ax.figure.canvas.flush_events()
-
-    def _hilbert_on_parameter_selection(self, event):
-        ax = self._hilbert_ax
-        if event.inaxes != ax:
-            return
-        if event.button == 1:
-            vineyard_parameters = self._update_vineyard_parameter_bounds(
-                [event.xdata, event.ydata]
-            )
-            self._clear_hilbert_parameters()
-            self._draw_on_hilbert(vineyard_parameters)
-
-    def _hilbert_on_clear_parameter(self, event):
-        _ = self._clear_vineyard_parameter_bounds()
-        self._clear_hilbert_parameters()
-
-    def _add_gap_prominence_vineyard(self, artist, number):
-
-        if isinstance(artist, list):
-            assert len(artist) == 1
-            artist = artist[0]
-
-        self._gaps += [artist]
-        self._gap_numbers += [number]
-
-    def _add_line_prominence_vineyard(self, artist, number):
-
-        if isinstance(artist, list):
-            assert len(artist) == 1
-            artist = artist[0]
-
-        self._lines += [artist]
-        self._line_index += [number]
+#    def _vineyard_on_parameter_selection(self, event):
+#        ax = self._vineyard_ax
+#        if event.inaxes != ax:
+#            return
+#
+#        if event.button == 1:
+#            # info = ""
+#
+#            # gaps
+#            gap = None
+#            aas = []
+#            for aa, artist in enumerate(self._gaps):
+#                cont, _ = artist.contains(event)
+#                if not cont:
+#                    continue
+#                aas.append(aa)
+#            if len(aas) > 0:
+#                # aa = aas[-1]
+#                gap = aas[-1]
+#                # lbl = self._gap_numbers[aa]
+#                # info += "gap: " + str(lbl) + ";    "
+#
+#            # lines
+#            line_index = None
+#            aas = []
+#            for aa, artist in enumerate(self._lines):
+#                cont, _ = artist.contains(event)
+#                if not cont:
+#                    continue
+#                aas.append(aa)
+#            if len(aas) > 0:
+#                # aa = aas[-1]
+#                line_index = aas[-1]
+#                # lbl = self._line_index[aa]
+#                # info += "line: " + str(lbl) + ";    "
+#
+#            if gap is not None and line_index is not None:
+#                parameters, n_clusters = self._update_line_parameters(
+#                    gap + 1, line_index
+#                )
+#                if self._vineyard_current_points_plotted_on is not None:
+#                    self._vineyard_current_points_plotted_on.remove()
+#                self._vineyard_current_points_plotted_on = ax.scatter(
+#                    [event.xdata], [event.ydata], c="blue", s=40
+#                )
+#
+#                info = "Parameter ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}), with n_clusters = {:d} selected.".format(
+#                    parameters[0][0],
+#                    parameters[0][1],
+#                    parameters[1][0],
+#                    parameters[1][1],
+#                    n_clusters,
+#                )
+#                ax.format_coord = lambda x, y: info
+#
+#                ax.figure.canvas.draw_idle()
+#                ax.figure.canvas.flush_events()
+#
+#    def _draw_on_hilbert(self, vineyard_parameters):
+#        ax = self._hilbert_ax
+#        points = np.array(list(vineyard_parameters.values()))
+#
+#        self._hilbert_current_points_plotted_on = ax.scatter(
+#            points[:, 0], points[:, 1], c="blue", s=10
+#        )
+#        if len(points) >= 2:
+#            self._hilbert_current_lines_plotted_on.append(
+#                ax.plot(
+#                    [points[0, 0], points[1, 0]],
+#                    [points[0, 1], points[1, 1]],
+#                    c="blue",
+#                    linewidth=1,
+#                )
+#            )
+#        if len(points) >= 4:
+#            self._hilbert_current_lines_plotted_on.append(
+#                ax.plot(
+#                    [points[2, 0], points[3, 0]],
+#                    [points[2, 1], points[3, 1]],
+#                    c="blue",
+#                    linewidth=1,
+#                )
+#            )
+#            polygon = Polygon(
+#                [points[0], points[1], points[3], points[2]],
+#                True,
+#                color="red",
+#                alpha=0.1,
+#            )
+#            ax.add_patch(polygon)
+#            self._hilbert_current_polygon_plotted_on = polygon
+#        if len(points) >= 4:
+#            info = "Prominence vineyard with ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}) to ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}) selected.".format(
+#                points[0, 0],
+#                points[0, 1],
+#                points[1, 0],
+#                points[1, 1],
+#                points[2, 0],
+#                points[2, 1],
+#                points[3, 0],
+#                points[3, 1],
+#            )
+#            ax.format_coord = lambda x, y: info
+#
+#        ax.figure.canvas.draw_idle()
+#        ax.figure.canvas.flush_events()
+#
+#    def _hilbert_on_parameter_selection(self, event):
+#        ax = self._hilbert_ax
+#        if event.inaxes != ax:
+#            return
+#        if event.button == 1:
+#            vineyard_parameters = self._update_vineyard_parameter_bounds(
+#                [event.xdata, event.ydata]
+#            )
+#            self._clear_hilbert_parameters()
+#            self._draw_on_hilbert(vineyard_parameters)
+#
+#    def _hilbert_on_clear_parameter(self, event):
+#        _ = self._clear_vineyard_parameter_bounds()
+#        self._clear_hilbert_parameters()
+#
+#    def _add_gap_prominence_vineyard(self, artist, number):
+#
+#        if isinstance(artist, list):
+#            assert len(artist) == 1
+#            artist = artist[0]
+#
+#        self._gaps += [artist]
+#        self._gap_numbers += [number]
+#
+#    def _add_line_prominence_vineyard(self, artist, number):
+#
+#        if isinstance(artist, list):
+#            assert len(artist) == 1
+#            artist = artist[0]
+#
+#        self._lines += [artist]
+#        self._line_index += [number]
