@@ -2,6 +2,7 @@
 # License: 3-clause BSD
 
 # from re import A
+from turtle import back
 import numpy as np
 import warnings
 
@@ -16,7 +17,7 @@ from jupyter_dash import JupyterDash
 import dash
 from dash import dcc
 from dash import html
-from dash.long_callback import DiskcacheLongCallbackManager
+from dash import DiskcacheManager
 
 import pandas as pd
 import json
@@ -26,38 +27,42 @@ PERSISTABLE_STDERR = "./persistable-stderr"
 PERSISTABLE_DASH_CACHE = "./persistable-dash-cache"
 # WARNINGS_GLOBAL = "test default"
 
-X_START_FIRST_LINE = "x-start-first-line"
-Y_START_FIRST_LINE = "y-start-first-line"
-X_END_FIRST_LINE = "x-end-first-line"
-Y_END_FIRST_LINE = "y-end-first-line"
-X_START_SECOND_LINE = "x-start-second-line"
-Y_START_SECOND_LINE = "y-start-second-line"
-X_END_SECOND_LINE = "x-end-second-line"
-Y_END_SECOND_LINE = "y-end-second-line"
-CFF_PLOT = "cff-plot"
-DISPLAY_LINES_SELECTION = "display-lines-selection"
-ENDPOINT_SELECTION = "endpoint-selection"
-STORED_CCF = "stored-ccf"
-STORED_CCF_DRAWING = "stored-ccf-drawing"
-MIN_DIST_SCALE = "min-dist-scale"
-MAX_DIST_SCALE = "max-dist-scale"
-MIN_DENSITY_THRESHOLD = "min-density-threshold"
-MAX_DENSITY_THRESHOLD = "max-density-threshold"
-ENDPOINT_SELECTION_DIV = "endpoint-selection-div"
-PARAMETER_SELECTION_DIV = "parameter-selection-div"
-DISPLAY_PARAMETER_SELECTION = "display-parameter-selection"
-COMPUTE_CCF_BUTTON = "compute-ccf-button"
-INPUT_LOG_GRANULARITY_CCF = "input-log-granularity-ccf"
-INPUT_NUM_JOBS_CCF = "input-num-jobs-ccf"
-INPUT_MAX_COMPONENTS = "input-max-components"
-LOG = "log"
-WARNINGS_POLLING_INTERVAL = "warnings-polling-interval"
-STORED_PV = "stored-pv"
-INPUT_MAX_VINES = "input-max-vines"
-INPUT_PROM_VIN_SCALE = "input-prom-vin-scale"
-COMPUTE_PV_BUTTON = "compute-pv-button"
-PV_PLOT = "pv-plot"
-STORED_PV_DRAWING = "stored-pv-drawing"
+X_START_FIRST_LINE = "x-start-first-line-"
+Y_START_FIRST_LINE = "y-start-first-line-"
+X_END_FIRST_LINE = "x-end-first-line-"
+Y_END_FIRST_LINE = "y-end-first-line-"
+X_START_SECOND_LINE = "x-start-second-line-"
+Y_START_SECOND_LINE = "y-start-second-line-"
+X_END_SECOND_LINE = "x-end-second-line-"
+Y_END_SECOND_LINE = "y-end-second-line-"
+CFF_PLOT = "cff-plot-"
+DISPLAY_LINES_SELECTION = "display-lines-selection-"
+ENDPOINT_SELECTION = "endpoint-selection-"
+STORED_CCF = "stored-ccf-"
+STORED_CCF_DRAWING = "stored-ccf-drawing-"
+MIN_DIST_SCALE = "min-dist-scale-"
+MAX_DIST_SCALE = "max-dist-scale-"
+MIN_DENSITY_THRESHOLD = "min-density-threshold-"
+MAX_DENSITY_THRESHOLD = "max-density-threshold-"
+ENDPOINT_SELECTION_DIV = "endpoint-selection-div-"
+PARAMETER_SELECTION_DIV = "parameter-selection-div-"
+DISPLAY_PARAMETER_SELECTION = "display-parameter-selection-"
+COMPUTE_CCF_BUTTON = "compute-ccf-button-"
+INPUT_LOG_GRANULARITY_CCF = "input-log-granularity-ccf-"
+INPUT_NUM_JOBS_CCF = "input-num-jobs-ccf-"
+INPUT_MAX_COMPONENTS = "input-max-components-"
+LOG = "log-"
+WARNINGS_POLLING_INTERVAL = "warnings-polling-interval-"
+
+PV_PLOT = "pv-plot-"
+STORED_PV = "stored-pv-"
+STORED_PV_DRAWING = "stored-pv-drawing-"
+INPUT_MAX_VINES = "input-max-vines-"
+INPUT_PROM_VIN_SCALE = "input-prom-vin-scale-"
+
+COMPUTE_PV_BUTTON = "compute-pv-button-"
+INPUT_LOG_GRANULARITY_PV = "input-log-granularity-pv-"
+INPUT_NUM_JOBS_PV = "input-num-jobs-pv-"
 
 VALUE = "value"
 CLICKDATA = "clickData"
@@ -122,16 +127,20 @@ class PersistableInteractive:
 
         # set temporary files
         cache = diskcache.Cache(PERSISTABLE_DASH_CACHE)
-        long_callback_manager = DiskcacheLongCallbackManager(cache)
+        cache_2 = diskcache.Cache(PERSISTABLE_DASH_CACHE+"_2")
+        background_callback_manager = DiskcacheManager(cache)
+        background_callback_manager_2 = DiskcacheManager(cache_2)
         with open(PERSISTABLE_STDERR, "w") as file:
             file.close()
 
         if jupyter == True:
             self._app = JupyterDash(
-                __name__, long_callback_manager=long_callback_manager
+                __name__, background_callback_manager=background_callback_manager,
             )
         else:
-            self._app = dash.Dash(__name__, long_callback_manager=long_callback_manager)
+            self._app = dash.Dash(
+                __name__, background_callback_manager=background_callback_manager,
+                )
         self._app.layout = html.Div(
             children=[
                 # contains the component counting function as a pandas dataframe
@@ -459,7 +468,7 @@ class PersistableInteractive:
                                                 ),
                                                 dcc.Input(
                                                     className=VALUE,
-                                                    id="input-num-jobs-pv",
+                                                    id=INPUT_NUM_JOBS_PV,
                                                     type="number",
                                                     value=default_num_jobs,
                                                     min=1,
@@ -485,7 +494,7 @@ class PersistableInteractive:
                                                         )
                                                     },
                                                     value=default_log_granularity - 1,
-                                                    id="input-log-granularity-vineyard",
+                                                    id=INPUT_LOG_GRANULARITY_PV,
                                                     className=VALUE,
                                                 ),
                                             ],
@@ -646,7 +655,9 @@ class PersistableInteractive:
             ],
         )
 
-        def my_callback(inputs, outputs, b=False):
+        def my_callback(
+            inputs, outputs, prevent_initial_call=False, background=False, running=[], manager=None
+        ):
             def cs(l):
                 return l[0] + l[1]
 
@@ -662,6 +673,11 @@ class PersistableInteractive:
                     else dash.Output(outputs[0][0], outputs[0][1])
                 )
 
+                dash_running_outputs = [
+                    (dash.Output(i, v), value_start, value_end)
+                    for i, v, value_start, value_end in running
+                ]
+
                 def callback_function(*argv):
                     d = {}
                     for n, arg in enumerate(argv):
@@ -673,7 +689,13 @@ class PersistableInteractive:
                         else d[cs(outputs[0])]
                     )
 
-                self._app.callback(dash_outputs, dash_inputs, b)(callback_function)
+                self._app.callback(
+                    dash_outputs,
+                    dash_inputs,
+                    prevent_initial_call,
+                    running=dash_running_outputs,
+                    background=background,
+                )(callback_function)
 
                 return function
 
@@ -681,7 +703,7 @@ class PersistableInteractive:
 
         @my_callback(
             [[DISPLAY_PARAMETER_SELECTION, VALUE, IN]],
-            [[PARAMETER_SELECTION_DIV, HIDDEN]],
+            [[PARAMETER_SELECTION_DIV, HIDDEN]]
         )
         def toggle_parameter_selection_pv(d):
             if d[DISPLAY_PARAMETER_SELECTION + VALUE] == "on":
@@ -691,7 +713,7 @@ class PersistableInteractive:
             return d
 
         @my_callback(
-            [[WARNINGS_POLLING_INTERVAL, N_INTERVALS, IN]], [[LOG, CHILDREN]], False
+            [[WARNINGS_POLLING_INTERVAL, N_INTERVALS, IN]], [[LOG, CHILDREN]], prevent_initial_call = False
         )
         def print_log(d):
             d = {}
@@ -723,7 +745,7 @@ class PersistableInteractive:
                 [X_END_SECOND_LINE, VALUE],
                 [Y_END_SECOND_LINE, VALUE],
             ],
-            True,
+            prevent_initial_call=True
         )
         def on_ccf_click(d):
             if d[DISPLAY_LINES_SELECTION + VALUE] == "on":
@@ -758,7 +780,7 @@ class PersistableInteractive:
         @my_callback(
             [[STORED_CCF, DATA, IN], [INPUT_MAX_COMPONENTS, VALUE, IN]],
             [[STORED_CCF_DRAWING, DATA]],
-            False,
+            prevent_initial_call=False
         )
         def draw_ccf(d):
             ccf = d[STORED_CCF + DATA]
@@ -828,7 +850,7 @@ class PersistableInteractive:
                 [ENDPOINT_SELECTION, VALUE, IN],
             ],
             [[CFF_PLOT, FIGURE]],
-            False,
+            prevent_initial_call=False
         )
         def draw_ccf_enclosing_box(d):
             ccf = d[STORED_CCF + DATA]
@@ -1005,7 +1027,7 @@ class PersistableInteractive:
                 [INPUT_PROM_VIN_SCALE, VALUE, IN],
             ],
             [[STORED_PV_DRAWING, DATA]],
-            False,
+            prevent_initial_call=False
         )
         def draw_pv(d):
             d[STORED_PV_DRAWING + DATA] = plotly.io.to_json(empty_figure())
@@ -1013,140 +1035,228 @@ class PersistableInteractive:
 
         @my_callback(
             [
+                [STORED_PV_DRAWING, DATA, IN],
                 [STORED_PV, DATA, ST],
-                [STORED_PV_DRAWING, DATA,IN]
             ],
-            [ [PV_PLOT, FIGURE] ]
+            [
+                [PV_PLOT, FIGURE]
+            ]
         )
         def draw_pv_post(d):
-            #pv,
-            #pv_drawing,
+            # pv,
+            # pv_drawing,
 
-            if d[STORED_PV+DATA] is None:
-                d[PV_PLOT+FIGURE] = empty_figure()
+            if d[STORED_PV + DATA] is None:
+                d[PV_PLOT + FIGURE] = empty_figure()
                 return d
 
-            d[PV_PLOT+FIGURE] = plotly.io.from_json(d[STORED_PV_DRAWING+DATA])
+            d[PV_PLOT + FIGURE] = plotly.io.from_json(d[STORED_PV_DRAWING + DATA])
 
             return d
 
-        self._app.long_callback(
-            dash.Output(STORED_CCF, DATA),
-            [
-                dash.Input(COMPUTE_CCF_BUTTON, N_CLICKS),
-                dash.State(MIN_DENSITY_THRESHOLD, VALUE),
-                dash.State(MAX_DENSITY_THRESHOLD, VALUE),
-                dash.State(MIN_DIST_SCALE, VALUE),
-                dash.State(MAX_DIST_SCALE, VALUE),
-                dash.State(INPUT_LOG_GRANULARITY_CCF, VALUE),
-                dash.State(INPUT_NUM_JOBS_CCF, VALUE),
-            ],
-            True,
-            running=[(dash.Output(COMPUTE_CCF_BUTTON, DISABLED), True, False)],
-        )(self.compute_ccf)
 
-        self._app.long_callback(
-            dash.Output(STORED_PV, DATA),
+        @my_callback(
             [
-                dash.Input(COMPUTE_PV_BUTTON, N_CLICKS),
-                dash.State(X_START_FIRST_LINE, VALUE),
-                dash.State(Y_START_FIRST_LINE, VALUE),
-                dash.State(X_END_FIRST_LINE, VALUE),
-                dash.State(Y_END_FIRST_LINE, VALUE),
-                dash.State(X_START_SECOND_LINE, VALUE),
-                dash.State(Y_START_SECOND_LINE, VALUE),
-                dash.State(X_END_SECOND_LINE, VALUE),
-                dash.State(Y_END_SECOND_LINE, VALUE),
-                dash.State(INPUT_LOG_GRANULARITY_CCF, VALUE),
-                dash.State(INPUT_NUM_JOBS_CCF, VALUE),
+                [COMPUTE_CCF_BUTTON, N_CLICKS, IN],
+                [MIN_DENSITY_THRESHOLD, VALUE, ST],
+                [MAX_DENSITY_THRESHOLD, VALUE, ST],
+                [MIN_DIST_SCALE, VALUE, ST],
+                [MAX_DIST_SCALE, VALUE, ST],
+                [INPUT_LOG_GRANULARITY_CCF, VALUE, ST],
+                [INPUT_NUM_JOBS_CCF, VALUE, ST],
             ],
-            True,
-            running=[(dash.Output(COMPUTE_PV_BUTTON, DISABLED), True, False)],
-        )(self.compute_pv)
+            [
+                [STORED_CCF, DATA],
+            ],
+            prevent_initial_call=True,
+            background=True,
+            running=[[COMPUTE_CCF_BUTTON, DISABLED, True, False]],
+            manager=background_callback_manager,
+        )
+        def compute_ccf(d):
+            granularity = 2 ** d[INPUT_LOG_GRANULARITY_CCF + VALUE]
+            num_jobs = int(d[INPUT_NUM_JOBS_CCF + VALUE])
+
+            out = ""
+            with warnings.catch_warnings(record=True) as w:
+                # warnings.warn("test warning")
+                ss, ks, hf = self._persistable.compute_hilbert_function(
+                    d[MIN_DENSITY_THRESHOLD + VALUE],
+                    d[MAX_DENSITY_THRESHOLD + VALUE],
+                    d[MIN_DIST_SCALE + VALUE],
+                    d[MAX_DIST_SCALE + VALUE],
+                    granularity,
+                    n_jobs=num_jobs,
+                )
+                for a in w:
+                    out += warnings.formatwarning(
+                        a.message, a.category, a.filename, a.lineno
+                    )
+                with open(PERSISTABLE_STDERR, "w") as file:
+                    file.write(out)
+
+            d[STORED_CCF + DATA] = pd.DataFrame(
+                hf, index=ks[:-1], columns=ss[:-1]
+            ).to_json(date_format="iso", orient="split")
+
+            return d
+
+        @my_callback(
+            [
+                [COMPUTE_PV_BUTTON, N_CLICKS, IN],
+                [X_START_FIRST_LINE, VALUE, ST],
+                [Y_START_FIRST_LINE, VALUE, ST],
+                [X_END_FIRST_LINE, VALUE, ST],
+                [Y_END_FIRST_LINE, VALUE, ST],
+                [X_START_SECOND_LINE, VALUE, ST],
+                [Y_START_SECOND_LINE, VALUE, ST],
+                [X_END_SECOND_LINE, VALUE, ST],
+                [Y_END_SECOND_LINE, VALUE, ST],
+                [INPUT_LOG_GRANULARITY_PV, VALUE, ST],
+                [INPUT_NUM_JOBS_PV, VALUE, ST],
+            ],
+            [
+                [STORED_PV, DATA]
+            ],
+            prevent_initial_call=True,
+            background=True,
+            running=[[COMPUTE_PV_BUTTON, DISABLED, True, False]],
+            manager=background_callback_manager_2,
+        )
+        def compute_pv(d):
+            granularity = 2**d[INPUT_LOG_GRANULARITY_PV+VALUE]
+            num_jobs = int(d[INPUT_NUM_JOBS_PV+VALUE])
+
+            out = ""
+            with warnings.catch_warnings(record=True) as w:
+                pv = self._persistable.compute_prominence_vineyard(
+                    [
+                        [d[X_START_FIRST_LINE+VALUE], d[Y_START_FIRST_LINE+VALUE]],
+                        [d[X_END_FIRST_LINE+VALUE], d[Y_END_FIRST_LINE+VALUE]],
+                    ],
+                    [
+                        [d[X_START_SECOND_LINE+VALUE], d[Y_START_SECOND_LINE+VALUE]],
+                        [d[X_END_SECOND_LINE+VALUE], d[Y_END_SECOND_LINE+VALUE]],
+                    ],
+                    n_parameters=granularity,
+                    n_jobs=num_jobs,
+                )
+                for a in w:
+                    out += warnings.formatwarning(
+                        a.message, a.category, a.filename, a.lineno
+                    )
+                with open(PERSISTABLE_STDERR, "w") as file:
+                    file.write(out)
+
+            d[STORED_PV+DATA] = json.dumps(pv.__dict__)
+
+            return d
+
+
+
+#        def compute_ccf(d):
+#            granularity = 2 ** d[INPUT_LOG_GRANULARITY_CCF + VALUE]
+#            num_jobs = int(d[INPUT_NUM_JOBS_CCF + VALUE])
+#
+#            out = ""
+#            with warnings.catch_warnings(record=True) as w:
+#                # warnings.warn("test warning")
+#                ss, ks, hf = self._persistable.compute_hilbert_function(
+#                    d[MIN_DENSITY_THRESHOLD + VALUE],
+#                    d[MAX_DENSITY_THRESHOLD + VALUE],
+#                    d[MIN_DIST_SCALE + VALUE],
+#                    d[MAX_DIST_SCALE + VALUE],
+#                    granularity,
+#                    n_jobs=num_jobs,
+#                )
+#                for a in w:
+#                    out += warnings.formatwarning(
+#                        a.message, a.category, a.filename, a.lineno
+#                    )
+#                with open(PERSISTABLE_STDERR, "w") as file:
+#                    file.write(out)
+#
+#            d[STORED_CCF + DATA] = pd.DataFrame(
+#                hf, index=ks[:-1], columns=ss[:-1]
+#            ).to_json(date_format="iso", orient="split")
+#            return d
+#
+#        my_callback(
+#            [
+#                [COMPUTE_CCF_BUTTON, N_CLICKS, IN],
+#                [MIN_DENSITY_THRESHOLD, VALUE, ST],
+#                [MAX_DENSITY_THRESHOLD, VALUE, ST],
+#                [MIN_DIST_SCALE, VALUE, ST],
+#                [MAX_DIST_SCALE, VALUE, ST],
+#                [INPUT_LOG_GRANULARITY_CCF, VALUE, ST],
+#                [INPUT_NUM_JOBS_CCF, VALUE, ST],
+#            ],
+#            [
+#                [STORED_CCF, DATA],
+#            ],
+#            prevent_initial_call=True,
+#            background=True,
+#            running=[[COMPUTE_CCF_BUTTON, DISABLED, True, False]],
+#            manager=background_callback_manager
+#        )(compute_ccf)
+#
+#        def compute_pv(d):
+#            granularity = 2**d[INPUT_LOG_GRANULARITY_PV+VALUE]
+#            num_jobs = int(d[INPUT_NUM_JOBS_PV+VALUE])
+#
+#            out = ""
+#            with warnings.catch_warnings(record=True) as w:
+#                pv = self._persistable.compute_prominence_vineyard(
+#                    [
+#                        [d[X_START_FIRST_LINE+VALUE], d[Y_START_FIRST_LINE+VALUE]],
+#                        [d[X_END_FIRST_LINE+VALUE], d[Y_END_FIRST_LINE+VALUE]],
+#                    ],
+#                    [
+#                        [d[X_START_SECOND_LINE+VALUE], d[Y_START_SECOND_LINE+VALUE]],
+#                        [d[X_END_SECOND_LINE+VALUE], d[Y_END_SECOND_LINE+VALUE]],
+#                    ],
+#                    n_parameters=granularity,
+#                    n_jobs=num_jobs,
+#                )
+#                for a in w:
+#                    out += warnings.formatwarning(
+#                        a.message, a.category, a.filename, a.lineno
+#                    )
+#                with open(PERSISTABLE_STDERR, "w") as file:
+#                    file.write(out)
+#
+#            d[STORED_PV+DATA] = json.dumps(pv.__dict__)
+#
+#            return d
+#
+#        my_callback(
+#            [
+#                [COMPUTE_PV_BUTTON, N_CLICKS, IN],
+#                [X_START_FIRST_LINE, VALUE, ST],
+#                [Y_START_FIRST_LINE, VALUE, ST],
+#                [X_END_FIRST_LINE, VALUE, ST],
+#                [Y_END_FIRST_LINE, VALUE, ST],
+#                [X_START_SECOND_LINE, VALUE, ST],
+#                [Y_START_SECOND_LINE, VALUE, ST],
+#                [X_END_SECOND_LINE, VALUE, ST],
+#                [Y_END_SECOND_LINE, VALUE, ST],
+#                [INPUT_LOG_GRANULARITY_PV, VALUE, ST],
+#                [INPUT_NUM_JOBS_PV, VALUE, ST],
+#            ],
+#            [
+#                [STORED_PV, DATA]
+#            ],
+#            prevent_initial_call=True,
+#            background=True,
+#            running=[[COMPUTE_PV_BUTTON, DISABLED, True, False]],
+#            manager=background_callback_manager_2
+#        )(compute_pv)
+
 
         if jupyter:
             self._app.run_server(mode="inline")
         else:
             self._app.run_server(debug=debug)
-
-    def compute_ccf(
-        self,
-        n_clicks,
-        min_k,
-        max_k,
-        min_s,
-        max_s,
-        log_granularity,
-        num_jobs,
-    ):
-        granularity = 2**log_granularity
-        num_jobs = int(num_jobs)
-
-        out = ""
-        with warnings.catch_warnings(record=True) as w:
-            # Cause all warnings to always be triggered.
-            # warnings.simplefilter("always")
-            # warnings.warn("test warning")
-            ss, ks, hf = self._persistable.compute_hilbert_function(
-                min_k,
-                max_k,
-                min_s,
-                max_s,
-                granularity,
-                n_jobs=num_jobs,
-            )
-            for a in w:
-                out += warnings.formatwarning(
-                    a.message, a.category, a.filename, a.lineno
-                )
-            with open(PERSISTABLE_STDERR, "w") as file:
-                file.write(out)
-
-        return pd.DataFrame(hf, index=ks[:-1], columns=ss[:-1]).to_json(
-            date_format="iso", orient="split"
-        )
-
-    def compute_pv(
-        self,
-        n_clicks,
-        x_start_first_line,
-        y_start_first_line,
-        x_end_first_line,
-        y_end_first_line,
-        x_start_second_line,
-        y_start_second_line,
-        x_end_second_line,
-        y_end_second_line,
-        log_granularity,
-        num_jobs,
-    ):
-        granularity = 2**log_granularity
-        num_jobs = int(num_jobs)
-
-        out = ""
-        with warnings.catch_warnings(record=True) as w:
-            # Cause all warnings to always be triggered.
-            # warnings.simplefilter("always")
-            pv = self._persistable.compute_prominence_vineyard(
-                [
-                    [x_start_first_line, y_start_first_line],
-                    [x_end_first_line, y_end_first_line],
-                ],
-                [
-                    [x_start_second_line, y_start_second_line],
-                    [x_end_second_line, y_end_second_line],
-                ],
-                n_parameters=granularity,
-                n_jobs=num_jobs,
-            )
-            for a in w:
-                out += warnings.formatwarning(
-                    a.message, a.category, a.filename, a.lineno
-                )
-            with open(PERSISTABLE_STDERR, "w") as file:
-                file.write(out)
-
-        return json.dumps(pv.__dict__)
 
 
 #    def plot_prominence_vineyard(
