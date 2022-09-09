@@ -1,7 +1,7 @@
 # Authors: Luis Scoccola
 # License: 3-clause BSD
 
-#from re import A
+# from re import A
 import numpy as np
 import warnings
 
@@ -42,7 +42,7 @@ STORED_CCF_DRAWING = "stored-ccf-drawing"
 MIN_DIST_SCALE = "min-dist-scale"
 MAX_DIST_SCALE = "max-dist-scale"
 MIN_DENSITY_THRESHOLD = "min-density-threshold"
-MAX_DESNITY_THRESHOLD = "max-density-threshold"
+MAX_DENSITY_THRESHOLD = "max-density-threshold"
 ENDPOINT_SELECTION_DIV = "endpoint-selection-div"
 PARAMETER_SELECTION_DIV = "parameter-selection-div"
 DISPLAY_PARAMETER_SELECTION = "display-parameter-selection"
@@ -68,6 +68,9 @@ DISABLED = "disabled"
 FIGURE = "figure"
 CHILDREN = "children"
 N_INTERVALS = "n_intervals"
+
+IN = "input"
+ST = "state"
 
 
 def empty_figure():
@@ -186,7 +189,7 @@ class PersistableInteractive:
                                                 ),
                                                 dcc.Input(
                                                     className=VALUE,
-                                                    id=MAX_DESNITY_THRESHOLD,
+                                                    id=MAX_DENSITY_THRESHOLD,
                                                     type="number",
                                                     value=default_max_k,
                                                     min=0,
@@ -556,7 +559,7 @@ class PersistableInteractive:
                                                     className="name",
                                                     children="line/gap",
                                                 ),
-                                                #dcc.RadioItems(
+                                                # dcc.RadioItems(
                                                 #    [
                                                 #        "1st line start",
                                                 #        "1st line end",
@@ -566,7 +569,7 @@ class PersistableInteractive:
                                                 #    "1st line start",
                                                 #    id=ENDPOINT_SELECTION,
                                                 #    className=VALUE,
-                                                #),
+                                                # ),
                                                 dcc.Input(
                                                     className=VALUE,
                                                     id="input-line",
@@ -643,50 +646,396 @@ class PersistableInteractive:
             ],
         )
 
+        def my_callback(inputs, outputs, b=False):
+            def cs(l):
+                return l[0] + l[1]
 
-        self._app.callback(
+            def out_function(function):
+                # FIX
+                dash_inputs = [
+                    dash.Input(i, v) if t == IN else dash.State(i, v)
+                    for i, v, t in inputs
+                ]
+                dash_outputs = (
+                    [dash.Output(i, v) for i, v in outputs]
+                    if len(outputs) > 1
+                    else dash.Output(outputs[0][0], outputs[0][1])
+                )
+
+                def callback_function(*argv):
+                    d = {}
+                    for n, arg in enumerate(argv):
+                        d[cs(inputs[n])] = arg
+                    d = function(d)
+                    return (
+                        tuple(d[cs(o)] for o in outputs)
+                        if len(outputs) > 1
+                        else d[cs(outputs[0])]
+                    )
+
+                self._app.callback(dash_outputs, dash_inputs, b)(callback_function)
+
+                return function
+
+            return out_function
+
+        @my_callback(
+            [[DISPLAY_PARAMETER_SELECTION, VALUE, IN]],
+            [[PARAMETER_SELECTION_DIV, HIDDEN]],
+        )
+        def toggle_parameter_selection_pv(d):
+            if d[DISPLAY_PARAMETER_SELECTION + VALUE] == "on":
+                d[PARAMETER_SELECTION_DIV + HIDDEN] = False
+            else:
+                d[PARAMETER_SELECTION_DIV + HIDDEN] = True
+            return d
+
+        @my_callback(
+            [[WARNINGS_POLLING_INTERVAL, N_INTERVALS, IN]], [[LOG, CHILDREN]], False
+        )
+        def print_log(d):
+            d = {}
+            with open(PERSISTABLE_STDERR, "r") as file:
+                d[LOG + CHILDREN] = file.read()
+            return d
+
+        @my_callback(
             [
-                dash.Output(X_START_FIRST_LINE, VALUE),
-                dash.Output(Y_START_FIRST_LINE, VALUE),
-                dash.Output(X_END_FIRST_LINE, VALUE),
-                dash.Output(Y_END_FIRST_LINE, VALUE),
-                dash.Output(X_START_SECOND_LINE, VALUE),
-                dash.Output(Y_START_SECOND_LINE, VALUE),
-                dash.Output(X_END_SECOND_LINE, VALUE),
-                dash.Output(Y_END_SECOND_LINE, VALUE),
+                [CFF_PLOT, CLICKDATA, IN],
+                [DISPLAY_LINES_SELECTION, VALUE, ST],
+                [ENDPOINT_SELECTION, VALUE, ST],
+                [X_START_FIRST_LINE, VALUE, ST],
+                [Y_START_FIRST_LINE, VALUE, ST],
+                [X_END_FIRST_LINE, VALUE, ST],
+                [Y_END_FIRST_LINE, VALUE, ST],
+                [X_START_SECOND_LINE, VALUE, ST],
+                [Y_START_SECOND_LINE, VALUE, ST],
+                [X_END_SECOND_LINE, VALUE, ST],
+                [Y_END_SECOND_LINE, VALUE, ST],
             ],
             [
-                dash.Input(CFF_PLOT, CLICKDATA),
-                dash.State(DISPLAY_LINES_SELECTION, VALUE),
-                dash.State(ENDPOINT_SELECTION, VALUE),
-                dash.State(X_START_FIRST_LINE, VALUE),
-                dash.State(Y_START_FIRST_LINE, VALUE),
-                dash.State(X_END_FIRST_LINE, VALUE),
-                dash.State(Y_END_FIRST_LINE, VALUE),
-                dash.State(X_START_SECOND_LINE, VALUE),
-                dash.State(Y_START_SECOND_LINE, VALUE),
-                dash.State(X_END_SECOND_LINE, VALUE),
-                dash.State(Y_END_SECOND_LINE, VALUE),
+                [X_START_FIRST_LINE, VALUE],
+                [Y_START_FIRST_LINE, VALUE],
+                [X_END_FIRST_LINE, VALUE],
+                [Y_END_FIRST_LINE, VALUE],
+                [X_START_SECOND_LINE, VALUE],
+                [Y_START_SECOND_LINE, VALUE],
+                [X_END_SECOND_LINE, VALUE],
+                [Y_END_SECOND_LINE, VALUE],
             ],
             True,
-        )(self.on_ccf_click)
+        )
+        def on_ccf_click(d):
+            if d[DISPLAY_LINES_SELECTION + VALUE] == "on":
+                new_x, new_y = (
+                    d[CFF_PLOT + CLICKDATA]["points"][0]["x"],
+                    d[CFF_PLOT + CLICKDATA]["points"][0]["y"],
+                )
+                if d[ENDPOINT_SELECTION + VALUE] == "1st line start":
+                    d[X_START_FIRST_LINE + VALUE] = new_x
+                    d[Y_START_FIRST_LINE + VALUE] = new_y
+                elif d[ENDPOINT_SELECTION + VALUE] == "1st line end":
+                    d[X_END_FIRST_LINE + VALUE] = new_x
+                    d[Y_END_FIRST_LINE + VALUE] = new_y
+                elif d[ENDPOINT_SELECTION + VALUE] == "2nd line start":
+                    d[X_START_SECOND_LINE + VALUE] = new_x
+                    d[Y_START_SECOND_LINE + VALUE] = new_y
+                elif d[ENDPOINT_SELECTION + VALUE] == "2nd line end":
+                    d[X_END_SECOND_LINE + VALUE] = new_x
+                    d[Y_END_SECOND_LINE + VALUE] = new_y
+            return d
 
-        self._app.callback(
-            dash.Output(ENDPOINT_SELECTION_DIV, HIDDEN),
-            dash.Input(DISPLAY_LINES_SELECTION, VALUE),
-        )(lambda val: False if val == "on" else True)
+        @my_callback(
+            [[DISPLAY_LINES_SELECTION, VALUE, IN]], [[ENDPOINT_SELECTION_DIV, HIDDEN]]
+        )
+        def toggle_parameter_selection_ccf(d):
+            if d[DISPLAY_LINES_SELECTION + VALUE] == "on":
+                d[ENDPOINT_SELECTION_DIV + HIDDEN] = False
+            else:
+                d[ENDPOINT_SELECTION_DIV + HIDDEN] = True
+            return d
 
-        self._app.callback(
-            dash.Output(PARAMETER_SELECTION_DIV, HIDDEN),
-            dash.Input(DISPLAY_PARAMETER_SELECTION, VALUE),
-        )(lambda val: False if val == "on" else True)
+        @my_callback(
+            [[STORED_CCF, DATA, IN], [INPUT_MAX_COMPONENTS, VALUE, IN]],
+            [[STORED_CCF_DRAWING, DATA]],
+            False,
+        )
+        def draw_ccf(d):
+            ccf = d[STORED_CCF + DATA]
+
+            if ccf is None:
+                d[STORED_CCF_DRAWING + DATA] = empty_figure()
+                return d
+
+            ccf = pd.read_json(ccf, orient="split")
+
+            def df_to_plotly(df):
+                return {
+                    "z": df.values.tolist(),
+                    "x": df.columns.tolist(),
+                    "y": df.index.tolist(),
+                }
+
+            fig = go.Figure(
+                layout=go.Layout(
+                    xaxis_title="distance scale",
+                    yaxis_title="density threshold",
+                    xaxis={"fixedrange": True},
+                    yaxis={"fixedrange": True},
+                ),
+            )
+            max_components = d[INPUT_MAX_COMPONENTS + VALUE]
+            max_components = 0 if max_components is None else int(max_components)
+            fig.add_trace(
+                go.Heatmap(
+                    df_to_plotly(ccf),
+                    hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
+                    zmin=0,
+                    zmax=max_components,
+                    showscale=False,
+                    name="",
+                )
+            )
+            fig.update_traces(colorscale="greys")
+
+            fig.update_layout(showlegend=False)
+            fig.update_layout(autosize=True)
+            fig.update_xaxes(range=[min(ccf.columns), max(ccf.columns)])
+            fig.update_yaxes(range=[min(ccf.index), max(ccf.index)])
+            fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
+            fig.update_layout(clickmode="event+select")
+
+            d[STORED_CCF_DRAWING + DATA] = plotly.io.to_json(fig)
+            return d
+
+        @my_callback(
+            [
+                [STORED_CCF, DATA, ST],
+                [STORED_CCF_DRAWING, DATA, IN],
+                [MIN_DIST_SCALE, VALUE, IN],
+                [MAX_DIST_SCALE, VALUE, IN],
+                [MIN_DENSITY_THRESHOLD, VALUE, IN],
+                [MAX_DENSITY_THRESHOLD, VALUE, IN],
+                [DISPLAY_LINES_SELECTION, VALUE, IN],
+                [X_START_FIRST_LINE, VALUE, IN],
+                [Y_START_FIRST_LINE, VALUE, IN],
+                [X_END_FIRST_LINE, VALUE, IN],
+                [Y_END_FIRST_LINE, VALUE, IN],
+                [X_START_SECOND_LINE, VALUE, IN],
+                [Y_START_SECOND_LINE, VALUE, IN],
+                [X_END_SECOND_LINE, VALUE, IN],
+                [Y_END_SECOND_LINE, VALUE, IN],
+                [ENDPOINT_SELECTION, VALUE, IN],
+            ],
+            [[CFF_PLOT, FIGURE]],
+            False,
+        )
+        def draw_ccf_enclosing_box(d):
+            ccf = d[STORED_CCF + DATA]
+
+            if ccf is None:
+                d[CFF_PLOT + FIGURE] = empty_figure()
+                return d
+
+            fig = plotly.io.from_json(d[STORED_CCF_DRAWING + DATA])
+
+            ccf = pd.read_json(ccf, orient="split")
+
+            def generate_red_box(xs, ys, text):
+                return go.Scatter(
+                    x=xs,
+                    y=ys,
+                    fillcolor="rgba(255, 0, 0, 0.1)",
+                    fill="toself",
+                    mode="none",
+                    text=text,
+                    name="",
+                )
+
+            # draw left side of new enclosing box
+            fig.add_trace(
+                generate_red_box(
+                    [
+                        min(ccf.columns),
+                        d[MIN_DIST_SCALE + VALUE],
+                        d[MIN_DIST_SCALE + VALUE],
+                        min(ccf.columns),
+                    ],
+                    [min(ccf.index), min(ccf.index), max(ccf.index), max(ccf.index)],
+                    "Left side of new enclosing box",
+                )
+            )
+
+            # draw right side of new enclosing box
+            fig.add_trace(
+                generate_red_box(
+                    [
+                        d[MAX_DIST_SCALE + VALUE],
+                        max(ccf.columns),
+                        max(ccf.columns),
+                        d[MAX_DIST_SCALE + VALUE],
+                    ],
+                    [min(ccf.index), min(ccf.index), max(ccf.index), max(ccf.index)],
+                    text="Right side of new enclosing box",
+                )
+            )
+
+            # draw top side of new enclosing box
+            fig.add_trace(
+                generate_red_box(
+                    [
+                        d[MIN_DIST_SCALE + VALUE],
+                        d[MAX_DIST_SCALE + VALUE],
+                        d[MAX_DIST_SCALE + VALUE],
+                        d[MIN_DIST_SCALE + VALUE],
+                    ],
+                    [
+                        d[MAX_DENSITY_THRESHOLD + VALUE],
+                        d[MAX_DENSITY_THRESHOLD + VALUE],
+                        max(ccf.index),
+                        max(ccf.index),
+                    ],
+                    text="Top side of new enclosing box",
+                )
+            )
+
+            # draw bottom side of new enclosing box
+            fig.add_trace(
+                generate_red_box(
+                    [
+                        d[MIN_DIST_SCALE + VALUE],
+                        d[MAX_DIST_SCALE + VALUE],
+                        d[MAX_DIST_SCALE + VALUE],
+                        d[MIN_DIST_SCALE + VALUE],
+                    ],
+                    [
+                        d[MIN_DENSITY_THRESHOLD + VALUE],
+                        d[MIN_DENSITY_THRESHOLD + VALUE],
+                        min(ccf.index),
+                        min(ccf.index),
+                    ],
+                    text="Bottom side of new enclosing box",
+                )
+            )
+
+            if d[DISPLAY_LINES_SELECTION + VALUE] == "on":
+
+                # draw polygon
+                fig.add_trace(
+                    go.Scatter(
+                        x=[
+                            d[X_START_FIRST_LINE + VALUE],
+                            d[X_END_FIRST_LINE + VALUE],
+                            d[X_END_SECOND_LINE + VALUE],
+                            d[X_START_SECOND_LINE + VALUE],
+                        ],
+                        y=[
+                            d[Y_START_FIRST_LINE + VALUE],
+                            d[Y_END_FIRST_LINE + VALUE],
+                            d[Y_END_SECOND_LINE + VALUE],
+                            d[Y_START_SECOND_LINE + VALUE],
+                        ],
+                        fillcolor="rgba(0, 0, 255, 0.05)",
+                        fill="toself",
+                        mode="none",
+                        hoverinfo="skip",
+                        # text=text,
+                        name="",
+                    )
+                )
+
+                def generate_blue_line(xs, ys, text, different_marker=None):
+                    if different_marker == None:
+                        marker_styles = ["circle", "circle"]
+                    elif different_marker == 0:
+                        marker_styles = ["circle-open", "circle"]
+                    elif different_marker == 1:
+                        marker_styles = ["circle", "circle-open"]
+                    return go.Scatter(
+                        x=xs,
+                        y=ys,
+                        name=text + " line",
+                        text=[text + " line start", text + " line end"],
+                        marker=dict(size=15, color="blue"),
+                        # hoverinfo="name+text",
+                        marker_symbol=marker_styles,
+                        hoverinfo="skip",
+                        showlegend=False,
+                        mode="markers+lines+text",
+                        textposition="top center",
+                    )
+
+                if d[ENDPOINT_SELECTION + VALUE] == "1st line start":
+                    first_line_endpoints = 0
+                    second_line_endpoints = None
+                elif d[ENDPOINT_SELECTION + VALUE] == "1st line end":
+                    first_line_endpoints = 1
+                    second_line_endpoints = None
+                elif d[ENDPOINT_SELECTION + VALUE] == "2nd line start":
+                    first_line_endpoints = None
+                    second_line_endpoints = 0
+                elif d[ENDPOINT_SELECTION + VALUE] == "2nd line end":
+                    first_line_endpoints = None
+                    second_line_endpoints = 1
+
+                fig.add_trace(
+                    generate_blue_line(
+                        [d[X_START_FIRST_LINE + VALUE], d[X_END_FIRST_LINE + VALUE]],
+                        [d[Y_START_FIRST_LINE + VALUE], d[Y_END_FIRST_LINE + VALUE]],
+                        "1st",
+                        first_line_endpoints,
+                    )
+                )
+                fig.add_trace(
+                    generate_blue_line(
+                        [d[X_START_SECOND_LINE + VALUE], d[X_END_SECOND_LINE + VALUE]],
+                        [d[Y_START_SECOND_LINE + VALUE], d[Y_END_SECOND_LINE + VALUE]],
+                        "2nd",
+                        second_line_endpoints,
+                    )
+                )
+
+            d[CFF_PLOT + FIGURE] = fig
+            return d
+
+        @my_callback(
+            [
+                [STORED_PV, DATA, IN],
+                [INPUT_MAX_VINES, VALUE, IN],
+                [INPUT_PROM_VIN_SCALE, VALUE, IN],
+            ],
+            [[STORED_PV_DRAWING, DATA]],
+            False,
+        )
+        def draw_pv(d):
+            d[STORED_PV_DRAWING + DATA] = plotly.io.to_json(empty_figure())
+            return d
+
+        @my_callback(
+            [
+                [STORED_PV, DATA, ST],
+                [STORED_PV_DRAWING, DATA,IN]
+            ],
+            [ [PV_PLOT, FIGURE] ]
+        )
+        def draw_pv_post(d):
+            #pv,
+            #pv_drawing,
+
+            if d[STORED_PV+DATA] is None:
+                d[PV_PLOT+FIGURE] = empty_figure()
+                return d
+
+            d[PV_PLOT+FIGURE] = plotly.io.from_json(d[STORED_PV_DRAWING+DATA])
+
+            return d
 
         self._app.long_callback(
             dash.Output(STORED_CCF, DATA),
             [
                 dash.Input(COMPUTE_CCF_BUTTON, N_CLICKS),
                 dash.State(MIN_DENSITY_THRESHOLD, VALUE),
-                dash.State(MAX_DESNITY_THRESHOLD, VALUE),
+                dash.State(MAX_DENSITY_THRESHOLD, VALUE),
                 dash.State(MIN_DIST_SCALE, VALUE),
                 dash.State(MAX_DIST_SCALE, VALUE),
                 dash.State(INPUT_LOG_GRANULARITY_CCF, VALUE),
@@ -695,44 +1044,6 @@ class PersistableInteractive:
             True,
             running=[(dash.Output(COMPUTE_CCF_BUTTON, DISABLED), True, False)],
         )(self.compute_ccf)
-
-        self._app.callback(
-            dash.Output(STORED_CCF_DRAWING, DATA),
-            [
-                dash.Input(STORED_CCF, DATA),
-                dash.Input(INPUT_MAX_COMPONENTS, VALUE),
-            ],
-            False,
-        )(self.draw_ccf)
-
-        self._app.callback(
-            dash.Output(CFF_PLOT, FIGURE),
-            [
-                dash.State(STORED_CCF, DATA),
-                dash.Input(STORED_CCF_DRAWING, DATA),
-                dash.Input(MIN_DIST_SCALE, VALUE),
-                dash.Input(MAX_DIST_SCALE, VALUE),
-                dash.Input(MIN_DENSITY_THRESHOLD, VALUE),
-                dash.Input(MAX_DESNITY_THRESHOLD, VALUE),
-                dash.Input(DISPLAY_LINES_SELECTION, VALUE),
-                dash.Input(X_START_FIRST_LINE, VALUE),
-                dash.Input(Y_START_FIRST_LINE, VALUE),
-                dash.Input(X_END_FIRST_LINE, VALUE),
-                dash.Input(Y_END_FIRST_LINE, VALUE),
-                dash.Input(X_START_SECOND_LINE, VALUE),
-                dash.Input(Y_START_SECOND_LINE, VALUE),
-                dash.Input(X_END_SECOND_LINE, VALUE),
-                dash.Input(Y_END_SECOND_LINE, VALUE),
-                dash.Input(ENDPOINT_SELECTION, VALUE),
-            ],
-            False,
-        )(self.draw_ccf_enclosing_box)
-
-        self._app.callback(
-            dash.Output(LOG, CHILDREN),
-            dash.Input(WARNINGS_POLLING_INTERVAL, N_INTERVALS),
-            False,
-        )(self.print_log)
 
         self._app.long_callback(
             dash.Output(STORED_PV, DATA),
@@ -753,36 +1064,10 @@ class PersistableInteractive:
             running=[(dash.Output(COMPUTE_PV_BUTTON, DISABLED), True, False)],
         )(self.compute_pv)
 
-        self._app.callback(
-            dash.Output(STORED_PV_DRAWING, DATA),
-            [
-                dash.Input(STORED_PV, DATA),
-                dash.Input(INPUT_MAX_VINES, VALUE),
-                dash.Input(INPUT_PROM_VIN_SCALE, VALUE),
-            ],
-            False,
-        )(self.draw_pv)
-
-        self._app.callback(
-            dash.Output(PV_PLOT, FIGURE),
-            [
-                dash.State(STORED_PV, DATA),
-                dash.Input(STORED_PV_DRAWING, DATA),
-            ],
-        )(self.draw_pv_post)
-
         if jupyter:
             self._app.run_server(mode="inline")
         else:
             self._app.run_server(debug=debug)
-
-    def print_log(
-        self,
-        n_intervals,
-    ):
-        with open(PERSISTABLE_STDERR, "r") as file:
-            out = file.read()
-        return out
 
     def compute_ccf(
         self,
@@ -801,7 +1086,7 @@ class PersistableInteractive:
         with warnings.catch_warnings(record=True) as w:
             # Cause all warnings to always be triggered.
             # warnings.simplefilter("always")
-            #warnings.warn("test warning")
+            # warnings.warn("test warning")
             ss, ks, hf = self._persistable.compute_hilbert_function(
                 min_k,
                 max_k,
@@ -820,261 +1105,6 @@ class PersistableInteractive:
         return pd.DataFrame(hf, index=ks[:-1], columns=ss[:-1]).to_json(
             date_format="iso", orient="split"
         )
-
-    def on_ccf_click(
-        self,
-        click_data,
-        display_lines_selection,
-        endpoint,
-        x_start_first_line,
-        y_start_first_line,
-        x_end_first_line,
-        y_end_first_line,
-        x_start_second_line,
-        y_start_second_line,
-        x_end_second_line,
-        y_end_second_line,
-    ):
-        if display_lines_selection == "on":
-            new_x, new_y = click_data["points"][0]["x"], click_data["points"][0]["y"]
-            if endpoint == "1st line start":
-                x_start_first_line = new_x
-                y_start_first_line = new_y
-            elif endpoint == "1st line end":
-                x_end_first_line = new_x
-                y_end_first_line = new_y
-            elif endpoint == "2nd line start":
-                x_start_second_line = new_x
-                y_start_second_line = new_y
-            elif endpoint == "2nd line end":
-                x_end_second_line = new_x
-                y_end_second_line = new_y
-        return (
-            # json.dumps(click_data),
-            x_start_first_line,
-            y_start_first_line,
-            x_end_first_line,
-            y_end_first_line,
-            x_start_second_line,
-            y_start_second_line,
-            x_end_second_line,
-            y_end_second_line,
-        )
-
-    def draw_ccf_enclosing_box(
-        self,
-        ccf,
-        ccf_drawing,
-        min_dist_scale,
-        max_dist_scale,
-        min_density_threshold,
-        max_density_threshold,
-        display_line_selection,
-        x_start_first_line,
-        y_start_first_line,
-        x_end_first_line,
-        y_end_first_line,
-        x_start_second_line,
-        y_start_second_line,
-        x_end_second_line,
-        y_end_second_line,
-        endpoint,
-    ):
-        if ccf is None:
-            return empty_figure()
-
-        fig = plotly.io.from_json(ccf_drawing)
-
-        ccf = pd.read_json(ccf, orient="split")
-
-        def generate_red_box(xs, ys, text):
-            return go.Scatter(
-                x=xs,
-                y=ys,
-                fillcolor="rgba(255, 0, 0, 0.1)",
-                fill="toself",
-                mode="none",
-                text=text,
-                name="",
-            )
-
-        # draw left side of new enclosing box
-        fig.add_trace(
-            generate_red_box(
-                [min(ccf.columns), min_dist_scale, min_dist_scale, min(ccf.columns)],
-                [min(ccf.index), min(ccf.index), max(ccf.index), max(ccf.index)],
-                "Left side of new enclosing box",
-            )
-        )
-
-        # draw right side of new enclosing box
-        fig.add_trace(
-            generate_red_box(
-                [max_dist_scale, max(ccf.columns), max(ccf.columns), max_dist_scale],
-                [min(ccf.index), min(ccf.index), max(ccf.index), max(ccf.index)],
-                text="Right side of new enclosing box",
-            )
-        )
-
-        # draw top side of new enclosing box
-        fig.add_trace(
-            generate_red_box(
-                [min_dist_scale, max_dist_scale, max_dist_scale, min_dist_scale],
-                [
-                    max_density_threshold,
-                    max_density_threshold,
-                    max(ccf.index),
-                    max(ccf.index),
-                ],
-                text="Top side of new enclosing box",
-            )
-        )
-
-        # draw bottom side of new enclosing box
-        fig.add_trace(
-            generate_red_box(
-                [min_dist_scale, max_dist_scale, max_dist_scale, min_dist_scale],
-                [
-                    min_density_threshold,
-                    min_density_threshold,
-                    min(ccf.index),
-                    min(ccf.index),
-                ],
-                text="Bottom side of new enclosing box",
-            )
-        )
-
-        if display_line_selection == "on":
-
-            # draw polygon
-            fig.add_trace(
-                go.Scatter(
-                    x=[
-                        x_start_first_line,
-                        x_end_first_line,
-                        x_end_second_line,
-                        x_start_second_line,
-                    ],
-                    y=[
-                        y_start_first_line,
-                        y_end_first_line,
-                        y_end_second_line,
-                        y_start_second_line,
-                    ],
-                    fillcolor="rgba(0, 0, 255, 0.05)",
-                    fill="toself",
-                    mode="none",
-                    hoverinfo="skip",
-                    # text=text,
-                    name="",
-                )
-            )
-
-            def generate_blue_line(xs, ys, text, different_marker=None):
-                if different_marker == None:
-                    marker_styles = ["circle", "circle"]
-                elif different_marker == 0:
-                    marker_styles = ["circle-open", "circle"]
-                elif different_marker == 1:
-                    marker_styles = ["circle", "circle-open"]
-                return go.Scatter(
-                    x=xs,
-                    y=ys,
-                    name=text + " line",
-                    text=[text + " line start", text + " line end"],
-                    marker=dict(size=15, color="blue"),
-                    # hoverinfo="name+text",
-                    marker_symbol=marker_styles,
-                    hoverinfo="skip",
-                    showlegend=False,
-                    mode="markers+lines+text",
-                    textposition="top center",
-                )
-
-            if endpoint == "1st line start":
-                first_line_endpoints = 0
-                second_line_endpoints = None
-            elif endpoint == "1st line end":
-                first_line_endpoints = 1
-                second_line_endpoints = None
-            elif endpoint == "2nd line start":
-                first_line_endpoints = None
-                second_line_endpoints = 0
-            elif endpoint == "2nd line end":
-                first_line_endpoints = None
-                second_line_endpoints = 1
-
-            fig.add_trace(
-                generate_blue_line(
-                    [x_start_first_line, x_end_first_line],
-                    [y_start_first_line, y_end_first_line],
-                    "1st",
-                    first_line_endpoints,
-                )
-            )
-            fig.add_trace(
-                generate_blue_line(
-                    [x_start_second_line, x_end_second_line],
-                    [y_start_second_line, y_end_second_line],
-                    "2nd",
-                    second_line_endpoints,
-                )
-            )
-
-        return fig
-        ### also return an empty list represeting the fact that no endpoint is now selected in the ccf plot
-        ##return fig, json.dumps([])
-
-    def draw_ccf(
-        self,
-        ccf,
-        max_components,
-    ):
-        if ccf is None:
-            return empty_figure()
-
-        ccf = pd.read_json(ccf, orient="split")
-
-        def df_to_plotly(df):
-            return {
-                "z": df.values.tolist(),
-                "x": df.columns.tolist(),
-                "y": df.index.tolist(),
-            }
-
-        fig = go.Figure(
-            layout=go.Layout(
-                xaxis_title="distance scale",
-                yaxis_title="density threshold",
-                xaxis={"fixedrange": True},
-                yaxis={"fixedrange": True},
-            ),
-        )
-        max_components = 0 if max_components is None else int(max_components)
-        fig.add_trace(
-            go.Heatmap(
-                df_to_plotly(ccf),
-                hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
-                zmin=0,
-                zmax=max_components,
-                showscale=False,
-                name="",
-            )
-        )
-        fig.update_traces(colorscale="greys")
-
-        fig.update_layout(showlegend=False)
-        fig.update_layout(autosize=True)
-        fig.update_xaxes(range=[min(ccf.columns), max(ccf.columns)])
-        fig.update_yaxes(range=[min(ccf.index), max(ccf.index)])
-        fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
-        fig.update_layout(clickmode="event+select")
-        # fig.update_layout(
-        #    dragmode="drawline",
-        #    newshape=dict(opacity=0.3, line=dict(color="darkblue", width=5)),
-        # )
-        # print(type(plotly.io.to_json(fig)))
-        return plotly.io.to_json(fig)
 
     def compute_pv(
         self,
@@ -1118,92 +1148,74 @@ class PersistableInteractive:
 
         return json.dumps(pv.__dict__)
 
-    def draw_pv(
-        self,
-        pv,
-        max_vines,
-        scale,
-    ):
-        return plotly.io.to_json(empty_figure())
 
-    def draw_pv_post(
-        self,
-        pv,
-        pv_drawing,
-    ):
-        if pv is None:
-            return empty_figure()
-
-        return plotly.io.from_json(pv_drawing)
-
-    def plot_prominence_vineyard(
-        self,
-        vineyard,
-        interpolate=True,
-        areas=True,
-        points=False,
-        log_prominence=True,
-        colormap="viridis",
-    ):
-        ax = self._vineyard_ax
-
-        # TODO: abstract this
-        ax.clear()
-        self._gaps = []
-        self._gap_numbers = []
-        self._lines = []
-        self._line_index = []
-
-        times = vineyard._parameter_indices
-        vines = vineyard._vineyard_to_vines()
-        num_vines = min(len(vines), vineyard._firstn)
-
-        ax.set_title("prominence vineyard")
-
-        # TODO: warn that vineyard is empty
-        if num_vines == 0:
-            return
-
-        cmap = cm.get_cmap(colormap)
-        colors = list(cmap(np.linspace(0, 1, num_vines)[::-1]))
-        last = colors[-1]
-        colors.extend([last for _ in range(num_vines - vineyard._firstn)])
-        if areas:
-            for i in range(len(vines) - 1):
-                artist = ax.fill_between(
-                    times, vines[i][1], vines[i + 1][1], color=colors[i]
-                )
-                self._add_gap_prominence_vineyard(artist, i + 1)
-            artist = ax.fill_between(
-                times, vines[len(vines) - 1][1], 0, color=colors[len(vines) - 1]
-            )
-            self._add_gap_prominence_vineyard(artist, len(vines))
-        for i, tv in enumerate(vines):
-            times, vine = tv
-            for vine_part, time_part in vineyard._vine_parts(vine):
-                if interpolate:
-                    artist = ax.plot(time_part, vine_part, c="black")
-                if points:
-                    artist = ax.plot(time_part, vine_part, "o", c="black")
-                self._vineyard_values.extend(vine_part)
-        ymax = max(self._vineyard_values)
-        for t in times:
-            artist = ax.vlines(x=t, ymin=0, ymax=ymax, color="black", alpha=0.1)
-            self._add_line_prominence_vineyard(artist, t)
-        ax.set_xticks([])
-        ax.set_xlabel("parameter")
-        if log_prominence:
-            ax.set_ylabel("log-prominence")
-            ax.set_yscale(LOG)
-        else:
-            ax.set_ylabel("prominence")
-        values = np.array(self._vineyard_values)
-
-        ax.set_ylim([np.quantile(values[values > 0], 0.05), max(values)])
-        ax.figure.canvas.draw_idle()
-        ax.figure.canvas.flush_events()
-
-
+#    def plot_prominence_vineyard(
+#        self,
+#        vineyard,
+#        interpolate=True,
+#        areas=True,
+#        points=False,
+#        log_prominence=True,
+#        colormap="viridis",
+#    ):
+#        ax = self._vineyard_ax
+#
+#        # TODO: abstract this
+#        ax.clear()
+#        self._gaps = []
+#        self._gap_numbers = []
+#        self._lines = []
+#        self._line_index = []
+#
+#        times = vineyard._parameter_indices
+#        vines = vineyard._vineyard_to_vines()
+#        num_vines = min(len(vines), vineyard._firstn)
+#
+#        ax.set_title("prominence vineyard")
+#
+#        # TODO: warn that vineyard is empty
+#        if num_vines == 0:
+#            return
+#
+#        cmap = cm.get_cmap(colormap)
+#        colors = list(cmap(np.linspace(0, 1, num_vines)[::-1]))
+#        last = colors[-1]
+#        colors.extend([last for _ in range(num_vines - vineyard._firstn)])
+#        if areas:
+#            for i in range(len(vines) - 1):
+#                artist = ax.fill_between(
+#                    times, vines[i][1], vines[i + 1][1], color=colors[i]
+#                )
+#                self._add_gap_prominence_vineyard(artist, i + 1)
+#            artist = ax.fill_between(
+#                times, vines[len(vines) - 1][1], 0, color=colors[len(vines) - 1]
+#            )
+#            self._add_gap_prominence_vineyard(artist, len(vines))
+#        for i, tv in enumerate(vines):
+#            times, vine = tv
+#            for vine_part, time_part in vineyard._vine_parts(vine):
+#                if interpolate:
+#                    artist = ax.plot(time_part, vine_part, c="black")
+#                if points:
+#                    artist = ax.plot(time_part, vine_part, "o", c="black")
+#                self._vineyard_values.extend(vine_part)
+#        ymax = max(self._vineyard_values)
+#        for t in times:
+#            artist = ax.vlines(x=t, ymin=0, ymax=ymax, color="black", alpha=0.1)
+#            self._add_line_prominence_vineyard(artist, t)
+#        ax.set_xticks([])
+#        ax.set_xlabel("parameter")
+#        if log_prominence:
+#            ax.set_ylabel("log-prominence")
+#            ax.set_yscale(LOG)
+#        else:
+#            ax.set_ylabel("prominence")
+#        values = np.array(self._vineyard_values)
+#
+#        ax.set_ylim([np.quantile(values[values > 0], 0.05), max(values)])
+#        ax.figure.canvas.draw_idle()
+#        ax.figure.canvas.flush_events()
+#
 #    def _vineyard_on_parameter_selection(self, event):
 #        ax = self._vineyard_ax
 #        if event.inaxes != ax:
