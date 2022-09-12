@@ -12,11 +12,18 @@ class ProminenceVineyard:
     ):
         #self._firstn = firstn
         self._parameters = list(parameters)
-        self._parameter_indices = list(range(len(parameters)))
+        #self._parameter_indices = list(range(len(parameters)))
         self._prominence_diagrams = [list(pd) for pd in prominence_diagrams]
 
+    def _parameter_indices(self):
+        return list(range(len(self._parameters)))
+
+    #@classmethod
+    #def from_dict(d):
+    #    return ProminenceVineyard(d["parameters"], d["prominence_diagrams"])
+
     def _vineyard_to_vines(self):
-        times = self._parameter_indices
+        times = self._parameter_indices()
         prominence_diagrams = self._prominence_diagrams
         num_vines = np.max([len(prom) for prom in prominence_diagrams])
         padded_prominence_diagrams = np.zeros((len(times), num_vines))
@@ -27,7 +34,7 @@ class ProminenceVineyard:
         return [(times, padded_prominence_diagrams[:, j]) for j in range(num_vines)]
 
     def _vine_parts(self, prominences, tol=_TOL):
-        times = self._parameter_indices
+        times = self._parameter_indices()
         parts = []
         current_vine_part = []
         current_time_part = []

@@ -1,31 +1,32 @@
 # Authors: Luis Scoccola
 # License: 3-clause BSD
 
-# from re import A
-import numpy as np
 import warnings
-
-# import matplotlib.pyplot as plt
-# from matplotlib import cm
-# from matplotlib.widgets import Button
-# from matplotlib.patches import Polygon
-
 import plotly.graph_objects as go
 import plotly
-from jupyter_dash import JupyterDash
-import dash
-from dash import dcc
-from dash import html
-from dash import DiskcacheManager
-
-
 import pandas as pd
 import json
 import diskcache
+import dash
+from dash import dcc, html, DiskcacheManager, ctx
+from types import SimpleNamespace
+from ._prominence_vineyard import ProminenceVineyard
 
-PERSISTABLE_STDERR = "./persistable-stderr"
+
+###
+from dash.long_callback.managers import BaseLongCallbackManager
+
+COUNTER = 0
+def monkeypatched_hash_function(fn):
+    global COUNTER
+    COUNTER += 1
+    return COUNTER
+
+BaseLongCallbackManager.hash_function = monkeypatched_hash_function
+###
+
+
 PERSISTABLE_DASH_CACHE = "./persistable-dash-cache"
-# WARNINGS_GLOBAL = "test default"
 
 X_START_FIRST_LINE = "x-start-first-line"
 Y_START_FIRST_LINE = "y-start-first-line"
@@ -52,7 +53,6 @@ INPUT_LOG_GRANULARITY_CCF = "input-log-granularity-ccf"
 INPUT_NUM_JOBS_CCF = "input-num-jobs-ccf"
 INPUT_MAX_COMPONENTS = "input-max-components"
 LOG = "log"
-WARNINGS_POLLING_INTERVAL = "warnings-polling-interval"
 STORED_PV = "stored-pv"
 INPUT_MAX_VINES = "input-max-vines"
 INPUT_PROM_VIN_SCALE = "input-prom-vin-scale"
@@ -72,6 +72,9 @@ FIGURE = "figure"
 CHILDREN = "children"
 N_INTERVALS = "n_intervals"
 
+STORED_CCF_COMPUTATION_WARNINGS = "stored-ccf-computation-warnings"
+STORED_PV_COMPUTATION_WARNINGS = "stored-pv-computation-warnings"
+
 IN = "input"
 ST = "state"
 
@@ -90,7 +93,6 @@ def empty_figure():
     fig.update_yaxes(showgrid=False, showticklabels=False, zeroline=False)
     fig.update_layout(clickmode="none")
     return fig
-
 
 class PersistableInteractive:
     def __init__(self, persistable, jupyter=False, debug=False):
@@ -125,20 +127,16 @@ class PersistableInteractive:
 
         # set temporary files
         cache = diskcache.Cache(PERSISTABLE_DASH_CACHE)
-        #long_callback_manager = DiskcacheLongCallbackManager(cache)
         background_callback_manager = DiskcacheManager(cache)
-        with open(PERSISTABLE_STDERR, "w") as file:
-            file.close()
 
         if jupyter == True:
+            from jupyter_dash import JupyterDash
             self._app = JupyterDash(
                 __name__, background_callback_manager = background_callback_manager
-                # long_callback_manager=long_callback_manager
             )
         else:
             self._app = dash.Dash(
                 __name__, background_callback_manager = background_callback_manager
-                # long_callback_manager=long_callback_manager
             )
         self._app.layout = html.Div(
             children=[
@@ -150,11 +148,14 @@ class PersistableInteractive:
                 dcc.Store(id=STORED_PV),
                 # contains the basic prominence vineyard plot as a plotly figure
                 dcc.Store(id=STORED_PV_DRAWING),
-                dcc.Interval(
-                    id=WARNINGS_POLLING_INTERVAL,
-                    interval=(1 / 2) * 1000,
-                    n_intervals=0,
-                ),
+                #
+                dcc.Store(id=STORED_CCF_COMPUTATION_WARNINGS),
+                dcc.Store(id=STORED_PV_COMPUTATION_WARNINGS),
+                #dcc.Interval(
+                #    id=WARNINGS_POLLING_INTERVAL,
+                #    interval=(1 / 2) * 1000,
+                #    n_intervals=0,
+                #),
                 html.H1("Interactive parameter selection for Persistable"),
                 html.Details(
                     [
@@ -643,12 +644,13 @@ class PersistableInteractive:
             ],
         )
 
-        def my_callback(inputs, outputs, b=False):
+        def dash_callback(
+            inputs, outputs, prevent_initial_call=False, background=False, running=None
+        ):
             def cs(l):
                 return l[0] + l[1]
 
             def out_function(function):
-                # FIX
                 dash_inputs = [
                     dash.Input(i, v) if t == IN else dash.State(i, v)
                     for i, v, t in inputs
@@ -658,6 +660,14 @@ class PersistableInteractive:
                     if len(outputs) > 1
                     else dash.Output(outputs[0][0], outputs[0][1])
                 )
+
+                if running is None:
+                    dash_running_outputs = None
+                else:
+                    dash_running_outputs = [
+                        (dash.Output(i, v), value_start, value_end)
+                        for i, v, value_start, value_end in running
+                    ]
 
                 def callback_function(*argv):
                     d = {}
@@ -670,13 +680,25 @@ class PersistableInteractive:
                         else d[cs(outputs[0])]
                     )
 
-                self._app.callback(dash_outputs, dash_inputs, b)(callback_function)
+                if background:
+                    self._app.long_callback(
+                        dash_outputs,
+                        dash_inputs,
+                        prevent_initial_call,
+                        running=dash_running_outputs,
+                    )(callback_function)
+                else:
+                    self._app.callback(
+                        dash_outputs,
+                        dash_inputs,
+                        prevent_initial_call,
+                    )(callback_function)
 
                 return function
 
             return out_function
 
-        @my_callback(
+        @dash_callback(
             [[DISPLAY_PARAMETER_SELECTION, VALUE, IN]],
             [[PARAMETER_SELECTION_DIV, HIDDEN]],
         )
@@ -687,16 +709,19 @@ class PersistableInteractive:
                 d[PARAMETER_SELECTION_DIV + HIDDEN] = True
             return d
 
-        @my_callback(
-            [[WARNINGS_POLLING_INTERVAL, N_INTERVALS, IN]], [[LOG, CHILDREN]], False
+        @dash_callback(
+            [[STORED_CCF_COMPUTATION_WARNINGS, DATA, IN], [STORED_PV_COMPUTATION_WARNINGS, DATA, IN]], [[LOG, CHILDREN]], True
         )
         def print_log(d):
-            d = {}
-            with open(PERSISTABLE_STDERR, "r") as file:
-                d[LOG + CHILDREN] = file.read()
+            if ctx.triggered_id == STORED_CCF_COMPUTATION_WARNINGS:
+                d[LOG + CHILDREN] = json.loads(d[STORED_CCF_COMPUTATION_WARNINGS+DATA])
+            elif ctx.triggered_id == STORED_PV_COMPUTATION_WARNINGS: 
+                d[LOG + CHILDREN] = json.loads(d[STORED_PV_COMPUTATION_WARNINGS+DATA])
+            else:
+                raise Exception("print_log was triggered by unknown id: " + str(ctx.triggered_id))
             return d
 
-        @my_callback(
+        @dash_callback(
             [
                 [CFF_PLOT, CLICKDATA, IN],
                 [DISPLAY_LINES_SELECTION, VALUE, ST],
@@ -742,7 +767,7 @@ class PersistableInteractive:
                     d[Y_END_SECOND_LINE + VALUE] = new_y
             return d
 
-        @my_callback(
+        @dash_callback(
             [[DISPLAY_LINES_SELECTION, VALUE, IN]], [[ENDPOINT_SELECTION_DIV, HIDDEN]]
         )
         def toggle_parameter_selection_ccf(d):
@@ -752,7 +777,7 @@ class PersistableInteractive:
                 d[ENDPOINT_SELECTION_DIV + HIDDEN] = True
             return d
 
-        @my_callback(
+        @dash_callback(
             [[STORED_CCF, DATA, IN], [INPUT_MAX_COMPONENTS, VALUE, IN]],
             [[STORED_CCF_DRAWING, DATA]],
             False,
@@ -805,7 +830,7 @@ class PersistableInteractive:
             d[STORED_CCF_DRAWING + DATA] = plotly.io.to_json(fig)
             return d
 
-        @my_callback(
+        @dash_callback(
             [
                 [STORED_CCF, DATA, ST],
                 [STORED_CCF_DRAWING, DATA, IN],
@@ -995,20 +1020,7 @@ class PersistableInteractive:
             d[CFF_PLOT + FIGURE] = fig
             return d
 
-        @my_callback(
-            [
-                [STORED_PV, DATA, IN],
-                [INPUT_MAX_VINES, VALUE, IN],
-                [INPUT_PROM_VIN_SCALE, VALUE, IN],
-            ],
-            [[STORED_PV_DRAWING, DATA]],
-            False,
-        )
-        def draw_pv(d):
-            d[STORED_PV_DRAWING + DATA] = plotly.io.to_json(empty_figure())
-            return d
-
-        @my_callback(
+        @dash_callback(
             [
                 [STORED_PV, DATA, ST],
                 [STORED_PV_DRAWING, DATA,IN]
@@ -1027,330 +1039,181 @@ class PersistableInteractive:
 
             return d
 
-        self._app.callback(
-            dash.Output(STORED_CCF, DATA),
+        @dash_callback(
             [
-                dash.Input(COMPUTE_CCF_BUTTON, N_CLICKS),
-                dash.State(MIN_DENSITY_THRESHOLD, VALUE),
-                dash.State(MAX_DENSITY_THRESHOLD, VALUE),
-                dash.State(MIN_DIST_SCALE, VALUE),
-                dash.State(MAX_DIST_SCALE, VALUE),
-                dash.State(INPUT_LOG_GRANULARITY_CCF, VALUE),
-                dash.State(INPUT_NUM_JOBS_CCF, VALUE),
+                [COMPUTE_CCF_BUTTON, N_CLICKS, IN],
+                [MIN_DENSITY_THRESHOLD, VALUE, ST],
+                [MAX_DENSITY_THRESHOLD, VALUE, ST],
+                [MIN_DIST_SCALE, VALUE, ST],
+                [MAX_DIST_SCALE, VALUE, ST],
+                [INPUT_LOG_GRANULARITY_CCF, VALUE, ST],
+                [INPUT_NUM_JOBS_CCF, VALUE, ST],
             ],
-            True,
-            running=[(dash.Output(COMPUTE_CCF_BUTTON, DISABLED), True, False)],
-            background=True
-        )(self.compute_ccf)
+            [
+                [STORED_CCF, DATA],
+                [STORED_CCF_COMPUTATION_WARNINGS, DATA],
+            ],
+            prevent_initial_call=True,
+            background=True,
+            running=[[COMPUTE_CCF_BUTTON, DISABLED, True, False]],
+        )
+        def compute_ccf(d):
+            granularity = 2 ** d[INPUT_LOG_GRANULARITY_CCF + VALUE]
+            num_jobs = int(d[INPUT_NUM_JOBS_CCF + VALUE])
 
-        self._app.callback(
-            dash.Output(STORED_PV, DATA),
+            out = ""
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                ss, ks, hf = self._persistable.compute_hilbert_function(
+                    d[MIN_DENSITY_THRESHOLD + VALUE],
+                    d[MAX_DENSITY_THRESHOLD + VALUE],
+                    d[MIN_DIST_SCALE + VALUE],
+                    d[MAX_DIST_SCALE + VALUE],
+                    granularity,
+                    n_jobs=num_jobs,
+                )
+                for a in w:
+                    out += warnings.formatwarning(
+                        a.message, a.category, a.filename, a.lineno
+                    )
+
+            d[STORED_CCF + DATA] = pd.DataFrame(
+                hf, index=ks[:-1], columns=ss[:-1]
+            ).to_json(date_format="iso", orient="split")
+
+            d[STORED_CCF_COMPUTATION_WARNINGS+DATA] = json.dumps(out)
+
+            return d
+
+        @dash_callback(
             [
-                dash.Input(COMPUTE_PV_BUTTON, N_CLICKS),
-                dash.State(X_START_FIRST_LINE, VALUE),
-                dash.State(Y_START_FIRST_LINE, VALUE),
-                dash.State(X_END_FIRST_LINE, VALUE),
-                dash.State(Y_END_FIRST_LINE, VALUE),
-                dash.State(X_START_SECOND_LINE, VALUE),
-                dash.State(Y_START_SECOND_LINE, VALUE),
-                dash.State(X_END_SECOND_LINE, VALUE),
-                dash.State(Y_END_SECOND_LINE, VALUE),
-                dash.State(INPUT_LOG_GRANULARITY_PV, VALUE),
-                dash.State(INPUT_NUM_JOBS_PV, VALUE),
+                [COMPUTE_PV_BUTTON, N_CLICKS, IN],
+                [X_START_FIRST_LINE, VALUE, ST],
+                [Y_START_FIRST_LINE, VALUE, ST],
+                [X_END_FIRST_LINE, VALUE, ST],
+                [Y_END_FIRST_LINE, VALUE, ST],
+                [X_START_SECOND_LINE, VALUE, ST],
+                [Y_START_SECOND_LINE, VALUE, ST],
+                [X_END_SECOND_LINE, VALUE, ST],
+                [Y_END_SECOND_LINE, VALUE, ST],
+                [INPUT_LOG_GRANULARITY_PV, VALUE, ST],
+                [INPUT_NUM_JOBS_PV, VALUE, ST],
             ],
-            True,
-            running=[(dash.Output(COMPUTE_PV_BUTTON, DISABLED), True, False)],
-            background=True
-        )(self.compute_pv)
+            [
+                [STORED_PV, DATA],
+                [STORED_PV_COMPUTATION_WARNINGS, DATA],
+            ],
+            prevent_initial_call=True,
+            background=True,
+            running=[[COMPUTE_PV_BUTTON, DISABLED, True, False]],
+        )
+        def compute_pv(d):
+        
+            granularity = 2**d[INPUT_LOG_GRANULARITY_PV+VALUE]
+            num_jobs = int(d[INPUT_NUM_JOBS_PV+VALUE])
+
+            out = ""
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                pv = self._persistable.compute_prominence_vineyard(
+                    [
+                        [d[X_START_FIRST_LINE+VALUE], d[Y_START_FIRST_LINE+VALUE]],
+                        [d[X_END_FIRST_LINE+VALUE], d[Y_END_FIRST_LINE+VALUE]],
+                    ],
+                    [
+                        [d[X_START_SECOND_LINE+VALUE], d[Y_START_SECOND_LINE+VALUE]],
+                        [d[X_END_SECOND_LINE+VALUE], d[Y_END_SECOND_LINE+VALUE]],
+                    ],
+                    n_parameters=granularity,
+                    n_jobs=num_jobs,
+                )
+                for a in w:
+                    out += warnings.formatwarning(
+                        a.message, a.category, a.filename, a.lineno
+                    )
+
+            d[STORED_PV+DATA] = json.dumps(pv.__dict__)
+            d[STORED_PV_COMPUTATION_WARNINGS+DATA] = json.dumps(out)
+
+            return d
+
+        @dash_callback(
+            [
+                [STORED_PV, DATA, IN],
+                [INPUT_MAX_VINES, VALUE, IN],
+                [INPUT_PROM_VIN_SCALE, VALUE, IN],
+            ],
+            [[STORED_PV_DRAWING, DATA]],
+            False,
+        )
+        def draw_pv(d):
+            firstn = d[INPUT_MAX_VINES+VALUE]
+
+            if d[STORED_PV+DATA] is None:
+                d[STORED_PV_DRAWING+DATA] = empty_figure()
+                return d
+
+            d = json.loads(d[STORED_PV+DATA])
+            vineyard = ProminenceVineyard(d["_parameters"], d["_prominence_diagrams"])
+
+            _gaps = []
+            _gap_numbers = []
+            _lines = []
+            _line_index = []
+
+            times = vineyard._parameter_indices
+            vines = vineyard._vineyard_to_vines()
+            num_vines = min(len(vines), firstn)
+
+            #ax.set_title("prominence vineyard")
+
+            ## TODO: warn that vineyard is empty
+            #if num_vines == 0:
+            #    return
+
+            #cmap = cm.get_cmap(colormap)
+            #colors = list(cmap(np.linspace(0, 1, num_vines)[::-1]))
+            #last = colors[-1]
+            #colors.extend([last for _ in range(num_vines - firstn)])
+            #if areas:
+            #    for i in range(len(vines) - 1):
+            #        artist = ax.fill_between(
+            #            times, vines[i][1], vines[i + 1][1], color=colors[i]
+            #        )
+            #        self._add_gap_prominence_vineyard(artist, i + 1)
+            #    artist = ax.fill_between(
+            #        times, vines[len(vines) - 1][1], 0, color=colors[len(vines) - 1]
+            #    )
+            #    self._add_gap_prominence_vineyard(artist, len(vines))
+            #for i, tv in enumerate(vines):
+            #    times, vine = tv
+            #    for vine_part, time_part in vineyard._vine_parts(vine):
+            #        if interpolate:
+            #            artist = ax.plot(time_part, vine_part, c="black")
+            #        if points:
+            #            artist = ax.plot(time_part, vine_part, "o", c="black")
+            #        self._vineyard_values.extend(vine_part)
+            #ymax = max(self._vineyard_values)
+            #for t in times:
+            #    artist = ax.vlines(x=t, ymin=0, ymax=ymax, color="black", alpha=0.1)
+            #    self._add_line_prominence_vineyard(artist, t)
+            #ax.set_xticks([])
+            #ax.set_xlabel("parameter")
+            #if log_prominence:
+            #    ax.set_ylabel("log-prominence")
+            #    ax.set_yscale(LOG)
+            #else:
+            #    ax.set_ylabel("prominence")
+            #values = np.array(self._vineyard_values)
+
+            #ax.set_ylim([np.quantile(values[values > 0], 0.05), max(values)])
+            #ax.figure.canvas.draw_idle()
+            #ax.figure.canvas.flush_events()
+
+            d[STORED_PV_DRAWING + DATA] = plotly.io.to_json(empty_figure())
+            return d
 
         if jupyter:
             self._app.run_server(mode="inline")
         else:
             self._app.run_server(debug=debug)
-
-    def compute_ccf(
-        self,
-        n_clicks,
-        min_k,
-        max_k,
-        min_s,
-        max_s,
-        log_granularity,
-        num_jobs,
-    ):
-        granularity = 2**log_granularity
-        num_jobs = int(num_jobs)
-
-        out = ""
-        with warnings.catch_warnings(record=True) as w:
-            # Cause all warnings to always be triggered.
-            # warnings.simplefilter("always")
-            # warnings.warn("test warning")
-            ss, ks, hf = self._persistable.compute_hilbert_function(
-                min_k,
-                max_k,
-                min_s,
-                max_s,
-                granularity,
-                n_jobs=num_jobs,
-            )
-            for a in w:
-                out += warnings.formatwarning(
-                    a.message, a.category, a.filename, a.lineno
-                )
-            with open(PERSISTABLE_STDERR, "w") as file:
-                file.write(out)
-
-        return pd.DataFrame(hf, index=ks[:-1], columns=ss[:-1]).to_json(
-            date_format="iso", orient="split"
-        )
-
-    def compute_pv(
-        self,
-        n_clicks,
-        x_start_first_line,
-        y_start_first_line,
-        x_end_first_line,
-        y_end_first_line,
-        x_start_second_line,
-        y_start_second_line,
-        x_end_second_line,
-        y_end_second_line,
-        log_granularity,
-        num_jobs,
-    ):
-        granularity = 2**log_granularity
-        num_jobs = int(num_jobs)
-
-        out = ""
-        with warnings.catch_warnings(record=True) as w:
-            # Cause all warnings to always be triggered.
-            # warnings.simplefilter("always")
-            pv = self._persistable.compute_prominence_vineyard(
-                [
-                    [x_start_first_line, y_start_first_line],
-                    [x_end_first_line, y_end_first_line],
-                ],
-                [
-                    [x_start_second_line, y_start_second_line],
-                    [x_end_second_line, y_end_second_line],
-                ],
-                n_parameters=granularity,
-                n_jobs=num_jobs,
-            )
-            for a in w:
-                out += warnings.formatwarning(
-                    a.message, a.category, a.filename, a.lineno
-                )
-            with open(PERSISTABLE_STDERR, "w") as file:
-                file.write(out)
-
-        return json.dumps(pv.__dict__)
-
-
-#    def plot_prominence_vineyard(
-#        self,
-#        vineyard,
-#        interpolate=True,
-#        areas=True,
-#        points=False,
-#        log_prominence=True,
-#        colormap="viridis",
-#    ):
-#        ax = self._vineyard_ax
-#
-#        # TODO: abstract this
-#        ax.clear()
-#        self._gaps = []
-#        self._gap_numbers = []
-#        self._lines = []
-#        self._line_index = []
-#
-#        times = vineyard._parameter_indices
-#        vines = vineyard._vineyard_to_vines()
-#        num_vines = min(len(vines), vineyard._firstn)
-#
-#        ax.set_title("prominence vineyard")
-#
-#        # TODO: warn that vineyard is empty
-#        if num_vines == 0:
-#            return
-#
-#        cmap = cm.get_cmap(colormap)
-#        colors = list(cmap(np.linspace(0, 1, num_vines)[::-1]))
-#        last = colors[-1]
-#        colors.extend([last for _ in range(num_vines - vineyard._firstn)])
-#        if areas:
-#            for i in range(len(vines) - 1):
-#                artist = ax.fill_between(
-#                    times, vines[i][1], vines[i + 1][1], color=colors[i]
-#                )
-#                self._add_gap_prominence_vineyard(artist, i + 1)
-#            artist = ax.fill_between(
-#                times, vines[len(vines) - 1][1], 0, color=colors[len(vines) - 1]
-#            )
-#            self._add_gap_prominence_vineyard(artist, len(vines))
-#        for i, tv in enumerate(vines):
-#            times, vine = tv
-#            for vine_part, time_part in vineyard._vine_parts(vine):
-#                if interpolate:
-#                    artist = ax.plot(time_part, vine_part, c="black")
-#                if points:
-#                    artist = ax.plot(time_part, vine_part, "o", c="black")
-#                self._vineyard_values.extend(vine_part)
-#        ymax = max(self._vineyard_values)
-#        for t in times:
-#            artist = ax.vlines(x=t, ymin=0, ymax=ymax, color="black", alpha=0.1)
-#            self._add_line_prominence_vineyard(artist, t)
-#        ax.set_xticks([])
-#        ax.set_xlabel("parameter")
-#        if log_prominence:
-#            ax.set_ylabel("log-prominence")
-#            ax.set_yscale(LOG)
-#        else:
-#            ax.set_ylabel("prominence")
-#        values = np.array(self._vineyard_values)
-#
-#        ax.set_ylim([np.quantile(values[values > 0], 0.05), max(values)])
-#        ax.figure.canvas.draw_idle()
-#        ax.figure.canvas.flush_events()
-#
-#    def _vineyard_on_parameter_selection(self, event):
-#        ax = self._vineyard_ax
-#        if event.inaxes != ax:
-#            return
-#
-#        if event.button == 1:
-#            # info = ""
-#
-#            # gaps
-#            gap = None
-#            aas = []
-#            for aa, artist in enumerate(self._gaps):
-#                cont, _ = artist.contains(event)
-#                if not cont:
-#                    continue
-#                aas.append(aa)
-#            if len(aas) > 0:
-#                # aa = aas[-1]
-#                gap = aas[-1]
-#                # lbl = self._gap_numbers[aa]
-#                # info += "gap: " + str(lbl) + ";    "
-#
-#            # lines
-#            line_index = None
-#            aas = []
-#            for aa, artist in enumerate(self._lines):
-#                cont, _ = artist.contains(event)
-#                if not cont:
-#                    continue
-#                aas.append(aa)
-#            if len(aas) > 0:
-#                # aa = aas[-1]
-#                line_index = aas[-1]
-#                # lbl = self._line_index[aa]
-#                # info += "line: " + str(lbl) + ";    "
-#
-#            if gap is not None and line_index is not None:
-#                parameters, n_clusters = self._update_line_parameters(
-#                    gap + 1, line_index
-#                )
-#                if self._vineyard_current_points_plotted_on is not None:
-#                    self._vineyard_current_points_plotted_on.remove()
-#                self._vineyard_current_points_plotted_on = ax.scatter(
-#                    [event.xdata], [event.ydata], c="blue", s=40
-#                )
-#
-#                info = "Parameter ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}), with n_clusters = {:d} selected.".format(
-#                    parameters[0][0],
-#                    parameters[0][1],
-#                    parameters[1][0],
-#                    parameters[1][1],
-#                    n_clusters,
-#                )
-#                ax.format_coord = lambda x, y: info
-#
-#                ax.figure.canvas.draw_idle()
-#                ax.figure.canvas.flush_events()
-#
-#    def _draw_on_hilbert(self, vineyard_parameters):
-#        ax = self._hilbert_ax
-#        points = np.array(list(vineyard_parameters.values()))
-#
-#        self._hilbert_current_points_plotted_on = ax.scatter(
-#            points[:, 0], points[:, 1], c="blue", s=10
-#        )
-#        if len(points) >= 2:
-#            self._hilbert_current_lines_plotted_on.append(
-#                ax.plot(
-#                    [points[0, 0], points[1, 0]],
-#                    [points[0, 1], points[1, 1]],
-#                    c="blue",
-#                    linewidth=1,
-#                )
-#            )
-#        if len(points) >= 4:
-#            self._hilbert_current_lines_plotted_on.append(
-#                ax.plot(
-#                    [points[2, 0], points[3, 0]],
-#                    [points[2, 1], points[3, 1]],
-#                    c="blue",
-#                    linewidth=1,
-#                )
-#            )
-#            polygon = Polygon(
-#                [points[0], points[1], points[3], points[2]],
-#                True,
-#                color="red",
-#                alpha=0.1,
-#            )
-#            ax.add_patch(polygon)
-#            self._hilbert_current_polygon_plotted_on = polygon
-#        if len(points) >= 4:
-#            info = "Prominence vineyard with ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}) to ({:.2f}, {:.2f}) -> ({:.2f}, {:.2f}) selected.".format(
-#                points[0, 0],
-#                points[0, 1],
-#                points[1, 0],
-#                points[1, 1],
-#                points[2, 0],
-#                points[2, 1],
-#                points[3, 0],
-#                points[3, 1],
-#            )
-#            ax.format_coord = lambda x, y: info
-#
-#        ax.figure.canvas.draw_idle()
-#        ax.figure.canvas.flush_events()
-#
-#    def _hilbert_on_parameter_selection(self, event):
-#        ax = self._hilbert_ax
-#        if event.inaxes != ax:
-#            return
-#        if event.button == 1:
-#            vineyard_parameters = self._update_vineyard_parameter_bounds(
-#                [event.xdata, event.ydata]
-#            )
-#            self._clear_hilbert_parameters()
-#            self._draw_on_hilbert(vineyard_parameters)
-#
-#    def _hilbert_on_clear_parameter(self, event):
-#        _ = self._clear_vineyard_parameter_bounds()
-#        self._clear_hilbert_parameters()
-#
-#    def _add_gap_prominence_vineyard(self, artist, number):
-#
-#        if isinstance(artist, list):
-#            assert len(artist) == 1
-#            artist = artist[0]
-#
-#        self._gaps += [artist]
-#        self._gap_numbers += [number]
-#
-#    def _add_line_prominence_vineyard(self, artist, number):
-#
-#        if isinstance(artist, list):
-#            assert len(artist) == 1
-#            artist = artist[0]
-#
-#        self._lines += [artist]
-#        self._line_index += [number]
