@@ -9,18 +9,21 @@ import json
 import diskcache
 import dash
 from dash import dcc, html, DiskcacheManager, ctx
-from types import SimpleNamespace
 from ._prominence_vineyard import ProminenceVineyard
 
+from plotly.express.colors import sample_colorscale
+
+import numpy as np
 
 ###
 from dash.long_callback.managers import BaseLongCallbackManager
 
-COUNTER = 0
+import uuid
+
+
 def monkeypatched_hash_function(fn):
-    global COUNTER
-    COUNTER += 1
-    return COUNTER
+    return uuid.uuid4()
+
 
 BaseLongCallbackManager.hash_function = monkeypatched_hash_function
 ###
@@ -28,39 +31,44 @@ BaseLongCallbackManager.hash_function = monkeypatched_hash_function
 
 PERSISTABLE_DASH_CACHE = "./persistable-dash-cache"
 
-X_START_FIRST_LINE = "x-start-first-line"
-Y_START_FIRST_LINE = "y-start-first-line"
-X_END_FIRST_LINE = "x-end-first-line"
-Y_END_FIRST_LINE = "y-end-first-line"
-X_START_SECOND_LINE = "x-start-second-line"
-Y_START_SECOND_LINE = "y-start-second-line"
-X_END_SECOND_LINE = "x-end-second-line"
-Y_END_SECOND_LINE = "y-end-second-line"
-CFF_PLOT = "cff-plot"
-DISPLAY_LINES_SELECTION = "display-lines-selection"
-ENDPOINT_SELECTION = "endpoint-selection"
-STORED_CCF = "stored-ccf"
-STORED_CCF_DRAWING = "stored-ccf-drawing"
-MIN_DIST_SCALE = "min-dist-scale"
-MAX_DIST_SCALE = "max-dist-scale"
-MIN_DENSITY_THRESHOLD = "min-density-threshold"
-MAX_DENSITY_THRESHOLD = "max-density-threshold"
-ENDPOINT_SELECTION_DIV = "endpoint-selection-div"
-PARAMETER_SELECTION_DIV = "parameter-selection-div"
-DISPLAY_PARAMETER_SELECTION = "display-parameter-selection"
-COMPUTE_CCF_BUTTON = "compute-ccf-button"
-INPUT_LOG_GRANULARITY_CCF = "input-log-granularity-ccf"
-INPUT_NUM_JOBS_CCF = "input-num-jobs-ccf"
-INPUT_MAX_COMPONENTS = "input-max-components"
-LOG = "log"
-STORED_PV = "stored-pv"
-INPUT_MAX_VINES = "input-max-vines"
-INPUT_PROM_VIN_SCALE = "input-prom-vin-scale"
-COMPUTE_PV_BUTTON = "compute-pv-button"
-PV_PLOT = "pv-plot"
-STORED_PV_DRAWING = "stored-pv-drawing"
-INPUT_LOG_GRANULARITY_PV = "input-log-granularity-pv"
-INPUT_NUM_JOBS_PV = "input-num-jobs-pv"
+X_START_FIRST_LINE = "x-start-first-line-"
+Y_START_FIRST_LINE = "y-start-first-line-"
+X_END_FIRST_LINE = "x-end-first-line-"
+Y_END_FIRST_LINE = "y-end-first-line-"
+X_START_SECOND_LINE = "x-start-second-line-"
+Y_START_SECOND_LINE = "y-start-second-line-"
+X_END_SECOND_LINE = "x-end-second-line-"
+Y_END_SECOND_LINE = "y-end-second-line-"
+CFF_PLOT = "cff-plot-"
+DISPLAY_LINES_SELECTION = "display-lines-selection-"
+ENDPOINT_SELECTION = "endpoint-selection-"
+STORED_CCF = "stored-ccf-"
+STORED_CCF_DRAWING = "stored-ccf-drawing-"
+MIN_DIST_SCALE = "min-dist-scale-"
+MAX_DIST_SCALE = "max-dist-scale-"
+MIN_DENSITY_THRESHOLD = "min-density-threshold-"
+MAX_DENSITY_THRESHOLD = "max-density-threshold-"
+ENDPOINT_SELECTION_DIV = "endpoint-selection-div-"
+PARAMETER_SELECTION_DIV = "parameter-selection-div-"
+DISPLAY_PARAMETER_SELECTION = "display-parameter-selection-"
+COMPUTE_CCF_BUTTON = "compute-ccf-button-"
+INPUT_LOG_GRANULARITY_CCF = "input-log-granularity-ccf-"
+INPUT_NUM_JOBS_CCF = "input-num-jobs-ccf-"
+INPUT_MAX_COMPONENTS = "input-max-components-"
+LOG = "log-"
+STORED_PV = "stored-pv-"
+INPUT_MAX_VINES = "input-max-vines-"
+INPUT_PROM_VIN_SCALE = "input-prom-vin-scale-"
+COMPUTE_PV_BUTTON = "compute-pv-button-"
+PV_PLOT = "pv-plot-"
+STORED_PV_DRAWING = "stored-pv-drawing-"
+INPUT_LOG_GRANULARITY_PV = "input-log-granularity-pv-"
+INPUT_NUM_JOBS_PV = "input-num-jobs-pv-"
+INPUT_LINE = "input-line-"
+INPUT_GAP = "gap-"
+
+STORED_CCF_COMPUTATION_WARNINGS = "stored-ccf-computation-warnings-"
+STORED_PV_COMPUTATION_WARNINGS = "stored-pv-computation-warnings-"
 
 VALUE = "value"
 CLICKDATA = "clickData"
@@ -71,9 +79,6 @@ DISABLED = "disabled"
 FIGURE = "figure"
 CHILDREN = "children"
 N_INTERVALS = "n_intervals"
-
-STORED_CCF_COMPUTATION_WARNINGS = "stored-ccf-computation-warnings"
-STORED_PV_COMPUTATION_WARNINGS = "stored-pv-computation-warnings"
 
 IN = "input"
 ST = "state"
@@ -94,6 +99,7 @@ def empty_figure():
     fig.update_layout(clickmode="none")
     return fig
 
+
 class PersistableInteractive:
     def __init__(self, persistable, jupyter=False, debug=False):
 
@@ -108,7 +114,7 @@ class PersistableInteractive:
         default_log_granularity = 6
         default_num_jobs = 4
         default_max_dim = 15
-        default_max_vines = 20
+        default_max_vines = 15
         min_granularity = 4
         max_granularity = 8
         defr = 6
@@ -131,12 +137,13 @@ class PersistableInteractive:
 
         if jupyter == True:
             from jupyter_dash import JupyterDash
+
             self._app = JupyterDash(
-                __name__, background_callback_manager = background_callback_manager
+                __name__, background_callback_manager=background_callback_manager
             )
         else:
             self._app = dash.Dash(
-                __name__, background_callback_manager = background_callback_manager
+                __name__, background_callback_manager=background_callback_manager
             )
         self._app.layout = html.Div(
             children=[
@@ -151,17 +158,17 @@ class PersistableInteractive:
                 #
                 dcc.Store(id=STORED_CCF_COMPUTATION_WARNINGS),
                 dcc.Store(id=STORED_PV_COMPUTATION_WARNINGS),
-                #dcc.Interval(
+                # dcc.Interval(
                 #    id=WARNINGS_POLLING_INTERVAL,
                 #    interval=(1 / 2) * 1000,
                 #    n_intervals=0,
-                #),
-                html.H1("Interactive parameter selection for Persistable"),
+                # ),
                 html.Details(
                     [
                         html.Summary("Quick help"),
                         dcc.Markdown(
                             """
+                        ### Interactive parameter selection for persistable
                         - When setting a field, press enter to TODO
                         - Check the log, below, for warnings.
                         - The app takes a second or so to update the graphical interface after an interaction.
@@ -481,7 +488,7 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="granularity vineyard",
+                                                    children="#lines vineyard",
                                                 ),
                                                 dcc.Slider(
                                                     min_granularity,
@@ -566,23 +573,21 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="line/gap",
+                                                    children="line number/gap number",
                                                 ),
                                                 dcc.Input(
                                                     className=VALUE,
-                                                    id="input-line",
+                                                    id=INPUT_LINE,
                                                     type="number",
                                                     value=1,
                                                     min=1,
-                                                    debounce=True,
                                                 ),
                                                 dcc.Input(
                                                     className=VALUE,
-                                                    id="gap",
+                                                    id=INPUT_GAP,
                                                     type="number",
                                                     value=1,
                                                     min=1,
-                                                    debounce=True,
                                                 ),
                                             ],
                                         ),
@@ -710,15 +715,24 @@ class PersistableInteractive:
             return d
 
         @dash_callback(
-            [[STORED_CCF_COMPUTATION_WARNINGS, DATA, IN], [STORED_PV_COMPUTATION_WARNINGS, DATA, IN]], [[LOG, CHILDREN]], True
+            [
+                [STORED_CCF_COMPUTATION_WARNINGS, DATA, IN],
+                [STORED_PV_COMPUTATION_WARNINGS, DATA, IN],
+            ],
+            [[LOG, CHILDREN]],
+            True,
         )
         def print_log(d):
             if ctx.triggered_id == STORED_CCF_COMPUTATION_WARNINGS:
-                d[LOG + CHILDREN] = json.loads(d[STORED_CCF_COMPUTATION_WARNINGS+DATA])
-            elif ctx.triggered_id == STORED_PV_COMPUTATION_WARNINGS: 
-                d[LOG + CHILDREN] = json.loads(d[STORED_PV_COMPUTATION_WARNINGS+DATA])
+                d[LOG + CHILDREN] = json.loads(
+                    d[STORED_CCF_COMPUTATION_WARNINGS + DATA]
+                )
+            elif ctx.triggered_id == STORED_PV_COMPUTATION_WARNINGS:
+                d[LOG + CHILDREN] = json.loads(d[STORED_PV_COMPUTATION_WARNINGS + DATA])
             else:
-                raise Exception("print_log was triggered by unknown id: " + str(ctx.triggered_id))
+                raise Exception(
+                    "print_log was triggered by unknown id: " + str(ctx.triggered_id)
+                )
             return d
 
         @dash_callback(
@@ -1021,21 +1035,17 @@ class PersistableInteractive:
             return d
 
         @dash_callback(
-            [
-                [STORED_PV, DATA, ST],
-                [STORED_PV_DRAWING, DATA,IN]
-            ],
-            [ [PV_PLOT, FIGURE] ]
+            [[STORED_PV, DATA, ST], [STORED_PV_DRAWING, DATA, IN]], [[PV_PLOT, FIGURE]]
         )
         def draw_pv_post(d):
-            #pv,
-            #pv_drawing,
+            # pv,
+            # pv_drawing,
 
-            if d[STORED_PV+DATA] is None:
-                d[PV_PLOT+FIGURE] = empty_figure()
+            if d[STORED_PV + DATA] is None:
+                d[PV_PLOT + FIGURE] = empty_figure()
                 return d
 
-            d[PV_PLOT+FIGURE] = plotly.io.from_json(d[STORED_PV_DRAWING+DATA])
+            d[PV_PLOT + FIGURE] = plotly.io.from_json(d[STORED_PV_DRAWING + DATA])
 
             return d
 
@@ -1081,7 +1091,7 @@ class PersistableInteractive:
                 hf, index=ks[:-1], columns=ss[:-1]
             ).to_json(date_format="iso", orient="split")
 
-            d[STORED_CCF_COMPUTATION_WARNINGS+DATA] = json.dumps(out)
+            d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
 
             return d
 
@@ -1102,27 +1112,31 @@ class PersistableInteractive:
             [
                 [STORED_PV, DATA],
                 [STORED_PV_COMPUTATION_WARNINGS, DATA],
+                [INPUT_LINE, "max"]
             ],
             prevent_initial_call=True,
             background=True,
             running=[[COMPUTE_PV_BUTTON, DISABLED, True, False]],
         )
         def compute_pv(d):
-        
-            granularity = 2**d[INPUT_LOG_GRANULARITY_PV+VALUE]
-            num_jobs = int(d[INPUT_NUM_JOBS_PV+VALUE])
+
+            granularity = 2 ** d[INPUT_LOG_GRANULARITY_PV + VALUE]
+            num_jobs = int(d[INPUT_NUM_JOBS_PV + VALUE])
 
             out = ""
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 pv = self._persistable.compute_prominence_vineyard(
                     [
-                        [d[X_START_FIRST_LINE+VALUE], d[Y_START_FIRST_LINE+VALUE]],
-                        [d[X_END_FIRST_LINE+VALUE], d[Y_END_FIRST_LINE+VALUE]],
+                        [d[X_START_FIRST_LINE + VALUE], d[Y_START_FIRST_LINE + VALUE]],
+                        [d[X_END_FIRST_LINE + VALUE], d[Y_END_FIRST_LINE + VALUE]],
                     ],
                     [
-                        [d[X_START_SECOND_LINE+VALUE], d[Y_START_SECOND_LINE+VALUE]],
-                        [d[X_END_SECOND_LINE+VALUE], d[Y_END_SECOND_LINE+VALUE]],
+                        [
+                            d[X_START_SECOND_LINE + VALUE],
+                            d[Y_START_SECOND_LINE + VALUE],
+                        ],
+                        [d[X_END_SECOND_LINE + VALUE], d[Y_END_SECOND_LINE + VALUE]],
                     ],
                     n_parameters=granularity,
                     n_jobs=num_jobs,
@@ -1132,8 +1146,9 @@ class PersistableInteractive:
                         a.message, a.category, a.filename, a.lineno
                     )
 
-            d[STORED_PV+DATA] = json.dumps(pv.__dict__)
-            d[STORED_PV_COMPUTATION_WARNINGS+DATA] = json.dumps(out)
+            d[STORED_PV + DATA] = json.dumps(pv.__dict__)
+            d[STORED_PV_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
+            d[INPUT_LINE+"max"] = granularity
 
             return d
 
@@ -1142,75 +1157,107 @@ class PersistableInteractive:
                 [STORED_PV, DATA, IN],
                 [INPUT_MAX_VINES, VALUE, IN],
                 [INPUT_PROM_VIN_SCALE, VALUE, IN],
+                [DISPLAY_PARAMETER_SELECTION, VALUE, IN],
+                [INPUT_LINE, VALUE, IN],
+                [INPUT_GAP, VALUE, IN]
             ],
             [[STORED_PV_DRAWING, DATA]],
             False,
         )
         def draw_pv(d):
-            firstn = d[INPUT_MAX_VINES+VALUE]
+            firstn = d[INPUT_MAX_VINES + VALUE]
 
-            if d[STORED_PV+DATA] is None:
-                d[STORED_PV_DRAWING+DATA] = empty_figure()
+            if d[STORED_PV + DATA] is None:
+                d[STORED_PV_DRAWING + DATA] = empty_figure()
                 return d
 
-            d = json.loads(d[STORED_PV+DATA])
-            vineyard = ProminenceVineyard(d["_parameters"], d["_prominence_diagrams"])
+            vineyard_as_dict = json.loads(d[STORED_PV + DATA])
+            vineyard = ProminenceVineyard(
+                vineyard_as_dict["_parameters"],
+                vineyard_as_dict["_prominence_diagrams"],
+            )
 
             _gaps = []
             _gap_numbers = []
             _lines = []
             _line_index = []
+            _vineyard_values = []
 
-            times = vineyard._parameter_indices
+            times = np.array(vineyard.parameter_indices()) + 1
             vines = vineyard._vineyard_to_vines()
             num_vines = min(len(vines), firstn)
 
-            #ax.set_title("prominence vineyard")
+            fig = go.Figure(
+                layout=go.Layout(
+                    xaxis_title="parameter line",
+                    yaxis_title="prominence",
+                    xaxis={
+                        "fixedrange": True,
+                        "showgrid": False,
+                    },
+                    yaxis={
+                        "fixedrange": True,
+                        "showgrid": False,
+                    },
+                    plot_bgcolor="rgba(0, 0, 0, 0.1)",
+                ),
+            )
 
-            ## TODO: warn that vineyard is empty
-            #if num_vines == 0:
-            #    return
-
-            #cmap = cm.get_cmap(colormap)
-            #colors = list(cmap(np.linspace(0, 1, num_vines)[::-1]))
-            #last = colors[-1]
-            #colors.extend([last for _ in range(num_vines - firstn)])
-            #if areas:
-            #    for i in range(len(vines) - 1):
-            #        artist = ax.fill_between(
-            #            times, vines[i][1], vines[i + 1][1], color=colors[i]
-            #        )
-            #        self._add_gap_prominence_vineyard(artist, i + 1)
-            #    artist = ax.fill_between(
-            #        times, vines[len(vines) - 1][1], 0, color=colors[len(vines) - 1]
-            #    )
-            #    self._add_gap_prominence_vineyard(artist, len(vines))
-            #for i, tv in enumerate(vines):
-            #    times, vine = tv
-            #    for vine_part, time_part in vineyard._vine_parts(vine):
-            #        if interpolate:
-            #            artist = ax.plot(time_part, vine_part, c="black")
-            #        if points:
-            #            artist = ax.plot(time_part, vine_part, "o", c="black")
-            #        self._vineyard_values.extend(vine_part)
-            #ymax = max(self._vineyard_values)
-            #for t in times:
+            colors = sample_colorscale("viridis", list(np.linspace(0, 1, num_vines))[::-1])
+            if num_vines > 0:
+                for i in range(num_vines - 1, -1, -1):
+                    till = "tozeroy" if i == num_vines - 1 else "tonexty"
+                    color = "red" if (d[DISPLAY_PARAMETER_SELECTION+VALUE]=="on" and i+1 == d[INPUT_GAP+VALUE]) else colors[i]
+                    fig.add_trace(
+                        go.Scatter(
+                            x=times,
+                            y=vines[i][1],
+                            fill=till,
+                            #hoveron="fills",
+                            text="vine " + str(i+1),
+                            hoverinfo="text",
+                            line_color=color,
+                        )
+                    )
+            for i, tv in enumerate(vines):
+                times, vine = tv
+                for vine_part, time_part in vineyard._vine_parts(vine):
+            #        #if interpolate:
+            #        #    artist = ax.plot(time_part, vine_part, c="black")
+            #        #if points:
+            #        #    artist = ax.plot(time_part, vine_part, "o", c="black")
+                    _vineyard_values.extend(vine_part)
+            # ymax = max(self._vineyard_values)
+            # for t in times:
             #    artist = ax.vlines(x=t, ymin=0, ymax=ymax, color="black", alpha=0.1)
             #    self._add_line_prominence_vineyard(artist, t)
-            #ax.set_xticks([])
-            #ax.set_xlabel("parameter")
-            #if log_prominence:
+            # ax.set_xticks([])
+            # ax.set_xlabel("parameter")
+            # if log_prominence:
             #    ax.set_ylabel("log-prominence")
             #    ax.set_yscale(LOG)
-            #else:
+            # else:
             #    ax.set_ylabel("prominence")
-            #values = np.array(self._vineyard_values)
+            values = np.array(_vineyard_values)
 
-            #ax.set_ylim([np.quantile(values[values > 0], 0.05), max(values)])
-            #ax.figure.canvas.draw_idle()
-            #ax.figure.canvas.flush_events()
+            if d[DISPLAY_PARAMETER_SELECTION+VALUE]=="on":
+                fig.add_vline(x=d[INPUT_LINE+VALUE], line_dash="dash", line_color="red") #line_width=3, , line_color="green")
 
-            d[STORED_PV_DRAWING + DATA] = plotly.io.to_json(empty_figure())
+
+            if d[INPUT_PROM_VIN_SCALE + VALUE] == "logarithmic":
+                fig.update_layout(yaxis_type="log")
+                fig.update_layout(yaxis_range=[np.log10(np.quantile(values[values > 0], 0.05)), np.log10(max(values))])
+            else:
+                fig.update_layout(yaxis_range=[0, max(values)])
+
+
+            fig.update_layout(showlegend=False)
+            fig.update_layout(autosize=True)
+            fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
+
+
+            d[STORED_PV_DRAWING + DATA] = plotly.io.to_json(fig)
+
             return d
 
         if jupyter:

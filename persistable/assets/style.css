@@ -17,7 +17,7 @@ h2 {
 .grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1.5fr;
+    grid-template-rows: 1fr 1.4fr;
     row-gap: 10px;
     column-gap: 40px;
 }
