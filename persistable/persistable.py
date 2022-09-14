@@ -79,17 +79,10 @@ class Persistable:
         if n_clusters_range[1] >= len(proms):
             return self.cluster(n_clusters_range[1], [0, k], [s, 0])
         logproms = np.log(proms)
-        # print("logproms")
-        # print(logproms)
         peaks = logproms[:-1] - logproms[1:]
-        # print("peaks")
-        # print(peaks)
         min_clust = n_clusters_range[0] - 1
         max_clust = n_clusters_range[1] - 1
-        # print("highest peak")
-        # print(peaks[min_clust:max_clust][np.argmax(peaks[min_clust:max_clust])])
         num_clust = np.argmax(peaks[min_clust:max_clust]) + min_clust + 1
-        # print(num_clust)
         return self.cluster(
             num_clust,
             [0, k],
@@ -142,7 +135,6 @@ class Persistable:
         start_end1,
         start_end2,
         n_parameters=50,
-        #first_n_vines=20,
         n_jobs=4
     ):
         start1, end1 = start_end1

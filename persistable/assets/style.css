@@ -2,7 +2,7 @@ html {
     background-color: white;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;;
     color: black;
-    font-size: 80%;
+    font-size: 90%;
 }
 
 h1 {
@@ -13,13 +13,12 @@ h2 {
     text-align: center;
 }
 
-
 .grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1.4fr;
+    grid-template-rows: auto 400px auto;
     row-gap: 10px;
-    column-gap: 40px;
+    column-gap: 15px;
 }
 
 .parameters {
@@ -74,6 +73,19 @@ h2 {
     width: 40%;
 }
 
+.two-parameters {
+    display: flex;
+    flex-direction: row;
+}
+
+.two-parameters>.name {
+    width: 25%;
+}
+
+.two-parameters>.value {
+    width: 25%;
+}
+
 input { 
     text-align: right; 
 }
@@ -99,18 +111,41 @@ input:valid, input:invalid {
     display: none !important;
 }
 
-
-
 .large-button>button {
-    display: inline-block;
     font-size: small;
+    display: inline-block;
     font-weight: bold;
-    line-height: 0.5;
-    padding: 1rem 2rem;
+    line-height: 0;
+    padding: 1rem 1rem;
 }
 
+/*
 label {
     font-weight: bold;
-    margin-bottom: 0.2rem;
+}
+*/
+
+details {
+    padding: .8em;
+    background: #eae9ff;
+    border-radius: 5px;
+    border: 2px solid #b1adff;
 }
 
+details>summary {
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/*
+button {
+    background-color: #eae9ff;
+    border-radius: 5px;
+    border: 2px solid #b1adff;
+    text-align: center;
+}
+*/
+
+pre {
+    background-color: #ffffff;
+}
