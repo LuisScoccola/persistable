@@ -66,6 +66,8 @@ INPUT_LOG_GRANULARITY_PV = "input-log-granularity-pv-"
 INPUT_NUM_JOBS_PV = "input-num-jobs-pv-"
 INPUT_LINE = "input-line-"
 INPUT_GAP = "gap-"
+EXPORT_PARAMETERS_BUTTON = "export-parameters-"
+DUMMY_OUTPUT = "dummy-output-"
 
 STORED_CCF_COMPUTATION_WARNINGS = "stored-ccf-computation-warnings-"
 STORED_PV_COMPUTATION_WARNINGS = "stored-pv-computation-warnings-"
@@ -102,7 +104,7 @@ def empty_figure():
 
 class PersistableInteractive:
     def __init__(self, persistable, jupyter=False, debug=False):
-
+        self._parameters = None
         self._persistable = persistable
 
         default_min_k = 0
@@ -158,6 +160,8 @@ class PersistableInteractive:
                 #
                 dcc.Store(id=STORED_CCF_COMPUTATION_WARNINGS),
                 dcc.Store(id=STORED_PV_COMPUTATION_WARNINGS),
+                #
+                html.Div(id=DUMMY_OUTPUT),
                 # dcc.Interval(
                 #    id=WARNINGS_POLLING_INTERVAL,
                 #    interval=(1 / 2) * 1000,
@@ -168,11 +172,12 @@ class PersistableInteractive:
                         html.Summary("Quick help"),
                         dcc.Markdown(
                             """
-                        ### Interactive parameter selection for persistable
+                        ### Interactive parameter selection for Persistable
                         - When setting a field, press enter to TODO
                         - Check the log, below, for warnings.
-                        - The app takes a second or so to update the graphical interface after an interaction.
+                        - The app can take a second or so to update the graphical interface after an interaction.
                         - Computing the component counting function and prominence vineyard can take a while, depending on the size and dimensionality of the dataset as well as other factors.
+                        - Make sure to leave your pointer still when clicking on the component counting function plot, otherwise your interaction may not be registered.
                         - TODO
                         """
                         ),
@@ -187,6 +192,33 @@ class PersistableInteractive:
                                 html.Div(
                                     className="parameters",
                                     children=[
+                                        html.Div(
+                                            className="parameter-double",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="distance scale min/max",
+                                                ),
+                                                dcc.Input(
+                                                    className=VALUE,
+                                                    id=MIN_DIST_SCALE,
+                                                    type="number",
+                                                    value=default_min_s,
+                                                    min=0,
+                                                    debounce=True,
+                                                    step=default_s_step,
+                                                ),
+                                                dcc.Input(
+                                                    className=VALUE,
+                                                    id=MAX_DIST_SCALE,
+                                                    type="number",
+                                                    value=default_max_s,
+                                                    min=0,
+                                                    debounce=True,
+                                                    step=default_s_step,
+                                                ),
+                                            ],
+                                        ),
                                         html.Div(
                                             className="parameter-double",
                                             children=[
@@ -219,51 +251,7 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="distance scale min/max",
-                                                ),
-                                                dcc.Input(
-                                                    className=VALUE,
-                                                    id=MIN_DIST_SCALE,
-                                                    type="number",
-                                                    value=default_min_s,
-                                                    min=0,
-                                                    debounce=True,
-                                                    step=default_s_step,
-                                                ),
-                                                dcc.Input(
-                                                    className=VALUE,
-                                                    id=MAX_DIST_SCALE,
-                                                    type="number",
-                                                    value=default_max_s,
-                                                    min=0,
-                                                    debounce=True,
-                                                    step=default_s_step,
-                                                ),
-                                            ],
-                                        ),
-                                        html.Div(
-                                            className="parameter-single",
-                                            children=[
-                                                html.Span(
-                                                    className="name",
-                                                    children="number of cores",
-                                                ),
-                                                dcc.Input(
-                                                    className=VALUE,
-                                                    id=INPUT_NUM_JOBS_CCF,
-                                                    type="number",
-                                                    value=default_num_jobs,
-                                                    min=1,
-                                                    step=1,
-                                                ),
-                                            ],
-                                        ),
-                                        html.Div(
-                                            className="parameter-single",
-                                            children=[
-                                                html.Span(
-                                                    className="name",
-                                                    children="granularity comp count func",
+                                                    children="granularity/#cores computation",
                                                 ),
                                                 dcc.Slider(
                                                     min_granularity,
@@ -279,14 +267,42 @@ class PersistableInteractive:
                                                     id=INPUT_LOG_GRANULARITY_CCF,
                                                     className=VALUE,
                                                 ),
+                                                dcc.Input(
+                                                    className=VALUE,
+                                                    id=INPUT_NUM_JOBS_CCF,
+                                                    type="number",
+                                                    value=default_num_jobs,
+                                                    min=1,
+                                                    step=1,
+                                                ),
                                             ],
                                         ),
+                                        # html.Div(
+                                        #    className="parameter-single",
+                                        #    children=[
+                                        #        html.Span(
+                                        #            className="name",
+                                        #            children="granularity comp count func",
+                                        #        ),
+                                        #        dcc.Slider(
+                                        #            min_granularity,
+                                        #            max_granularity,
+                                        #            step=None,
+                                        #            marks={
+                                        #                i: str(2**i)
+                                        #                for i in range(
+                                        #                    1, max_granularity + 1
+                                        #                )
+                                        #            },
+                                        #            value=default_log_granularity,
+                                        #            id=INPUT_LOG_GRANULARITY_CCF,
+                                        #            className=VALUE,
+                                        #        ),
+                                        #    ],
+                                        # ),
                                         html.Div(
-                                            className="parameter-single",
+                                            className="large-button",
                                             children=[
-                                                html.Span(
-                                                    className="name",
-                                                ),
                                                 html.Button(
                                                     "(re)compute component counting function",
                                                     id=COMPUTE_CCF_BUTTON,
@@ -467,28 +483,11 @@ class PersistableInteractive:
                                             ],
                                         ),
                                         html.Div(
-                                            className="parameter-single",
+                                            className="parameter-double",
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="number of cores",
-                                                ),
-                                                dcc.Input(
-                                                    className=VALUE,
-                                                    id=INPUT_NUM_JOBS_PV,
-                                                    type="number",
-                                                    value=default_num_jobs,
-                                                    min=1,
-                                                    step=1,
-                                                ),
-                                            ],
-                                        ),
-                                        html.Div(
-                                            className="parameter-single",
-                                            children=[
-                                                html.Span(
-                                                    className="name",
-                                                    children="#lines vineyard",
+                                                    children="#lines vineyard/#cores computation",
                                                 ),
                                                 dcc.Slider(
                                                     min_granularity,
@@ -504,27 +503,55 @@ class PersistableInteractive:
                                                     id=INPUT_LOG_GRANULARITY_PV,
                                                     className=VALUE,
                                                 ),
+                                                dcc.Input(
+                                                    className=VALUE,
+                                                    id=INPUT_NUM_JOBS_PV,
+                                                    type="number",
+                                                    value=default_num_jobs,
+                                                    min=1,
+                                                    step=1,
+                                                ),
                                             ],
                                         ),
+                                        # html.Div(
+                                        #    className="parameter-single",
+                                        #    children=[
+                                        #        html.Span(
+                                        #            className="name",
+                                        #            children="#lines vineyard",
+                                        #        ),
+                                        #        dcc.Slider(
+                                        #            min_granularity,
+                                        #            max_granularity,
+                                        #            step=None,
+                                        #            marks={
+                                        #                i: str(2**i)
+                                        #                for i in range(
+                                        #                    1, max_granularity + 1
+                                        #                )
+                                        #            },
+                                        #            value=default_log_granularity - 1,
+                                        #            id=INPUT_LOG_GRANULARITY_PV,
+                                        #            className=VALUE,
+                                        #        ),
+                                        #    ],
+                                        # ),
                                         html.Div(
-                                            className="parameter-single",
+                                            className="large-button",
                                             children=[
-                                                html.Span(
-                                                    className="name",
-                                                ),
                                                 html.Button(
-                                                    "compute prominence vineyard",
+                                                    "(re)compute prominence vineyard",
                                                     id=COMPUTE_PV_BUTTON,
                                                     className=VALUE,
                                                 ),
                                             ],
                                         ),
                                         html.Div(
-                                            className="parameter-single",
+                                            className="parameter-double",
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="max number vines",
+                                                    children="max #vines/prominence scale",
                                                 ),
                                                 dcc.Input(
                                                     id=INPUT_MAX_VINES,
@@ -533,16 +560,6 @@ class PersistableInteractive:
                                                     min=1,
                                                     className=VALUE,
                                                     step=1,
-                                                    debounce=True,
-                                                ),
-                                            ],
-                                        ),
-                                        html.Div(
-                                            className="parameter-single",
-                                            children=[
-                                                html.Span(
-                                                    className="name",
-                                                    children="prominence scale",
                                                 ),
                                                 dcc.RadioItems(
                                                     ["linear", "logarithmic"],
@@ -550,8 +567,24 @@ class PersistableInteractive:
                                                     id=INPUT_PROM_VIN_SCALE,
                                                     className=VALUE,
                                                 ),
+
                                             ],
                                         ),
+                                        #html.Div(
+                                        #    className="parameter-single",
+                                        #    children=[
+                                        #        html.Span(
+                                        #            className="name",
+                                        #            children="prominence scale",
+                                        #        ),
+                                        #        dcc.RadioItems(
+                                        #            ["linear", "logarithmic"],
+                                        #            "logarithmic",
+                                        #            id=INPUT_PROM_VIN_SCALE,
+                                        #            className=VALUE,
+                                        #        ),
+                                        #    ],
+                                        #),
                                         html.Div(
                                             className="parameter-single",
                                             children=[
@@ -568,7 +601,7 @@ class PersistableInteractive:
                                             ],
                                         ),
                                         html.Div(
-                                            className="parameter-double",
+                                            className="parameter-double-button",
                                             id=PARAMETER_SELECTION_DIV,
                                             children=[
                                                 html.Span(
@@ -588,6 +621,12 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=1,
                                                     min=1,
+                                                ),
+                                                html.Button(
+                                                    "export parameters",
+                                                    id=EXPORT_PARAMETERS_BUTTON,
+                                                    className="button",
+                                                    disabled=True
                                                 ),
                                             ],
                                         ),
@@ -1112,7 +1151,8 @@ class PersistableInteractive:
             [
                 [STORED_PV, DATA],
                 [STORED_PV_COMPUTATION_WARNINGS, DATA],
-                [INPUT_LINE, "max"]
+                [INPUT_LINE, "max"],
+                [EXPORT_PARAMETERS_BUTTON, DISABLED]
             ],
             prevent_initial_call=True,
             background=True,
@@ -1126,6 +1166,7 @@ class PersistableInteractive:
             out = ""
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
+                warnings.warn("need to check that prominence vineyard succedeed enable the button correctly!")
                 pv = self._persistable.compute_prominence_vineyard(
                     [
                         [d[X_START_FIRST_LINE + VALUE], d[Y_START_FIRST_LINE + VALUE]],
@@ -1148,7 +1189,11 @@ class PersistableInteractive:
 
             d[STORED_PV + DATA] = json.dumps(pv.__dict__)
             d[STORED_PV_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
-            d[INPUT_LINE+"max"] = granularity
+            d[INPUT_LINE + "max"] = granularity
+            if True:
+                d[EXPORT_PARAMETERS_BUTTON+DISABLED] = False
+            else:
+                d[EXPORT_PARAMETERS_BUTTON+DISABLED] = True
 
             return d
 
@@ -1159,7 +1204,7 @@ class PersistableInteractive:
                 [INPUT_PROM_VIN_SCALE, VALUE, IN],
                 [DISPLAY_PARAMETER_SELECTION, VALUE, IN],
                 [INPUT_LINE, VALUE, IN],
-                [INPUT_GAP, VALUE, IN]
+                [INPUT_GAP, VALUE, IN],
             ],
             [[STORED_PV_DRAWING, DATA]],
             False,
@@ -1203,18 +1248,27 @@ class PersistableInteractive:
                 ),
             )
 
-            colors = sample_colorscale("viridis", list(np.linspace(0, 1, num_vines))[::-1])
+            colors = sample_colorscale(
+                "viridis", list(np.linspace(0, 1, num_vines))[::-1]
+            )
             if num_vines > 0:
                 for i in range(num_vines - 1, -1, -1):
                     till = "tozeroy" if i == num_vines - 1 else "tonexty"
-                    color = "red" if (d[DISPLAY_PARAMETER_SELECTION+VALUE]=="on" and i+1 == d[INPUT_GAP+VALUE]) else colors[i]
+                    color = (
+                        "red"
+                        if (
+                            d[DISPLAY_PARAMETER_SELECTION + VALUE] == "on"
+                            and i + 1 == d[INPUT_GAP + VALUE]
+                        )
+                        else colors[i]
+                    )
                     fig.add_trace(
                         go.Scatter(
                             x=times,
                             y=vines[i][1],
                             fill=till,
-                            #hoveron="fills",
-                            text="vine " + str(i+1),
+                            # hoveron="fills",
+                            text="vine " + str(i + 1),
                             hoverinfo="text",
                             line_color=color,
                         )
@@ -1222,10 +1276,10 @@ class PersistableInteractive:
             for i, tv in enumerate(vines):
                 times, vine = tv
                 for vine_part, time_part in vineyard._vine_parts(vine):
-            #        #if interpolate:
-            #        #    artist = ax.plot(time_part, vine_part, c="black")
-            #        #if points:
-            #        #    artist = ax.plot(time_part, vine_part, "o", c="black")
+                    #        #if interpolate:
+                    #        #    artist = ax.plot(time_part, vine_part, c="black")
+                    #        #if points:
+                    #        #    artist = ax.plot(time_part, vine_part, "o", c="black")
                     _vineyard_values.extend(vine_part)
             # ymax = max(self._vineyard_values)
             # for t in times:
@@ -1240,24 +1294,48 @@ class PersistableInteractive:
             #    ax.set_ylabel("prominence")
             values = np.array(_vineyard_values)
 
-            if d[DISPLAY_PARAMETER_SELECTION+VALUE]=="on":
-                fig.add_vline(x=d[INPUT_LINE+VALUE], line_dash="dash", line_color="red") #line_width=3, , line_color="green")
-
+            if d[DISPLAY_PARAMETER_SELECTION + VALUE] == "on":
+                fig.add_vline(
+                    x=d[INPUT_LINE + VALUE], line_dash="dash", line_color="red"
+                )  # line_width=3, , line_color="green")
 
             if d[INPUT_PROM_VIN_SCALE + VALUE] == "logarithmic":
                 fig.update_layout(yaxis_type="log")
-                fig.update_layout(yaxis_range=[np.log10(np.quantile(values[values > 0], 0.05)), np.log10(max(values))])
+                fig.update_layout(
+                    yaxis_range=[
+                        np.log10(np.quantile(values[values > 0], 0.05)),
+                        np.log10(max(values)),
+                    ]
+                )
             else:
                 fig.update_layout(yaxis_range=[0, max(values)])
-
 
             fig.update_layout(showlegend=False)
             fig.update_layout(autosize=True)
             fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
 
-
             d[STORED_PV_DRAWING + DATA] = plotly.io.to_json(fig)
 
+            return d
+
+        @dash_callback(
+            [
+                [EXPORT_PARAMETERS_BUTTON, N_CLICKS, IN],
+                [INPUT_GAP, VALUE, ST],
+                [INPUT_LINE, VALUE, ST],
+                [STORED_PV, DATA, ST]
+            ],
+            [[DUMMY_OUTPUT, CHILDREN]],
+            True
+        )
+        def export_parameters(d):
+            vineyard_as_dict = json.loads(d[STORED_PV + DATA])
+            vineyard = ProminenceVineyard(
+                vineyard_as_dict["_parameters"],
+                vineyard_as_dict["_prominence_diagrams"],
+            )
+            self._parameters = (d[INPUT_GAP+VALUE], vineyard._parameters[d[INPUT_LINE+VALUE]])
+            d[DUMMY_OUTPUT + CHILDREN] = None
             return d
 
         if jupyter:

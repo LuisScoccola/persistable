@@ -1,6 +1,6 @@
 html {
     background-color: white;
-    font-family: 'Courier New', monospace;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;;
     color: black;
     font-size: 80%;
 }
@@ -56,31 +56,40 @@ h2 {
     width: 35%;
 }
 
-.fake-plot {
-    /*width: 100%;*/
-    height: 450px;
-    background-color: lightgrey;
+.parameter-double-button {
+    display: flex;
+    flex-direction: row;
+    gap: 2px;
 }
 
-/* turn off little arrow "dials" for inputs
-input::-webkit-outer-spin-button,
-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0; 
-}*/
+.parameter-double-button>.name {
+    width: 30%;
+}
+
+.parameter-double-button>.value {
+    width: 15%;
+}
+
+.parameter-double-button>.button {
+    width: 40%;
+}
 
 input { 
     text-align: right; 
 }
 
+.large-button {
+    display: flex;
+    flex-direction: row;
+}
+
+.large-button>.value {
+    width: 100%;
+}
+
 #log {
     max-height: 150px;
 }
-
-/*
-#cff-plot {
-    height: 450px;
-}*/
 
 input:valid, input:invalid {
     outline: none black;
@@ -89,3 +98,19 @@ input:valid, input:invalid {
 [hidden] {
     display: none !important;
 }
+
+
+
+.large-button>button {
+    display: inline-block;
+    font-size: small;
+    font-weight: bold;
+    line-height: 0.5;
+    padding: 1rem 2rem;
+}
+
+label {
+    font-weight: bold;
+    margin-bottom: 0.2rem;
+}
+
