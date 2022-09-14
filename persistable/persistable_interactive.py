@@ -103,7 +103,7 @@ def empty_figure():
 
 
 class PersistableInteractive:
-    def __init__(self, persistable, jupyter=False, debug=False):
+    def __init__(self, persistable, jupyter=False, inline=False, debug=False):
         self._parameters = None
         self._persistable = persistable
 
@@ -861,6 +861,7 @@ class PersistableInteractive:
             )
             max_components = d[INPUT_MAX_COMPONENTS + VALUE]
             max_components = 0 if max_components is None else int(max_components)
+
             fig.add_trace(
                 go.Heatmap(
                     df_to_plotly(ccf),
@@ -1152,6 +1153,7 @@ class PersistableInteractive:
                 [STORED_PV, DATA],
                 [STORED_PV_COMPUTATION_WARNINGS, DATA],
                 [INPUT_LINE, "max"],
+                [INPUT_LINE, VALUE],
                 [EXPORT_PARAMETERS_BUTTON, DISABLED]
             ],
             prevent_initial_call=True,
@@ -1190,6 +1192,7 @@ class PersistableInteractive:
             d[STORED_PV + DATA] = json.dumps(pv.__dict__)
             d[STORED_PV_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[INPUT_LINE + "max"] = granularity
+            d[INPUT_LINE + VALUE] = granularity//2
             if True:
                 d[EXPORT_PARAMETERS_BUTTON+DISABLED] = False
             else:
@@ -1334,11 +1337,15 @@ class PersistableInteractive:
                 vineyard_as_dict["_parameters"],
                 vineyard_as_dict["_prominence_diagrams"],
             )
-            self._parameters = (d[INPUT_GAP+VALUE], vineyard._parameters[d[INPUT_LINE+VALUE]])
+            line = vineyard._parameters[d[INPUT_LINE+VALUE]]
+            self._parameters = {"n_clusters": d[INPUT_GAP+VALUE], "start": line[0], "end": line[1]}
             d[DUMMY_OUTPUT + CHILDREN] = None
             return d
 
         if jupyter:
-            self._app.run_server(mode="inline")
+            if inline:
+                self._app.run_server(mode="inline")
+            else:
+                self._app.run_server()
         else:
             self._app.run_server(debug=debug)
