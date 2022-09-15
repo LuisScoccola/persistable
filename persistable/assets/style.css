@@ -111,8 +111,12 @@ input {
     flex-direction: row;
 }
 
-.large-button>.value {
-    width: 100%;
+.large-buttons>.button1 {
+    width: 80%;
+}
+
+.large-buttons>.button2 {
+    width: 20%;
 }
 
 #log- {
@@ -130,7 +134,7 @@ input:valid, input:invalid {
     display: none !important;
 }
 
-.large-button>button {
+.large-buttons>button {
     font-size: small;
     display: inline-block;
     font-weight: bold;

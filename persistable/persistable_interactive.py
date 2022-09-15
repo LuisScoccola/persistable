@@ -53,6 +53,7 @@ ENDPOINT_SELECTION_DIV = "endpoint-selection-div-"
 PARAMETER_SELECTION_DIV = "parameter-selection-div-"
 DISPLAY_PARAMETER_SELECTION = "display-parameter-selection-"
 COMPUTE_CCF_BUTTON = "compute-ccf-button-"
+STOP_COMPUTE_CCF_BUTTON = "stop-compute-ccf-button-"
 INPUT_GRANULARITY_CCF = "input-granularity-ccf-"
 INPUT_NUM_JOBS_CCF = "input-num-jobs-ccf-"
 INPUT_MAX_COMPONENTS = "input-max-components-"
@@ -64,6 +65,7 @@ STORED_PV = "stored-pv-"
 INPUT_MAX_VINES = "input-max-vines-"
 INPUT_PROM_VIN_SCALE = "input-prom-vin-scale-"
 COMPUTE_PV_BUTTON = "compute-pv-button-"
+STOP_COMPUTE_PV_BUTTON = "stop-compute-pv-button-"
 PV_PLOT = "pv-plot-"
 STORED_PV_DRAWING = "stored-pv-drawing-"
 INPUT_GRANULARITY_PV = "input-granularity-pv-"
@@ -291,12 +293,18 @@ class PersistableInteractive:
                                             ]
                                         ),
                                         html.Div(
-                                            className="large-button",
+                                            className="large-buttons",
                                             children=[
                                                 html.Button(
                                                     "Compute",
                                                     id=COMPUTE_CCF_BUTTON,
-                                                    className=VALUE,
+                                                    className="button1",
+                                                ),
+                                                html.Button(
+                                                    "Stop computation",
+                                                    id=STOP_COMPUTE_CCF_BUTTON,
+                                                    className="button2",
+                                                    disabled=True
                                                 ),
                                             ],
                                         ),
@@ -473,13 +481,19 @@ class PersistableInteractive:
                                             className="parameters",
                                             children=[
                                                 html.Div(
-                                                    className="large-button",
+                                                    className="large-buttons",
                                                     children=[
                                                         html.Button(
                                                             "Compute",
                                                             id=COMPUTE_PV_BUTTON,
-                                                            className=VALUE,
+                                                    className="button1",
                                                         ),
+                                                html.Button(
+                                                    "Stop computation",
+                                                    id=STOP_COMPUTE_PV_BUTTON,
+                                                    className="button2",
+                                                    disabled=True
+                                                ),
                                                     ],
                                                 ),
                                             ],
@@ -719,7 +733,7 @@ class PersistableInteractive:
         )
 
         def dash_callback(
-            inputs, outputs, prevent_initial_call=False, background=False, running=None
+            inputs, outputs, prevent_initial_call=False, background=False, running=None, cancel=None
         ):
             def cs(l):
                 return l[0] + l[1]
@@ -743,6 +757,11 @@ class PersistableInteractive:
                         for i, v, value_start, value_end in running
                     ]
 
+                if cancel is None:
+                    dash_cancel = None
+                else:
+                    dash_cancel = [ (dash.Input(i, v)) for i, v in cancel ]
+
                 def callback_function(*argv):
                     d = {}
                     for n, arg in enumerate(argv):
@@ -760,6 +779,7 @@ class PersistableInteractive:
                         dash_inputs,
                         prevent_initial_call,
                         running=dash_running_outputs,
+                        cancel=dash_cancel
                     )(callback_function)
                 else:
                     self._app.callback(
@@ -972,7 +992,7 @@ class PersistableInteractive:
                     hoverinfo="skip",
                     showlegend=False,
                     mode="markers+lines+text",
-                    textposition="top center",
+                    textposition=["top center", "bottom center"],
                 )
 
             if d[DISPLAY_LINES_SELECTION + VALUE] == "On":
@@ -1141,7 +1161,8 @@ class PersistableInteractive:
             ],
             prevent_initial_call=True,
             background=True,
-            running=[[COMPUTE_CCF_BUTTON, DISABLED, True, False]],
+            running=[[COMPUTE_CCF_BUTTON, DISABLED, True, False], [STOP_COMPUTE_CCF_BUTTON, DISABLED, False, True]],
+            cancel= [[STOP_COMPUTE_CCF_BUTTON, N_CLICKS]]
         )
         def compute_ccf(d):
             granularity = d[INPUT_GRANULARITY_CCF + VALUE]
@@ -1199,7 +1220,9 @@ class PersistableInteractive:
             ],
             prevent_initial_call=True,
             background=True,
-            running=[[COMPUTE_PV_BUTTON, DISABLED, True, False]],
+            running=[[COMPUTE_PV_BUTTON, DISABLED, True, False], [STOP_COMPUTE_PV_BUTTON, DISABLED, False, True]],
+            cancel= [[STOP_COMPUTE_PV_BUTTON, N_CLICKS]]
+
         )
         def compute_pv(d):
 
