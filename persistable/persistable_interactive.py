@@ -9,6 +9,8 @@ import json
 import diskcache
 import dash
 from dash import dcc, html, DiskcacheManager, ctx
+from dash.exceptions import PreventUpdate
+
 from ._vineyard import Vineyard
 
 from plotly.express.colors import sample_colorscale
@@ -171,13 +173,13 @@ class PersistableInteractive:
                 # contains the basic prominence vineyard plot as a plotly figure
                 dcc.Store(id=STORED_PV_DRAWING),
                 #
-                dcc.Store(id=STORED_PD),
+                dcc.Store(id=STORED_PD, data = json.dumps([])),
                 #
                 dcc.Store(id=STORED_CCF_COMPUTATION_WARNINGS),
                 dcc.Store(id=STORED_PV_COMPUTATION_WARNINGS),
                 # dcc.Store(id=STORED_PD_COMPUTATION_WARNINGS),
                 #
-                dcc.Store(id=FIXED_PARAMETERS),
+                dcc.Store(id=FIXED_PARAMETERS, data = json.dumps([])),
                 html.Div(
                     className="grid",
                     children=[
@@ -304,7 +306,7 @@ class PersistableInteractive:
                                                     "Stop computation",
                                                     id=STOP_COMPUTE_CCF_BUTTON,
                                                     className="button2",
-                                                    disabled=True
+                                                    disabled=True,
                                                 ),
                                             ],
                                         ),
@@ -486,14 +488,14 @@ class PersistableInteractive:
                                                         html.Button(
                                                             "Compute",
                                                             id=COMPUTE_PV_BUTTON,
-                                                    className="button1",
+                                                            className="button1",
                                                         ),
-                                                html.Button(
-                                                    "Stop computation",
-                                                    id=STOP_COMPUTE_PV_BUTTON,
-                                                    className="button2",
-                                                    disabled=True
-                                                ),
+                                                        html.Button(
+                                                            "Stop computation",
+                                                            id=STOP_COMPUTE_PV_BUTTON,
+                                                            className="button2",
+                                                            disabled=True,
+                                                        ),
                                                     ],
                                                 ),
                                             ],
@@ -733,7 +735,12 @@ class PersistableInteractive:
         )
 
         def dash_callback(
-            inputs, outputs, prevent_initial_call=False, background=False, running=None, cancel=None
+            inputs,
+            outputs,
+            prevent_initial_call=False,
+            background=False,
+            running=None,
+            cancel=None,
         ):
             def cs(l):
                 return l[0] + l[1]
@@ -760,11 +767,13 @@ class PersistableInteractive:
                 if cancel is None:
                     dash_cancel = None
                 else:
-                    dash_cancel = [ (dash.Input(i, v)) for i, v in cancel ]
+                    dash_cancel = [(dash.Input(i, v)) for i, v in cancel]
 
                 def callback_function(*argv):
                     d = {}
                     for n, arg in enumerate(argv):
+                        if arg is None:
+                            raise PreventUpdate
                         d[cs(inputs[n])] = arg
                     d = function(d)
                     return (
@@ -779,7 +788,7 @@ class PersistableInteractive:
                         dash_inputs,
                         prevent_initial_call,
                         running=dash_running_outputs,
-                        cancel=dash_cancel
+                        cancel=dash_cancel,
                     )(callback_function)
                 else:
                     self._app.callback(
@@ -893,9 +902,9 @@ class PersistableInteractive:
         def draw_ccf(d):
             ccf = d[STORED_CCF + DATA]
 
-            if ccf is None:
-                d[STORED_CCF_DRAWING + DATA] = empty_figure()
-                return d
+            # if ccf is None:
+            #    d[STORED_CCF_DRAWING + DATA] = empty_figure()
+            #    return d
 
             ccf = pandas.read_json(ccf, orient="split")
 
@@ -915,7 +924,7 @@ class PersistableInteractive:
                 ),
             )
             max_components = d[INPUT_MAX_COMPONENTS + VALUE]
-            max_components = 0 if max_components is None else int(max_components)
+            # max_components = 0 if max_components is None else int(max_components)
 
             fig.add_trace(
                 go.Heatmap(
@@ -966,15 +975,17 @@ class PersistableInteractive:
         def draw_ccf_enclosing_box(d):
             ccf = d[STORED_CCF + DATA]
 
-            if ccf is None:
-                d[CFF_PLOT + FIGURE] = empty_figure()
-                return d
+            # if ccf is None:
+            #    d[CFF_PLOT + FIGURE] = empty_figure()
+            #    return d
 
             fig = plotly.io.from_json(d[STORED_CCF_DRAWING + DATA])
 
             ccf = pandas.read_json(ccf, orient="split")
 
-            def generate_line(xs, ys, text, color="mediumslateblue", different_marker=None):
+            def generate_line(
+                xs, ys, text, color="mediumslateblue", different_marker=None
+            ):
                 if different_marker == None:
                     marker_styles = ["circle", "circle"]
                 elif different_marker == 0:
@@ -1053,13 +1064,10 @@ class PersistableInteractive:
                     )
                 )
 
-            if (
-                d[FIXED_PARAMETERS + DATA] is not None
-                and d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On"
-            ):
-                params = json.loads(d[FIXED_PARAMETERS + DATA])
-
-                if d[STORED_PD + DATA] is not None:
+            params = json.loads(d[FIXED_PARAMETERS + DATA])
+            if len(params) != 0 and d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On":
+                pd = json.loads(d[STORED_PD + DATA])
+                if len(pd) != 0:
 
                     def generate_bar(xs, ys, color):
                         return go.Scatter(
@@ -1072,7 +1080,6 @@ class PersistableInteractive:
                             line=dict(width=4),
                         )
 
-                    pd = json.loads(d[STORED_PD + DATA])
                     shift = 75
                     tau = (
                         np.array(
@@ -1103,7 +1110,11 @@ class PersistableInteractive:
                         q_end = np.array([q_end_x, q_end_y])
                         r_st = q_st + (i + 1) * tau
                         r_end = q_end + (i + 1) * tau
-                        color = "rgba(34, 139, 34, 1)" if i < d[INPUT_GAP + VALUE] else "rgba(34, 139, 34, 0.3)"
+                        color = (
+                            "rgba(34, 139, 34, 1)"
+                            if i < d[INPUT_GAP + VALUE]
+                            else "rgba(34, 139, 34, 0.3)"
+                        )
                         fig.add_trace(
                             generate_bar(
                                 [r_st[0], r_end[0]], [r_st[1], r_end[1]], color
@@ -1136,9 +1147,9 @@ class PersistableInteractive:
         )
         def draw_pv_post(d):
 
-            if d[STORED_PV + DATA] is None:
-                d[PV_PLOT + FIGURE] = empty_figure()
-                return d
+            # if d[STORED_PV + DATA] is None:
+            #    d[PV_PLOT + FIGURE] = empty_figure()
+            #    return d
 
             d[PV_PLOT + FIGURE] = plotly.io.from_json(d[STORED_PV_DRAWING + DATA])
 
@@ -1161,8 +1172,11 @@ class PersistableInteractive:
             ],
             prevent_initial_call=True,
             background=True,
-            running=[[COMPUTE_CCF_BUTTON, DISABLED, True, False], [STOP_COMPUTE_CCF_BUTTON, DISABLED, False, True]],
-            cancel= [[STOP_COMPUTE_CCF_BUTTON, N_CLICKS]]
+            running=[
+                [COMPUTE_CCF_BUTTON, DISABLED, True, False],
+                [STOP_COMPUTE_CCF_BUTTON, DISABLED, False, True],
+            ],
+            cancel=[[STOP_COMPUTE_CCF_BUTTON, N_CLICKS]],
         )
         def compute_ccf(d):
             granularity = d[INPUT_GRANULARITY_CCF + VALUE]
@@ -1220,9 +1234,11 @@ class PersistableInteractive:
             ],
             prevent_initial_call=True,
             background=True,
-            running=[[COMPUTE_PV_BUTTON, DISABLED, True, False], [STOP_COMPUTE_PV_BUTTON, DISABLED, False, True]],
-            cancel= [[STOP_COMPUTE_PV_BUTTON, N_CLICKS]]
-
+            running=[
+                [COMPUTE_PV_BUTTON, DISABLED, True, False],
+                [STOP_COMPUTE_PV_BUTTON, DISABLED, False, True],
+            ],
+            cancel=[[STOP_COMPUTE_PV_BUTTON, N_CLICKS]],
         )
         def compute_pv(d):
 
@@ -1283,9 +1299,9 @@ class PersistableInteractive:
         def draw_pv(d):
             firstn = d[INPUT_MAX_VINES + VALUE]
 
-            if d[STORED_PV + DATA] is None:
-                d[STORED_PV_DRAWING + DATA] = empty_figure()
-                return d
+            # if d[STORED_PV + DATA] is None:
+            #    d[STORED_PV_DRAWING + DATA] = empty_figure()
+            #    return d
 
             vineyard_as_dict = json.loads(d[STORED_PV + DATA])
             vineyard = Vineyard(
