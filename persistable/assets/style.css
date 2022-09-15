@@ -17,7 +17,7 @@ h2 {
 .grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto 400px auto;
+    grid-template-rows: auto 450px auto;
     row-gap: 15px;
     column-gap: 15px;
 }
@@ -115,8 +115,11 @@ input {
     width: 100%;
 }
 
-#log {
+#log- {
     max-height: 150px;
+    border: thin lightgrey solid;
+    overflow-x: scroll;
+    overflow-y: scroll;
 }
 
 input:valid, input:invalid {
