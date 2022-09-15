@@ -32,14 +32,23 @@ h2 {
 .parameter-single {
     display: flex;
     flex-direction: row;
+    gap: 2px;
 }
 
 .parameter-single>.name {
-    width: 30%;
+    width: 40%;
 }
 
 .parameter-single>.value {
-    width: 70%;
+    width: 60%;
+}
+
+.parameter-single>.small-value {
+    width: 10%;
+}
+
+.parameter-single>.space {
+    width: 50%;
 }
 
 .parameter-double {
@@ -49,42 +58,48 @@ h2 {
 }
 
 .parameter-double>.name {
-    width: 30%;
+    width: 40%;
 }
 
 .parameter-double>.value {
-    width: 35%;
+    width: 30%;
 }
 
-.parameter-double-button {
+.small-parameters {
     display: flex;
     flex-direction: row;
     gap: 2px;
 }
 
-.parameter-double-button>.name {
-    width: 30%;
-}
-
-.parameter-double-button>.value {
-    width: 15%;
-}
-
-.parameter-double-button>.button {
+.small-parameters>.space {
     width: 40%;
 }
 
-.two-parameters {
+.small-parameters>.name {
+    width: 22%;
+}
+
+.small-parameters>.value {
+    width: 8%;
+}
+
+
+.parameter-double-button {
     display: flex;
     flex-direction: row;
+    gap: 10px;
 }
 
-.two-parameters>.name {
-    width: 25%;
+.parameter-double-button>.name {
+    width: 15%;
 }
 
-.two-parameters>.value {
-    width: 25%;
+.parameter-double-button>.value {
+    width: 10%;
+}
+
+.parameter-double-button>.button {
+    width: 50%;
 }
 
 input { 
@@ -176,4 +191,10 @@ pre {
 
 details>.parameters {
     padding-top: .8em;
+}
+
+.graph {
+    border-radius: 5px;
+    border: 2px solid #b1adff;
+    padding: .8em
 }

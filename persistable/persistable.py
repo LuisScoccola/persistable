@@ -192,10 +192,10 @@ class Persistable:
         more_s_than_k = 5
         ss = np.linspace(
             min_s,
-            max_s,
-            granularity * more_s_than_k,
+            max_s + (max_s-min_s)/(granularity * more_s_than_k),
+            granularity * more_s_than_k + 1,
         )
-        ks = np.linspace(min_k, max_k, granularity)
+        ks = np.linspace(min_k, max_k + (max_k-min_k)/granularity, granularity + 1)
         hf = self._mpspace.hilbert_function(ks, ss, n_jobs=n_jobs)
         return ss, ks, hf
 

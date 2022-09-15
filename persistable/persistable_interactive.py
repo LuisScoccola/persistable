@@ -52,19 +52,20 @@ ENDPOINT_SELECTION_DIV = "endpoint-selection-div-"
 PARAMETER_SELECTION_DIV = "parameter-selection-div-"
 DISPLAY_PARAMETER_SELECTION = "display-parameter-selection-"
 COMPUTE_CCF_BUTTON = "compute-ccf-button-"
-INPUT_LOG_GRANULARITY_CCF = "input-log-granularity-ccf-"
+INPUT_GRANULARITY_CCF = "input-granularity-ccf-"
 INPUT_NUM_JOBS_CCF = "input-num-jobs-ccf-"
 INPUT_MAX_COMPONENTS = "input-max-components-"
 CCF_PLOT_CONTROLS_DIV = "ccf-plot-controls-div-"
 PV_PLOT_CONTROLS_DIV = "pv-plot-controls-div-"
 LOG = "log-"
+LOG_DIV = "log-div-"
 STORED_PV = "stored-pv-"
 INPUT_MAX_VINES = "input-max-vines-"
 INPUT_PROM_VIN_SCALE = "input-prom-vin-scale-"
 COMPUTE_PV_BUTTON = "compute-pv-button-"
 PV_PLOT = "pv-plot-"
 STORED_PV_DRAWING = "stored-pv-drawing-"
-INPUT_LOG_GRANULARITY_PV = "input-log-granularity-pv-"
+INPUT_GRANULARITY_PV = "input-granularity-pv-"
 INPUT_NUM_JOBS_PV = "input-num-jobs-pv-"
 INPUT_LINE = "input-line-"
 INPUT_GAP = "gap-"
@@ -117,12 +118,12 @@ class PersistableInteractive:
         default_min_s = self._persistable._connection_radius / 5
         default_max_s = self._persistable._connection_radius * 2
         default_s_step = (default_max_s - default_min_s) / 100
-        default_log_granularity = 6
+        default_granularity = 2**6
         default_num_jobs = 4
         default_max_dim = 15
         default_max_vines = 15
-        min_granularity = 4
-        max_granularity = 8
+        min_granularity = 2**4
+        max_granularity = 2**8
         defr = 6
         default_x_start_first_line = (default_min_s + default_max_s) * (1 / defr)
         default_y_start_first_line = (default_min_k + default_max_k) * (1 / 2)
@@ -243,36 +244,44 @@ class PersistableInteractive:
                                                             ],
                                                         ),
                                                         html.Div(
-                                                            className="parameter-double",
+                                                            className="parameter-single",
                                                             children=[
                                                                 html.Span(
                                                                     className="name",
-                                                                    children="Granularity/#cores computation",
-                                                                ),
-                                                                dcc.Slider(
-                                                                    min_granularity,
-                                                                    max_granularity,
-                                                                    step=None,
-                                                                    marks={
-                                                                        i: str(2**i)
-                                                                        for i in range(
-                                                                            1,
-                                                                            max_granularity
-                                                                            + 1,
-                                                                        )
-                                                                    },
-                                                                    value=default_log_granularity,
-                                                                    id=INPUT_LOG_GRANULARITY_CCF,
-                                                                    className=VALUE,
+                                                                    children="Granularity",
                                                                 ),
                                                                 dcc.Input(
-                                                                    className=VALUE,
+                                                                    id=INPUT_GRANULARITY_CCF,
+                                                                    className="small-value",
+                                                                    type="number",
+                                                                    value=default_granularity,
+                                                                    min=min_granularity,
+                                                                    max=max_granularity,
+                                                                ),
+                                                                html.Div(
+                                                                    className="space"
+                                                                )
+
+                                                            ]),
+                                                        html.Div(
+                                                            className="parameter-single",
+                                                            children=[
+                                                                html.Span(
+                                                                    className="name",
+                                                                    children="Number of cores computation",
+                                                                ),
+                                                                dcc.Input(
+                                                                    className="small-value",
                                                                     id=INPUT_NUM_JOBS_CCF,
                                                                     type="number",
                                                                     value=default_num_jobs,
                                                                     min=1,
                                                                     step=1,
+                                                                    max=16
                                                                 ),
+                                                                html.Div(
+                                                                    className="space"
+                                                                )
                                                             ],
                                                         ),
                                                     ],
@@ -414,37 +423,43 @@ class PersistableInteractive:
                                                             ],
                                                         ),
                                                         html.Div(
-                                                            className="parameter-double",
+                                                            className="parameter-single",
                                                             children=[
                                                                 html.Span(
                                                                     className="name",
-                                                                    children="#lines vineyard/#cores computation",
-                                                                ),
-                                                                dcc.Slider(
-                                                                    min_granularity,
-                                                                    max_granularity,
-                                                                    step=None,
-                                                                    marks={
-                                                                        i: str(2**i)
-                                                                        for i in range(
-                                                                            1,
-                                                                            max_granularity
-                                                                            + 1,
-                                                                        )
-                                                                    },
-                                                                    value=default_log_granularity
-                                                                    - 1,
-                                                                    id=INPUT_LOG_GRANULARITY_PV,
-                                                                    className=VALUE,
+                                                                    children="Number of lines vineyard",
                                                                 ),
                                                                 dcc.Input(
-                                                                    className=VALUE,
+                                                                    id=INPUT_GRANULARITY_PV,
+                                                                    className="small-value",
+                                                                    type="number",
+                                                                    value=default_granularity,
+                                                                    min=min_granularity,
+                                                                    max=max_granularity,
+                                                                ),
+                                                                html.Div(
+                                                                    className="space"
+                                                                )
+                                                            ]),
+                                                        html.Div(
+                                                            className="parameter-single",
+                                                            children=[
+                                                                html.Span(
+                                                                    className="name",
+                                                                    children="Number of cores computation",
+                                                                ),
+                                                                dcc.Input(
+                                                                    className="small-value",
                                                                     id=INPUT_NUM_JOBS_PV,
                                                                     type="number",
                                                                     value=default_num_jobs,
                                                                     min=1,
                                                                     step=1,
+                                                                    max=16
                                                                 ),
+                                                                html.Div(
+                                                                    className="space"
+                                                                )
                                                             ],
                                                         ),
                                                     ],
@@ -472,6 +487,7 @@ class PersistableInteractive:
                         ),
                         dcc.Graph(
                             id=CFF_PLOT,
+                            className="graph",
                             figure=empty_figure(),
                             config={
                                 "responsive": True,
@@ -490,6 +506,7 @@ class PersistableInteractive:
                         ),
                         dcc.Graph(
                             id=PV_PLOT,
+                            className="graph",
                             figure=empty_figure(),
                             config={
                                 "responsive": True,
@@ -526,7 +543,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=default_max_dim,
                                                     min=1,
-                                                    className=VALUE,
+                                                    className="small-value",
                                                     step=1,
                                                     debounce=True,
                                                 ),
@@ -537,11 +554,11 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="Interactive lines selection",
+                                                    children="Parameter selection",
                                                 ),
                                                 dcc.RadioItems(
-                                                    ["on", "off"],
-                                                    "off",
+                                                    ["On", "Off"],
+                                                    "Off",
                                                     id=DISPLAY_LINES_SELECTION,
                                                     className=VALUE,
                                                 ),
@@ -582,23 +599,31 @@ class PersistableInteractive:
                                     hidden=True,
                                     children=[
                                         html.Div(
-                                            className="parameter-double",
+                                            className="parameter-single",
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="Max #vines/Prominence scale",
+                                                    children="Max number vines display",
                                                 ),
                                                 dcc.Input(
                                                     id=INPUT_MAX_VINES,
                                                     type="number",
                                                     value=default_max_vines,
                                                     min=1,
-                                                    className=VALUE,
+                                                    className="small-value",
                                                     step=1,
                                                 ),
+                                            ]),
+                                        html.Div(
+                                            className="parameter-single",
+                                            children=[
+                                                html.Span(
+                                                    className="name",
+                                                    children="Prominence scale",
+                                                ),
                                                 dcc.RadioItems(
-                                                    ["linear", "logarithmic"],
-                                                    "logarithmic",
+                                                    ["Lin", "Log"],
+                                                    "Log",
                                                     id=INPUT_PROM_VIN_SCALE,
                                                     className=VALUE,
                                                 ),
@@ -612,8 +637,8 @@ class PersistableInteractive:
                                                             children="Parameter selection",
                                                         ),
                                                         dcc.RadioItems(
-                                                            ["on", "off"],
-                                                            "off",
+                                                            ["On", "Off"],
+                                                            "Off",
                                                             id=DISPLAY_PARAMETER_SELECTION,
                                                             className=VALUE,
                                                         ),
@@ -625,7 +650,7 @@ class PersistableInteractive:
                                                     children=[
                                                         html.Span(
                                                             className="name",
-                                                            children="Line number/Gap number",
+                                                            children="Line number",
                                                         ),
                                                         dcc.Input(
                                                             className=VALUE,
@@ -633,6 +658,10 @@ class PersistableInteractive:
                                                             type="number",
                                                             value=1,
                                                             min=1,
+                                                        ),
+                                                        html.Span(
+                                                            className="name",
+                                                            children="Gap number",
                                                         ),
                                                         dcc.Input(
                                                             className=VALUE,
@@ -642,7 +671,7 @@ class PersistableInteractive:
                                                             min=1,
                                                         ),
                                                         html.Button(
-                                                            "fix parameters",
+                                                            "Fix parameters",
                                                             id=EXPORT_PARAMETERS_BUTTON,
                                                             className="button",
                                                             disabled=True,
@@ -658,8 +687,9 @@ class PersistableInteractive:
                     ],
                 ),
                 html.Details(
-                  className="warnings",
-                   children= [
+                    id=LOG_DIV,
+                    className="warnings",
+                    children= [
                         html.Summary("Warnings"),
                         html.Pre(
                             id=LOG,
@@ -667,9 +697,10 @@ class PersistableInteractive:
                                 "border": "thin lightgrey solid",
                                 "overflowX": "scroll",
                             },
+                            children=[" "]
                         ),
                     ],
-                    open=True,
+                    open=False,
                 ),
                 html.Details(
                   className="help",
@@ -750,7 +781,7 @@ class PersistableInteractive:
             [[PARAMETER_SELECTION_DIV, HIDDEN]],
         )
         def toggle_parameter_selection_pv(d):
-            if d[DISPLAY_PARAMETER_SELECTION + VALUE] == "on":
+            if d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On":
                 d[PARAMETER_SELECTION_DIV + HIDDEN] = False
             else:
                 d[PARAMETER_SELECTION_DIV + HIDDEN] = True
@@ -761,20 +792,27 @@ class PersistableInteractive:
                 [STORED_CCF_COMPUTATION_WARNINGS, DATA, IN],
                 [STORED_PV_COMPUTATION_WARNINGS, DATA, IN],
             ],
-            [[LOG, CHILDREN]],
+            [[LOG, CHILDREN],[LOG_DIV, "open"]],
             True,
         )
         def print_log(d):
             if ctx.triggered_id == STORED_CCF_COMPUTATION_WARNINGS:
-                d[LOG + CHILDREN] = json.loads(
+                message = json.loads(
                     d[STORED_CCF_COMPUTATION_WARNINGS + DATA]
                 )
             elif ctx.triggered_id == STORED_PV_COMPUTATION_WARNINGS:
-                d[LOG + CHILDREN] = json.loads(d[STORED_PV_COMPUTATION_WARNINGS + DATA])
+                message = json.loads(d[STORED_PV_COMPUTATION_WARNINGS + DATA])
             else:
                 raise Exception(
                     "print_log was triggered by unknown id: " + str(ctx.triggered_id)
                 )
+            if len(message) > 0:
+                d[LOG_DIV + "open"] = True
+                d[LOG + CHILDREN] = message
+            else:
+                d[LOG_DIV + "open"] = False
+                d[LOG + CHILDREN] = " "
+
             return d
 
         @dash_callback(
@@ -804,7 +842,7 @@ class PersistableInteractive:
             True,
         )
         def on_ccf_click(d):
-            if d[DISPLAY_LINES_SELECTION + VALUE] == "on":
+            if d[DISPLAY_LINES_SELECTION + VALUE] == "On":
                 new_x, new_y = (
                     d[CFF_PLOT + CLICKDATA]["points"][0]["x"],
                     d[CFF_PLOT + CLICKDATA]["points"][0]["y"],
@@ -827,7 +865,7 @@ class PersistableInteractive:
             [[DISPLAY_LINES_SELECTION, VALUE, IN]], [[ENDPOINT_SELECTION_DIV, HIDDEN]]
         )
         def toggle_parameter_selection_ccf(d):
-            if d[DISPLAY_LINES_SELECTION + VALUE] == "on":
+            if d[DISPLAY_LINES_SELECTION + VALUE] == "On":
                 d[ENDPOINT_SELECTION_DIV + HIDDEN] = False
             else:
                 d[ENDPOINT_SELECTION_DIV + HIDDEN] = True
@@ -856,8 +894,8 @@ class PersistableInteractive:
 
             fig = go.Figure(
                 layout=go.Layout(
-                    xaxis_title="distance scale",
-                    yaxis_title="density threshold",
+                    xaxis_title="Distance scale",
+                    yaxis_title="Density threshold",
                     xaxis={"fixedrange": True},
                     yaxis={"fixedrange": True},
                 ),
@@ -879,8 +917,8 @@ class PersistableInteractive:
 
             fig.update_layout(showlegend=False)
             fig.update_layout(autosize=True)
-            fig.update_xaxes(range=[min(ccf.columns), max(ccf.columns)])
-            fig.update_yaxes(range=[min(ccf.index), max(ccf.index)])
+            #fig.update_xaxes(range=[min(ccf.columns), max(ccf.columns)])
+            #fig.update_yaxes(range=[min(ccf.index), max(ccf.index)])
             fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
             fig.update_layout(clickmode="event+select")
 
@@ -922,82 +960,82 @@ class PersistableInteractive:
 
             ccf = pd.read_json(ccf, orient="split")
 
-            def generate_red_box(xs, ys, text):
-                return go.Scatter(
-                    x=xs,
-                    y=ys,
-                    fillcolor="rgba(255, 0, 0, 0.1)",
-                    fill="toself",
-                    mode="none",
-                    text=text,
-                    name="",
-                )
+            #def generate_red_box(xs, ys, text):
+            #    return go.Scatter(
+            #        x=xs,
+            #        y=ys,
+            #        fillcolor="rgba(255, 0, 0, 0.1)",
+            #        fill="toself",
+            #        mode="none",
+            #        text=text,
+            #        name="",
+            #    )
 
-            # draw left side of new enclosing box
-            fig.add_trace(
-                generate_red_box(
-                    [
-                        min(ccf.columns),
-                        d[MIN_DIST_SCALE + VALUE],
-                        d[MIN_DIST_SCALE + VALUE],
-                        min(ccf.columns),
-                    ],
-                    [min(ccf.index), min(ccf.index), max(ccf.index), max(ccf.index)],
-                    "Left side of new enclosing box",
-                )
-            )
+            ## draw left side of new enclosing box
+            #fig.add_trace(
+            #    generate_red_box(
+            #        [
+            #            min(ccf.columns),
+            #            d[MIN_DIST_SCALE + VALUE],
+            #            d[MIN_DIST_SCALE + VALUE],
+            #            min(ccf.columns),
+            #        ],
+            #        [min(ccf.index), min(ccf.index), max(ccf.index), max(ccf.index)],
+            #        "Left side of new enclosing box",
+            #    )
+            #)
 
-            # draw right side of new enclosing box
-            fig.add_trace(
-                generate_red_box(
-                    [
-                        d[MAX_DIST_SCALE + VALUE],
-                        max(ccf.columns),
-                        max(ccf.columns),
-                        d[MAX_DIST_SCALE + VALUE],
-                    ],
-                    [min(ccf.index), min(ccf.index), max(ccf.index), max(ccf.index)],
-                    text="Right side of new enclosing box",
-                )
-            )
+            ## draw right side of new enclosing box
+            #fig.add_trace(
+            #    generate_red_box(
+            #        [
+            #            d[MAX_DIST_SCALE + VALUE],
+            #            max(ccf.columns),
+            #            max(ccf.columns),
+            #            d[MAX_DIST_SCALE + VALUE],
+            #        ],
+            #        [min(ccf.index), min(ccf.index), max(ccf.index), max(ccf.index)],
+            #        text="Right side of new enclosing box",
+            #    )
+            #)
 
-            # draw top side of new enclosing box
-            fig.add_trace(
-                generate_red_box(
-                    [
-                        d[MIN_DIST_SCALE + VALUE],
-                        d[MAX_DIST_SCALE + VALUE],
-                        d[MAX_DIST_SCALE + VALUE],
-                        d[MIN_DIST_SCALE + VALUE],
-                    ],
-                    [
-                        d[MAX_DENSITY_THRESHOLD + VALUE],
-                        d[MAX_DENSITY_THRESHOLD + VALUE],
-                        max(ccf.index),
-                        max(ccf.index),
-                    ],
-                    text="Top side of new enclosing box",
-                )
-            )
+            ## draw top side of new enclosing box
+            #fig.add_trace(
+            #    generate_red_box(
+            #        [
+            #            d[MIN_DIST_SCALE + VALUE],
+            #            d[MAX_DIST_SCALE + VALUE],
+            #            d[MAX_DIST_SCALE + VALUE],
+            #            d[MIN_DIST_SCALE + VALUE],
+            #        ],
+            #        [
+            #            d[MAX_DENSITY_THRESHOLD + VALUE],
+            #            d[MAX_DENSITY_THRESHOLD + VALUE],
+            #            max(ccf.index),
+            #            max(ccf.index),
+            #        ],
+            #        text="Top side of new enclosing box",
+            #    )
+            #)
 
-            # draw bottom side of new enclosing box
-            fig.add_trace(
-                generate_red_box(
-                    [
-                        d[MIN_DIST_SCALE + VALUE],
-                        d[MAX_DIST_SCALE + VALUE],
-                        d[MAX_DIST_SCALE + VALUE],
-                        d[MIN_DIST_SCALE + VALUE],
-                    ],
-                    [
-                        d[MIN_DENSITY_THRESHOLD + VALUE],
-                        d[MIN_DENSITY_THRESHOLD + VALUE],
-                        min(ccf.index),
-                        min(ccf.index),
-                    ],
-                    text="Bottom side of new enclosing box",
-                )
-            )
+            ## draw bottom side of new enclosing box
+            #fig.add_trace(
+            #    generate_red_box(
+            #        [
+            #            d[MIN_DIST_SCALE + VALUE],
+            #            d[MAX_DIST_SCALE + VALUE],
+            #            d[MAX_DIST_SCALE + VALUE],
+            #            d[MIN_DIST_SCALE + VALUE],
+            #        ],
+            #        [
+            #            d[MIN_DENSITY_THRESHOLD + VALUE],
+            #            d[MIN_DENSITY_THRESHOLD + VALUE],
+            #            min(ccf.index),
+            #            min(ccf.index),
+            #        ],
+            #        text="Bottom side of new enclosing box",
+            #    )
+            #)
 
             def generate_line(xs, ys, text, color="blue", different_marker=None):
                 if different_marker == None:
@@ -1020,7 +1058,7 @@ class PersistableInteractive:
                     textposition="top center",
                 )
 
-            if d[DISPLAY_LINES_SELECTION + VALUE] == "on":
+            if d[DISPLAY_LINES_SELECTION + VALUE] == "On":
 
                 # draw polygon
                 fig.add_trace(
@@ -1080,7 +1118,7 @@ class PersistableInteractive:
 
             if (
                 d[FIXED_PARAMETERS + DATA] is not None
-                and d[DISPLAY_PARAMETER_SELECTION + VALUE] == "on"
+                and d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On"
             ):
                 params = json.loads(d[FIXED_PARAMETERS + DATA])
                 fig.add_trace(
@@ -1091,6 +1129,11 @@ class PersistableInteractive:
                         color="green",
                     )
                 )
+
+            fig.update_xaxes(range=[d[MIN_DIST_SCALE + VALUE], d[MAX_DIST_SCALE + VALUE]])
+            fig.update_yaxes(range=[d[MIN_DENSITY_THRESHOLD + VALUE], d[MAX_DENSITY_THRESHOLD + VALUE]])
+            #fig.update_xaxes(range=[min(ccf.columns), max(ccf.columns)])
+            #fig.update_yaxes(range=[min(ccf.index), max(ccf.index)])
 
             d[CFF_PLOT + FIGURE] = fig
             return d
@@ -1117,7 +1160,7 @@ class PersistableInteractive:
                 [MAX_DENSITY_THRESHOLD, VALUE, ST],
                 [MIN_DIST_SCALE, VALUE, ST],
                 [MAX_DIST_SCALE, VALUE, ST],
-                [INPUT_LOG_GRANULARITY_CCF, VALUE, ST],
+                [INPUT_GRANULARITY_CCF, VALUE, ST],
                 [INPUT_NUM_JOBS_CCF, VALUE, ST],
             ],
             [
@@ -1130,7 +1173,7 @@ class PersistableInteractive:
             running=[[COMPUTE_CCF_BUTTON, DISABLED, True, False]],
         )
         def compute_ccf(d):
-            granularity = 2 ** d[INPUT_LOG_GRANULARITY_CCF + VALUE]
+            granularity = d[INPUT_GRANULARITY_CCF + VALUE]
             num_jobs = int(d[INPUT_NUM_JOBS_CCF + VALUE])
 
             out = ""
@@ -1172,7 +1215,7 @@ class PersistableInteractive:
                 [Y_START_SECOND_LINE, VALUE, ST],
                 [X_END_SECOND_LINE, VALUE, ST],
                 [Y_END_SECOND_LINE, VALUE, ST],
-                [INPUT_LOG_GRANULARITY_PV, VALUE, ST],
+                [INPUT_GRANULARITY_PV, VALUE, ST],
                 [INPUT_NUM_JOBS_PV, VALUE, ST],
             ],
             [
@@ -1189,7 +1232,7 @@ class PersistableInteractive:
         )
         def compute_pv(d):
 
-            granularity = 2 ** d[INPUT_LOG_GRANULARITY_PV + VALUE]
+            granularity = d[INPUT_GRANULARITY_PV + VALUE]
             num_jobs = int(d[INPUT_NUM_JOBS_PV + VALUE])
 
             out = ""
@@ -1268,8 +1311,8 @@ class PersistableInteractive:
 
             fig = go.Figure(
                 layout=go.Layout(
-                    xaxis_title="parameter line",
-                    yaxis_title="prominence",
+                    xaxis_title="Parameter line",
+                    yaxis_title="Prominence",
                     xaxis={
                         "fixedrange": True,
                         "showgrid": False,
@@ -1288,25 +1331,40 @@ class PersistableInteractive:
             if num_vines > 0:
                 for i in range(num_vines - 1, -1, -1):
                     till = "tozeroy" if i == num_vines - 1 else "tonexty"
-                    color = (
-                        "red"
-                        if (
-                            d[DISPLAY_PARAMETER_SELECTION + VALUE] == "on"
-                            and i + 1 == d[INPUT_GAP + VALUE]
+                    color=colors[i]
+                    if d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On" and i + 1 == d[INPUT_GAP + VALUE]:
+                        fig.add_trace(
+                            go.Scatter(
+                                x=times,
+                                y=vines[i][1],
+                                fill=till,
+                                # hoveron="fills",
+                                text="vine " + str(i + 1),
+                                hoverinfo="text",
+                                line_color=color,
+                                fillpattern=go.scatter.Fillpattern(shape="x")
+                            )
                         )
-                        else colors[i]
-                    )
-                    fig.add_trace(
-                        go.Scatter(
-                            x=times,
-                            y=vines[i][1],
-                            fill=till,
-                            # hoveron="fills",
-                            text="vine " + str(i + 1),
-                            hoverinfo="text",
-                            line_color=color,
+                    else:
+                        fig.add_trace(
+                            go.Scatter(
+                                x=times,
+                                y=vines[i][1],
+                                fill=till,
+                                # hoveron="fills",
+                                text="vine " + str(i + 1),
+                                hoverinfo="text",
+                                line_color=color,
+                            )
                         )
-                    )
+                    #color = (
+                    #    "red"
+                    #    if (
+                    #        d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On"
+                    #        and i + 1 == d[INPUT_GAP + VALUE]
+                    #    )
+                    #    else colors[i]
+                    #)
             for i, tv in enumerate(vines):
                 times, vine = tv
                 for vine_part, time_part in vineyard._vine_parts(vine):
@@ -1328,12 +1386,12 @@ class PersistableInteractive:
             #  ax.set_ylabel("prominence")
             values = np.array(_vineyard_values)
 
-            if d[DISPLAY_PARAMETER_SELECTION + VALUE] == "on":
+            if d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On":
                 fig.add_vline(
-                    x=d[INPUT_LINE + VALUE], line_dash="dash", line_color="red"
+                    x=d[INPUT_LINE + VALUE],  line_color="grey"
                 )  # line_width=3, , line_color="green")
 
-            if d[INPUT_PROM_VIN_SCALE + VALUE] == "logarithmic":
+            if d[INPUT_PROM_VIN_SCALE + VALUE] == "Log":
                 fig.update_layout(yaxis_type="log")
                 fig.update_layout(
                     yaxis_range=[
