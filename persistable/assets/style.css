@@ -112,11 +112,11 @@ input {
 }
 
 .large-buttons>.button1 {
-    width: 80%;
+    width: 50%;
 }
 
 .large-buttons>.button2 {
-    width: 20%;
+    width: 50%;
 }
 
 #log- {

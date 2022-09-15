@@ -721,7 +721,7 @@ class PersistableInteractive:
                             """
             ### Interactive parameter selection for Persistable
             - When setting a field, press enter to make it take effect.
-            - Check the log, below, for warnings.
+            - Check the log, above, for warnings.
             - The app can take a second or so to update the graphical interface after an interaction.
             - Computing the component counting function and prominence vineyard can take a while, depending on the size and dimensionality of the dataset as well as other factors.
             - Make sure to leave your pointer still when clicking on the component counting function plot, otherwise your interaction may not be registered.
@@ -974,7 +974,7 @@ class PersistableInteractive:
 
             ccf = pandas.read_json(ccf, orient="split")
 
-            def generate_line(xs, ys, text, color="blue", different_marker=None):
+            def generate_line(xs, ys, text, color="mediumslateblue", different_marker=None):
                 if different_marker == None:
                     marker_styles = ["circle", "circle"]
                 elif different_marker == 0:
@@ -1040,7 +1040,7 @@ class PersistableInteractive:
                         [d[Y_START_FIRST_LINE + VALUE], d[Y_END_FIRST_LINE + VALUE]],
                         "1st",
                         different_marker=first_line_endpoints,
-                        color="blue",
+                        color="mediumslateblue",
                     )
                 )
                 fig.add_trace(
@@ -1049,7 +1049,7 @@ class PersistableInteractive:
                         [d[Y_START_SECOND_LINE + VALUE], d[Y_END_SECOND_LINE + VALUE]],
                         "2nd",
                         different_marker=second_line_endpoints,
-                        color="blue",
+                        color="mediumslateblue",
                     )
                 )
 
@@ -1103,7 +1103,7 @@ class PersistableInteractive:
                         q_end = np.array([q_end_x, q_end_y])
                         r_st = q_st + (i + 1) * tau
                         r_end = q_end + (i + 1) * tau
-                        color = "green" if i < d[INPUT_GAP + VALUE] else "lightgreen"
+                        color = "rgba(34, 139, 34, 1)" if i < d[INPUT_GAP + VALUE] else "rgba(34, 139, 34, 0.3)"
                         fig.add_trace(
                             generate_bar(
                                 [r_st[0], r_end[0]], [r_st[1], r_end[1]], color
@@ -1114,7 +1114,7 @@ class PersistableInteractive:
                         [params["start"][0], params["end"][0]],
                         [params["start"][1], params["end"][1]],
                         "selected",
-                        color="purple",
+                        color="blue",
                     )
                 )
 
