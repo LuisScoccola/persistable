@@ -103,9 +103,9 @@ class Persistable:
     ):
         start, end = np.array(start), np.array(end)
         if start.shape != (2,) or end.shape != (2,):
-            raise Exception("start and end must both be points on the plane.")
+            raise ValueError("start and end must both be points on the plane.")
         if n_clusters < 1:
-            raise Exception("n_clusters must be greater than 0.")
+            raise ValueError("n_clusters must be greater than 0.")
         hc = self._mpspace.lambda_linkage(start, end)
         bd = hc.persistence_diagram()
         pers = np.abs(bd[:, 0] - bd[:, 1])
@@ -130,7 +130,7 @@ class Persistable:
             )
         return cl
 
-    def compute_vineyard(self, start_end1, start_end2, n_parameters=50, n_jobs=4):
+    def _compute_vineyard(self, start_end1, start_end2, n_parameters=50, n_jobs=4):
         start1, end1 = start_end1
         start2, end2 = start_end2
         if (
@@ -139,7 +139,7 @@ class Persistable:
             or start2[0] >= end2[0]
             or start2[1] <= end2[1]
         ):
-            raise Exception("Chosen parameters will result in non-monotonic lines!")
+            raise ValueError("Parameters chosen for vineyard will result in non-monotonic lines!")
         starts = list(
             zip(
                 np.linspace(start1[0], start2[0], n_parameters),
@@ -156,7 +156,7 @@ class Persistable:
         pds = self._mpspace.lambda_linkage_vineyard(startends, n_jobs=n_jobs)
         return Vineyard(startends, pds)
 
-    def compute_hilbert_function(
+    def _compute_hilbert_function(
         self,
         min_k,
         max_k,
@@ -165,8 +165,10 @@ class Persistable:
         granularity=50,
         n_jobs=4,
     ):
-        # if max_k is None:
-        #    max_k = self._maxk
+        if min_k >= max_k:
+            raise ValueError("min_k must be smaller than max_k.")
+        if min_s >= max_s:
+            raise ValueError("min_s must be smaller than max_s.")
         if max_k > self._maxk:
             max_k = min(max_k, self._maxk)
             warnings.warn(
@@ -221,7 +223,7 @@ class _MetricProbabilitySpace:
         elif metric == "precomputed":
             self._dist_mat = X
         else:
-            raise Exception("Metric given is not supported.")
+            raise ValueError("Metric given is not supported.")
 
     def fit(self, n_neighbors):
         self._fit_nn(n_neighbors)
@@ -312,7 +314,7 @@ class _MetricProbabilitySpace:
 
     def lambda_linkage(self, start, end):
         if start[0] > end[0] or start[1] < end[1]:
-            raise Exception("Lambda linkage parameters do not give a monotonic line!")
+            raise ValueError("Parameters do not give a monotonic line.")
 
         def _startend_to_intercepts(start, end):
             if end[0] == np.infty:

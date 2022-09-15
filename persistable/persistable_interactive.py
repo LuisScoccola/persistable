@@ -2,6 +2,7 @@
 # License: 3-clause BSD
 
 import warnings
+import traceback
 import plotly.graph_objects as go
 import plotly
 import pandas
@@ -175,8 +176,8 @@ class PersistableInteractive:
                 #
                 dcc.Store(id=STORED_PD, data = json.dumps([])),
                 #
-                dcc.Store(id=STORED_CCF_COMPUTATION_WARNINGS),
-                dcc.Store(id=STORED_PV_COMPUTATION_WARNINGS),
+                dcc.Store(id=STORED_CCF_COMPUTATION_WARNINGS, data = json.dumps(" ")),
+                dcc.Store(id=STORED_PV_COMPUTATION_WARNINGS, data = json.dumps(" ")),
                 # dcc.Store(id=STORED_PD_COMPUTATION_WARNINGS),
                 #
                 dcc.Store(id=FIXED_PARAMETERS, data = json.dumps([])),
@@ -902,10 +903,6 @@ class PersistableInteractive:
         def draw_ccf(d):
             ccf = d[STORED_CCF + DATA]
 
-            # if ccf is None:
-            #    d[STORED_CCF_DRAWING + DATA] = empty_figure()
-            #    return d
-
             ccf = pandas.read_json(ccf, orient="split")
 
             def df_to_plotly(df):
@@ -924,7 +921,6 @@ class PersistableInteractive:
                 ),
             )
             max_components = d[INPUT_MAX_COMPONENTS + VALUE]
-            # max_components = 0 if max_components is None else int(max_components)
 
             fig.add_trace(
                 go.Heatmap(
@@ -974,10 +970,6 @@ class PersistableInteractive:
         )
         def draw_ccf_enclosing_box(d):
             ccf = d[STORED_CCF + DATA]
-
-            # if ccf is None:
-            #    d[CFF_PLOT + FIGURE] = empty_figure()
-            #    return d
 
             fig = plotly.io.from_json(d[STORED_CCF_DRAWING + DATA])
 
@@ -1077,10 +1069,10 @@ class PersistableInteractive:
                             hoverinfo="skip",
                             showlegend=False,
                             mode="lines",
-                            line=dict(width=4),
+                            line=dict(width=6),
                         )
 
-                    shift = 75
+                    shift = 65
                     tau = (
                         np.array(
                             [
@@ -1147,10 +1139,6 @@ class PersistableInteractive:
         )
         def draw_pv_post(d):
 
-            # if d[STORED_PV + DATA] is None:
-            #    d[PV_PLOT + FIGURE] = empty_figure()
-            #    return d
-
             d[PV_PLOT + FIGURE] = plotly.io.from_json(d[STORED_PV_DRAWING + DATA])
 
             return d
@@ -1185,21 +1173,26 @@ class PersistableInteractive:
             out = ""
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                warnings.warn(
-                    "check that computation hasn't failed to display the ccf plot controls below"
-                )
-                ss, ks, hf = self._persistable.compute_hilbert_function(
-                    d[MIN_DENSITY_THRESHOLD + VALUE],
-                    d[MAX_DENSITY_THRESHOLD + VALUE],
-                    d[MIN_DIST_SCALE + VALUE],
-                    d[MAX_DIST_SCALE + VALUE],
-                    granularity,
-                    n_jobs=num_jobs,
-                )
-                for a in w:
-                    out += warnings.formatwarning(
-                        a.message, a.category, a.filename, a.lineno
+                try:
+                    ss, ks, hf = self._persistable._compute_hilbert_function(
+                        d[MIN_DENSITY_THRESHOLD + VALUE],
+                        d[MAX_DENSITY_THRESHOLD + VALUE],
+                        d[MIN_DIST_SCALE + VALUE],
+                        d[MAX_DIST_SCALE + VALUE],
+                        granularity,
+                        n_jobs=num_jobs,
                     )
+                except ValueError:
+                    out += traceback.format_exc()
+                    d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
+                    d[STORED_CCF + DATA] = None #pandas.DataFrame([]).to_json(date_format="iso", orient="split")
+                    d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = True
+                    return d
+
+            for a in w:
+                out += warnings.formatwarning(
+                    a.message, a.category, a.filename, a.lineno
+                )
 
             d[STORED_CCF + DATA] = pandas.DataFrame(
                 hf, index=ks[:-1], columns=ss[:-1]
@@ -1248,37 +1241,42 @@ class PersistableInteractive:
             out = ""
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                warnings.warn(
-                    "need to check that prominence vineyard succedeed enable the button and the controls, below, correctly!"
-                )
-                pv = self._persistable.compute_vineyard(
-                    [
-                        [d[X_START_FIRST_LINE + VALUE], d[Y_START_FIRST_LINE + VALUE]],
-                        [d[X_END_FIRST_LINE + VALUE], d[Y_END_FIRST_LINE + VALUE]],
-                    ],
-                    [
+                try:
+                    pv = self._persistable._compute_vineyard(
                         [
-                            d[X_START_SECOND_LINE + VALUE],
-                            d[Y_START_SECOND_LINE + VALUE],
+                            [d[X_START_FIRST_LINE + VALUE], d[Y_START_FIRST_LINE + VALUE]],
+                            [d[X_END_FIRST_LINE + VALUE], d[Y_END_FIRST_LINE + VALUE]],
                         ],
-                        [d[X_END_SECOND_LINE + VALUE], d[Y_END_SECOND_LINE + VALUE]],
-                    ],
-                    n_parameters=granularity,
-                    n_jobs=num_jobs,
-                )
-                for a in w:
-                    out += warnings.formatwarning(
-                        a.message, a.category, a.filename, a.lineno
+                        [
+                            [
+                                d[X_START_SECOND_LINE + VALUE],
+                                d[Y_START_SECOND_LINE + VALUE],
+                            ],
+                            [d[X_END_SECOND_LINE + VALUE], d[Y_END_SECOND_LINE + VALUE]],
+                        ],
+                        n_parameters=granularity,
+                        n_jobs=num_jobs,
                     )
+                except ValueError:
+                    out += traceback.format_exc()
+                    d[STORED_PV_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
+                    d[STORED_PV + DATA] = None
+                    d[INPUT_LINE + "max"] = granularity
+                    d[INPUT_LINE + VALUE] = granularity // 2
+                    d[EXPORT_PARAMETERS_BUTTON + DISABLED] = True
+                    d[PV_PLOT_CONTROLS_DIV + HIDDEN] = True
+                    return d
+
+            for a in w:
+                out += warnings.formatwarning(
+                    a.message, a.category, a.filename, a.lineno
+                )
 
             d[STORED_PV + DATA] = json.dumps(pv.__dict__)
             d[STORED_PV_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[INPUT_LINE + "max"] = granularity
             d[INPUT_LINE + VALUE] = granularity // 2
-            if True:
-                d[EXPORT_PARAMETERS_BUTTON + DISABLED] = False
-            else:
-                d[EXPORT_PARAMETERS_BUTTON + DISABLED] = True
+            d[EXPORT_PARAMETERS_BUTTON + DISABLED] = False
 
             d[PV_PLOT_CONTROLS_DIV + HIDDEN] = False
 
@@ -1299,20 +1297,12 @@ class PersistableInteractive:
         def draw_pv(d):
             firstn = d[INPUT_MAX_VINES + VALUE]
 
-            # if d[STORED_PV + DATA] is None:
-            #    d[STORED_PV_DRAWING + DATA] = empty_figure()
-            #    return d
-
             vineyard_as_dict = json.loads(d[STORED_PV + DATA])
             vineyard = Vineyard(
                 vineyard_as_dict["_parameters"],
                 vineyard_as_dict["_persistence_diagrams"],
             )
 
-            _gaps = []
-            _gap_numbers = []
-            _lines = []
-            _line_index = []
             _vineyard_values = []
 
             times = np.array(vineyard.parameter_indices()) + 1
@@ -1379,16 +1369,17 @@ class PersistableInteractive:
             if d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On":
                 fig.add_vline(x=d[INPUT_LINE + VALUE], line_color="grey")
 
-            if d[INPUT_PROM_VIN_SCALE + VALUE] == "Log":
-                fig.update_layout(yaxis_type="log")
-                fig.update_layout(
-                    yaxis_range=[
-                        np.log10(np.quantile(values[values > 0], 0.05)),
-                        np.log10(max(values)),
-                    ]
-                )
-            else:
-                fig.update_layout(yaxis_range=[0, max(values)])
+            if len(values) > 0:
+                if d[INPUT_PROM_VIN_SCALE + VALUE] == "Log":
+                    fig.update_layout(yaxis_type="log")
+                    fig.update_layout(
+                        yaxis_range=[
+                            np.log10(np.quantile(values[values > 0], 0.05)),
+                            np.log10(max(values)),
+                        ]
+                    )
+                else:
+                    fig.update_layout(yaxis_range=[0, max(values)])
 
             fig.update_layout(showlegend=False)
             fig.update_layout(autosize=True)
