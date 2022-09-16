@@ -2,7 +2,7 @@
 # License: 3-clause BSD
 
 # from .plot import PersistablePlot
-from ._prominence_vineyard import ProminenceVineyard
+from ._vineyard import Vineyard
 from .borrowed._hdbscan_boruvka import (
     KDTreeBoruvkaAlgorithm,
     BallTreeBoruvkaAlgorithm,
@@ -28,7 +28,7 @@ class Persistable:
         X,
         metric="minkowski",
         measure=None,
-        max_neighbors=None,
+        n_neighbors=None,
         leaf_size: int = 40,
         **kwargs
     ):
@@ -41,18 +41,18 @@ class Persistable:
         if measure is None:
             measure = np.full(X.shape[0], 1.0 / X.shape[0])
         self._mpspace = _MetricProbabilitySpace(X, metric, measure, leaf_size, **kwargs)
-        # if no max_neighbors for fitting mpspace was passed, compute a reasonable one
-        if max_neighbors is None:
+        # if no n_neighbors for fitting mpspace was passed, compute a reasonable one
+        if n_neighbors is None:
             if X.shape[0] < 100:
-                max_neighbors = X.shape[0]
+                n_neighbors = X.shape[0]
             else:
-                max_neighbors = min(int(np.log10(X.shape[0])) * 100, X.shape[0])
+                n_neighbors = min(int(np.log10(X.shape[0])) * 100, X.shape[0])
         else:
-            max_neighbors = min(max_neighbors, X.shape[0])
-        # keep max_k (normalized max_neighbors)
-        self._maxk = max_neighbors / X.shape[0]
+            n_neighbors = min(n_neighbors, X.shape[0])
+        # keep max_k (normalized n_neighbors)
+        self._maxk = n_neighbors / X.shape[0]
         # fit the mpspace
-        self._mpspace.fit(max_neighbors)
+        self._mpspace.fit(n_neighbors)
         default_percentile = 0.95
         # compute and keep robust connection radius
         self._connection_radius = self._mpspace.connection_radius(default_percentile)
@@ -79,17 +79,10 @@ class Persistable:
         if n_clusters_range[1] >= len(proms):
             return self.cluster(n_clusters_range[1], [0, k], [s, 0])
         logproms = np.log(proms)
-        # print("logproms")
-        # print(logproms)
         peaks = logproms[:-1] - logproms[1:]
-        # print("peaks")
-        # print(peaks)
         min_clust = n_clusters_range[0] - 1
         max_clust = n_clusters_range[1] - 1
-        # print("highest peak")
-        # print(peaks[min_clust:max_clust][np.argmax(peaks[min_clust:max_clust])])
         num_clust = np.argmax(peaks[min_clust:max_clust]) + min_clust + 1
-        # print(num_clust)
         return self.cluster(
             num_clust,
             [0, k],
@@ -110,9 +103,9 @@ class Persistable:
     ):
         start, end = np.array(start), np.array(end)
         if start.shape != (2,) or end.shape != (2,):
-            raise Exception("start and end must both be points on the plane.")
+            raise ValueError("start and end must both be points on the plane.")
         if n_clusters < 1:
-            raise Exception("n_clusters must be greater than 0.")
+            raise ValueError("n_clusters must be greater than 0.")
         hc = self._mpspace.lambda_linkage(start, end)
         bd = hc.persistence_diagram()
         pers = np.abs(bd[:, 0] - bd[:, 1])
@@ -137,13 +130,7 @@ class Persistable:
             )
         return cl
 
-    def compute_prominence_vineyard(
-        self,
-        start_end1,
-        start_end2,
-        n_parameters=50,
-        first_n_vines=20,
-    ):
+    def _compute_vineyard(self, start_end1, start_end2, n_parameters=50, n_jobs=4):
         start1, end1 = start_end1
         start2, end2 = start_end2
         if (
@@ -152,7 +139,7 @@ class Persistable:
             or start2[0] >= end2[0]
             or start2[1] <= end2[1]
         ):
-            raise Exception("Chosen parameters will result in non-monotonic lines!")
+            raise ValueError("Parameters chosen for vineyard will result in non-monotonic lines!")
         starts = list(
             zip(
                 np.linspace(start1[0], start2[0], n_parameters),
@@ -166,43 +153,43 @@ class Persistable:
             )
         )
         startends = list(zip(starts, ends))
-        pds = self._mpspace.lambda_linkage_prominence_vineyard(startends)
-        return ProminenceVineyard(startends, pds, firstn=first_n_vines)
+        pds = self._mpspace.lambda_linkage_vineyard(startends, n_jobs=n_jobs)
+        return Vineyard(startends, pds)
 
-    def hilbert_function(
+    def _compute_hilbert_function(
         self,
-        max_dim=20,
-        max_k=None,
-        bounds_s=None,
+        min_k,
+        max_k,
+        min_s,
+        max_s,
         granularity=50,
         n_jobs=4,
-        # colormap="binary",
     ):
-        if max_k is None:
-            max_k = self._maxk
-        elif max_k > self._maxk:
+        if min_k >= max_k:
+            raise ValueError("min_k must be smaller than max_k.")
+        if min_s >= max_s:
+            raise ValueError("min_s must be smaller than max_s.")
+        if max_k > self._maxk:
             max_k = min(max_k, self._maxk)
             warnings.warn(
                 "Not enough neighbors to compute chosen max_k, using max_k="
                 + str(max_k)
-                + " instead."
+                + " instead. If needed, re-initialize the Persistable object with a larger n_neighbors."
             )
-        if bounds_s is None:
-            first_s = self._connection_radius / 5
-            last_s = self._connection_radius * 2
-        else:
-            first_s = bounds_s[0]
-            last_s = bounds_s[1]
+        if min_k >= max_k:
+            min_k = max_k / 2
+            warnings.warn("min_k too large, using min_k=" + str(min_k) + " instead.")
+
         # how many more ss than ks (note that getting more ss is very cheap)
-        more_s_than_k = 10
+        more_s_than_k = 1
         ss = np.linspace(
-            first_s,
-            last_s,
-            granularity * more_s_than_k,
+            min_s,
+            max_s + (max_s - min_s) / (granularity * more_s_than_k),
+            granularity * more_s_than_k + 1,
         )
-        ks = np.linspace(0, max_k, granularity)
+        ks = np.linspace(min_k, max_k + (max_k - min_k) / granularity, granularity + 1)
         hf = self._mpspace.hilbert_function(ks, ss, n_jobs=n_jobs)
-        return ss, ks, max_dim, hf
+        return ss, ks, hf
 
 
 class _MetricProbabilitySpace:
@@ -226,7 +213,7 @@ class _MetricProbabilitySpace:
         self._nn_distance = None
         self._nn_indices = None
         self._kernel_estimate = None
-        self._max_neighbors = None
+        self._n_neighbors = None
         self._maxs = None
         self._tol = _TOL
         if metric in KDTree.valid_metrics:
@@ -236,30 +223,30 @@ class _MetricProbabilitySpace:
         elif metric == "precomputed":
             self._dist_mat = X
         else:
-            raise Exception("Metric given is not supported.")
+            raise ValueError("Metric given is not supported.")
 
-    def fit(self, max_neighbors):
-        self._fit_nn(max_neighbors)
+    def fit(self, n_neighbors):
+        self._fit_nn(n_neighbors)
         self._fit_density_estimates()
 
-    def _fit_nn(self, max_neighbors):
-        self._max_neighbors = max_neighbors
+    def _fit_nn(self, n_neighbors):
+        self._n_neighbors = n_neighbors
         if self._metric in BallTree.valid_metrics + KDTree.valid_metrics:
             k_neighbors = self._tree.query(
                 self._points,
-                self._max_neighbors,
+                self._n_neighbors,
                 return_distance=True,
                 sort_results=True,
                 dualtree=True,
                 breadth_first=True,
             )
             k_neighbors = (np.array(k_neighbors[1]), np.array(k_neighbors[0]))
-            maxs_given_by_max_neighbors = np.min(k_neighbors[1][:, -1])
-            self._maxs = maxs_given_by_max_neighbors
+            maxs_given_by_n_neighbors = np.min(k_neighbors[1][:, -1])
+            self._maxs = maxs_given_by_n_neighbors
             neighbors = k_neighbors[0]
             _nn_distance = k_neighbors[1]
         else:
-            self._max_neighbors = self._size
+            self._n_neighbors = self._size
             self._maxs = 0
             neighbors = np.argsort(self._dist_mat)
             _nn_distance = self._dist_mat[
@@ -306,7 +293,7 @@ class _MetricProbabilitySpace:
                     np.searchsorted(self._kernel_estimate[p], k_intercept, side="left")
                 )
             i_indices = np.array(i_indices)
-            if self._max_neighbors < self._size:
+            if self._n_neighbors < self._size:
                 out_of_range = np.where(
                     (
                         i_indices
@@ -327,7 +314,7 @@ class _MetricProbabilitySpace:
 
     def lambda_linkage(self, start, end):
         if start[0] > end[0] or start[1] < end[1]:
-            raise Exception("Lambda linkage parameters do not give a monotonic line!")
+            raise ValueError("Parameters do not give a monotonic line.")
 
         def _startend_to_intercepts(start, end):
             if end[0] == np.infty:
@@ -398,16 +385,6 @@ class _MetricProbabilitySpace:
         return Parallel(n_jobs=n_jobs)(
             delayed(run_in_parallel)(startend) for startend in startends
         )
-
-    def lambda_linkage_prominence_vineyard(self, startends, n_jobs=4, tol=_TOL):
-        def _prominences(bd):
-            if bd.shape[0] == 0:
-                return np.array([])
-            else:
-                return np.sort(np.abs(bd[:, 0] - bd[:, 1]))[::-1]
-
-        pds = self.lambda_linkage_vineyard(startends, n_jobs, tol=tol)
-        return [_prominences(pd) for pd in pds]
 
     def hilbert_function(self, ks, ss, n_jobs, tol=_TOL):
         n_s = len(ss)

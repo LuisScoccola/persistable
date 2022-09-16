@@ -261,10 +261,5 @@ class TestPersistable(unittest.TestCase):
         c = p.quick_cluster()
         self.assertEqual(len(set(c[c >= 0])), 5)
 
-
-
-
-
-
 if __name__ == "__main__":
     unittest.main()

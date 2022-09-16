@@ -88,4 +88,6 @@ setup(
     ],
     cmdclass={"build_ext": CustomBuildExtCommand},
     data_files=("persistable/borrowed/dist_metrics.pxd",),
+    package_data = { '' : ["persistable/assets/style.css"]},
+    include_package_data=True,
 )
