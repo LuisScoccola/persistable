@@ -83,6 +83,8 @@ STORED_CCF_COMPUTATION_WARNINGS = "stored-ccf-computation-warnings-"
 STORED_PV_COMPUTATION_WARNINGS = "stored-pv-computation-warnings-"
 # STORED_PD_COMPUTATION_WARNINGS = "stored-pd-computation-warnings-"
 
+DUMMY_OUTPUT = "dummy-output-"
+
 VALUE = "value"
 CLICKDATA = "clickData"
 HIDDEN = "hidden"
@@ -181,6 +183,11 @@ class PersistableInteractive:
                 # dcc.Store(id=STORED_PD_COMPUTATION_WARNINGS),
                 #
                 dcc.Store(id=FIXED_PARAMETERS, data = json.dumps([])),
+                #
+                html.Div(
+                    id=DUMMY_OUTPUT,
+                    hidden=True
+                ),
                 html.Div(
                     className="grid",
                     children=[
@@ -209,7 +216,6 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_min_s,
                                                                     min=0,
-                                                                    debounce=True,
                                                                     step=default_s_step,
                                                                 ),
                                                                 dcc.Input(
@@ -218,7 +224,6 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_max_s,
                                                                     min=0,
-                                                                    debounce=True,
                                                                     step=default_s_step,
                                                                 ),
                                                             ],
@@ -236,7 +241,6 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_min_k,
                                                                     min=0,
-                                                                    debounce=True,
                                                                     step=default_k_step,
                                                                 ),
                                                                 dcc.Input(
@@ -245,7 +249,6 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_max_k,
                                                                     min=0,
-                                                                    debounce=True,
                                                                     step=default_k_step,
                                                                 ),
                                                             ],
@@ -341,7 +344,6 @@ class PersistableInteractive:
                                                                     value=default_x_start_first_line,
                                                                     min=0,
                                                                     step=default_s_step,
-                                                                    debounce=True,
                                                                 ),
                                                                 dcc.Input(
                                                                     className=VALUE,
@@ -350,7 +352,6 @@ class PersistableInteractive:
                                                                     value=default_y_start_first_line,
                                                                     min=0,
                                                                     step=default_k_step,
-                                                                    debounce=True,
                                                                 ),
                                                             ],
                                                         ),
@@ -368,7 +369,6 @@ class PersistableInteractive:
                                                                     value=default_x_end_first_line,
                                                                     min=0,
                                                                     step=default_s_step,
-                                                                    debounce=True,
                                                                 ),
                                                                 dcc.Input(
                                                                     className=VALUE,
@@ -377,7 +377,6 @@ class PersistableInteractive:
                                                                     value=default_y_end_first_line,
                                                                     min=0,
                                                                     step=default_k_step,
-                                                                    debounce=True,
                                                                 ),
                                                             ],
                                                         ),
@@ -395,7 +394,6 @@ class PersistableInteractive:
                                                                     value=default_x_start_second_line,
                                                                     min=0,
                                                                     step=default_s_step,
-                                                                    debounce=True,
                                                                 ),
                                                                 dcc.Input(
                                                                     className=VALUE,
@@ -404,7 +402,6 @@ class PersistableInteractive:
                                                                     value=default_y_start_second_line,
                                                                     min=0,
                                                                     step=default_k_step,
-                                                                    debounce=True,
                                                                 ),
                                                             ],
                                                         ),
@@ -422,7 +419,6 @@ class PersistableInteractive:
                                                                     value=default_x_end_second_line,
                                                                     min=0,
                                                                     step=default_s_step,
-                                                                    debounce=True,
                                                                 ),
                                                                 dcc.Input(
                                                                     className=VALUE,
@@ -431,7 +427,6 @@ class PersistableInteractive:
                                                                     value=default_y_end_second_line,
                                                                     min=0,
                                                                     step=default_k_step,
-                                                                    debounce=True,
                                                                 ),
                                                             ],
                                                         ),
@@ -565,7 +560,6 @@ class PersistableInteractive:
                                                     min=1,
                                                     className="small-value",
                                                     step=1,
-                                                    debounce=True,
                                                 ),
                                             ],
                                         ),
@@ -1391,10 +1385,9 @@ class PersistableInteractive:
 
         @dash_callback(
             [
-                [EXPORT_PARAMETERS_BUTTON, N_CLICKS, IN],
-                [INPUT_GAP, VALUE, ST],
-                [INPUT_LINE, VALUE, ST],
-                [STORED_PV, DATA, ST],
+                [INPUT_GAP, VALUE, IN],
+                [INPUT_LINE, VALUE, IN],
+                [STORED_PV, DATA, IN],
             ],
             [
                 [FIXED_PARAMETERS, DATA],
@@ -1402,26 +1395,41 @@ class PersistableInteractive:
             ],
             True,
         )
-        def export_parameters(d):
+        def fix_parameters(d):
             vineyard_as_dict = json.loads(d[STORED_PV + DATA])
             vineyard = Vineyard(
                 vineyard_as_dict["_parameters"],
                 vineyard_as_dict["_persistence_diagrams"],
             )
-            line = vineyard._parameters[d[INPUT_LINE + VALUE]]
+            line = vineyard._parameters[d[INPUT_LINE + VALUE]-1]
             params = {
                 "n_clusters": d[INPUT_GAP + VALUE],
                 "start": line[0],
                 "end": line[1],
             }
-            self._parameters = params
             d[FIXED_PARAMETERS + DATA] = json.dumps(params)
 
-            pd = vineyard._persistence_diagrams[d[INPUT_LINE + VALUE]]
+            pd = vineyard._persistence_diagrams[d[INPUT_LINE + VALUE]-1]
 
             d[STORED_PD + DATA] = json.dumps(pd)
 
             return d
+
+        @dash_callback(
+            [
+                [EXPORT_PARAMETERS_BUTTON, N_CLICKS, IN],
+                [FIXED_PARAMETERS, DATA, ST],
+            ],
+            [
+                [DUMMY_OUTPUT, CHILDREN]
+            ],
+            True,
+        )
+        def export_parameters(d):
+            self._parameters = json.loads(d[FIXED_PARAMETERS + DATA])
+            d[DUMMY_OUTPUT + CHILDREN] = []
+            return d
+
 
         if jupyter:
             if inline:

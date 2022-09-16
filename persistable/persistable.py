@@ -181,7 +181,7 @@ class Persistable:
             warnings.warn("min_k too large, using min_k=" + str(min_k) + " instead.")
 
         # how many more ss than ks (note that getting more ss is very cheap)
-        more_s_than_k = 5
+        more_s_than_k = 1
         ss = np.linspace(
             min_s,
             max_s + (max_s - min_s) / (granularity * more_s_than_k),
