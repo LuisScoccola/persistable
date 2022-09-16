@@ -11,6 +11,8 @@ import diskcache
 import dash
 from dash import dcc, html, DiskcacheManager, ctx
 from dash.exceptions import PreventUpdate
+from flask import request
+
 
 from ._vineyard import Vineyard
 
@@ -84,6 +86,9 @@ STORED_PV_COMPUTATION_WARNINGS = "stored-pv-computation-warnings-"
 # STORED_PD_COMPUTATION_WARNINGS = "stored-pd-computation-warnings-"
 
 DUMMY_OUTPUT = "dummy-output-"
+DUMMY_OUTPUT_2 = "dummy-output-2-"
+
+SHUTDOWN_BUTTON = "shutdown-button-"
 
 VALUE = "value"
 CLICKDATA = "clickData"
@@ -185,6 +190,7 @@ class PersistableInteractive:
                 dcc.Store(id=FIXED_PARAMETERS, data=json.dumps([])),
                 #
                 html.Div(id=DUMMY_OUTPUT, hidden=True),
+                html.Div(id=DUMMY_OUTPUT_2, hidden=True),
                 html.Div(
                     className="grid",
                     children=[
@@ -1429,6 +1435,7 @@ class PersistableInteractive:
             self._parameters = json.loads(d[FIXED_PARAMETERS + DATA])
             d[DUMMY_OUTPUT + CHILDREN] = []
             return d
+
 
         if jupyter:
             if inline:

@@ -28,7 +28,7 @@ clustering_labels = p.quick_cluster()
 
 ### Interactive mode 
 
-This is where the real power of Persistable is.
+This is where the real power of Persistable lies.
 
 #### From a Jupyter notebook
 
@@ -44,14 +44,14 @@ p = persistable.Persistable(X)
 pi = persistable.PersistableInteractive(p, jupyter = True, inline = False)
 ```
 
-Now go to `localhost:8050` in your browser to interact with the data.
+Now go to `localhost:8050` in your web browser to interact with the data.
 After choosing your parameters by clicking on the "Choose parameters" button in the GUI, you can get your clustering in another cell with.
 
 ```python
 cluster_labels = p.cluster(**pi._parameters)
 ```
 
-Note: you may use `inline = True` to have the GUI run directly in the Jupyter notebook instead of the browser!
+**Note:** you may use `inline = True` to have the GUI run directly in the Jupyter notebook instead of the web browser!
 
 
 <!---
