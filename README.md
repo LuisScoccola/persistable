@@ -30,25 +30,9 @@ clustering_labels = p.quick_cluster()
 
 This is where the real power of Persistable is.
 
-#### From a Python script
-
-```python
-import persistable
-from sklearn.datasets import make_blobs
-
-X = make_blobs(2000)[0]
-p = persistable.Persistable(X)
-pi = persistable.PersistableInteractive(p)
-# will wait until you close the GUI
-cluster_labels = p.cluster(**pi._parameters)
-```
-
-This will run the lines up to the commented line, and it will wait for you to interact with the data.
-Now go to `localhost:8050` in your browser to interact with the data.
-You can then fix your chosen parameters and close the app by clicking on the "Choose parameters and close" button in the GUI.
-
 #### From a Jupyter notebook
 
+For now, interactive mode is only supported through Jupyter notebooks.
 In one cell, run:
 
 ```python
@@ -69,6 +53,25 @@ cluster_labels = p.cluster(**pi._parameters)
 
 Note: you may use `inline = True` to have the GUI run directly in the Jupyter notebook instead of the browser!
 
+
+<!---
+#### From a Python script
+
+```python
+import persistable
+from sklearn.datasets import make_blobs
+
+X = make_blobs(2000)[0]
+p = persistable.Persistable(X)
+pi = persistable.PersistableInteractive(p)
+# will wait until you close the GUI
+cluster_labels = p.cluster(**pi._parameters)
+```
+
+This will run the lines up to the commented line, and it will wait for you to interact with the data.
+Now go to `localhost:8050` in your browser to interact with the data.
+You can then fix your chosen parameters and close the app by clicking on the "Choose parameters and close" button in the GUI.
+--->
 
 ## Installing
 
