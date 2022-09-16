@@ -176,18 +176,15 @@ class PersistableInteractive:
                 # contains the basic prominence vineyard plot as a plotly figure
                 dcc.Store(id=STORED_PV_DRAWING),
                 #
-                dcc.Store(id=STORED_PD, data = json.dumps([])),
+                dcc.Store(id=STORED_PD, data=json.dumps([])),
                 #
-                dcc.Store(id=STORED_CCF_COMPUTATION_WARNINGS, data = json.dumps(" ")),
-                dcc.Store(id=STORED_PV_COMPUTATION_WARNINGS, data = json.dumps(" ")),
+                dcc.Store(id=STORED_CCF_COMPUTATION_WARNINGS, data=json.dumps(" ")),
+                dcc.Store(id=STORED_PV_COMPUTATION_WARNINGS, data=json.dumps(" ")),
                 # dcc.Store(id=STORED_PD_COMPUTATION_WARNINGS),
                 #
-                dcc.Store(id=FIXED_PARAMETERS, data = json.dumps([])),
+                dcc.Store(id=FIXED_PARAMETERS, data=json.dumps([])),
                 #
-                html.Div(
-                    id=DUMMY_OUTPUT,
-                    hidden=True
-                ),
+                html.Div(id=DUMMY_OUTPUT, hidden=True),
                 html.Div(
                     className="grid",
                     children=[
@@ -713,13 +710,10 @@ class PersistableInteractive:
                 html.Details(
                     className="help",
                     children=[
-                        html.Summary("Quick help"),
+                        html.Summary("Tips"),
                         dcc.Markdown(
                             """
-            ### Interactive parameter selection for Persistable
-            - When setting a field, press enter to make it take effect.
             - Check the log, above, for warnings.
-            - The app can take a second or so to update the graphical interface after an interaction.
             - Computing the component counting function and prominence vineyard can take a while, depending on the size and dimensionality of the dataset as well as other factors.
             - Make sure to leave your pointer still when clicking on the component counting function plot, otherwise your interaction may not be registered.
             """
@@ -962,7 +956,7 @@ class PersistableInteractive:
             [[CFF_PLOT, FIGURE]],
             False,
         )
-        def draw_ccf_enclosing_box(d):
+        def draw_ccf_extras(d):
             ccf = d[STORED_CCF + DATA]
 
             fig = plotly.io.from_json(d[STORED_CCF_DRAWING + DATA])
@@ -1179,7 +1173,9 @@ class PersistableInteractive:
                 except ValueError:
                     out += traceback.format_exc()
                     d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
-                    d[STORED_CCF + DATA] = None #pandas.DataFrame([]).to_json(date_format="iso", orient="split")
+                    d[
+                        STORED_CCF + DATA
+                    ] = None  # pandas.DataFrame([]).to_json(date_format="iso", orient="split")
                     d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = True
                     return d
 
@@ -1238,7 +1234,10 @@ class PersistableInteractive:
                 try:
                     pv = self._persistable._compute_vineyard(
                         [
-                            [d[X_START_FIRST_LINE + VALUE], d[Y_START_FIRST_LINE + VALUE]],
+                            [
+                                d[X_START_FIRST_LINE + VALUE],
+                                d[Y_START_FIRST_LINE + VALUE],
+                            ],
                             [d[X_END_FIRST_LINE + VALUE], d[Y_END_FIRST_LINE + VALUE]],
                         ],
                         [
@@ -1246,7 +1245,10 @@ class PersistableInteractive:
                                 d[X_START_SECOND_LINE + VALUE],
                                 d[Y_START_SECOND_LINE + VALUE],
                             ],
-                            [d[X_END_SECOND_LINE + VALUE], d[Y_END_SECOND_LINE + VALUE]],
+                            [
+                                d[X_END_SECOND_LINE + VALUE],
+                                d[Y_END_SECOND_LINE + VALUE],
+                            ],
                         ],
                         n_parameters=granularity,
                         n_jobs=num_jobs,
@@ -1401,7 +1403,7 @@ class PersistableInteractive:
                 vineyard_as_dict["_parameters"],
                 vineyard_as_dict["_persistence_diagrams"],
             )
-            line = vineyard._parameters[d[INPUT_LINE + VALUE]-1]
+            line = vineyard._parameters[d[INPUT_LINE + VALUE] - 1]
             params = {
                 "n_clusters": d[INPUT_GAP + VALUE],
                 "start": line[0],
@@ -1409,7 +1411,7 @@ class PersistableInteractive:
             }
             d[FIXED_PARAMETERS + DATA] = json.dumps(params)
 
-            pd = vineyard._persistence_diagrams[d[INPUT_LINE + VALUE]-1]
+            pd = vineyard._persistence_diagrams[d[INPUT_LINE + VALUE] - 1]
 
             d[STORED_PD + DATA] = json.dumps(pd)
 
@@ -1420,16 +1422,13 @@ class PersistableInteractive:
                 [EXPORT_PARAMETERS_BUTTON, N_CLICKS, IN],
                 [FIXED_PARAMETERS, DATA, ST],
             ],
-            [
-                [DUMMY_OUTPUT, CHILDREN]
-            ],
+            [[DUMMY_OUTPUT, CHILDREN]],
             True,
         )
         def export_parameters(d):
             self._parameters = json.loads(d[FIXED_PARAMETERS + DATA])
             d[DUMMY_OUTPUT + CHILDREN] = []
             return d
-
 
         if jupyter:
             if inline:
