@@ -8,14 +8,15 @@ This structure is intrinsic to the data and independent of parameter choices, an
 
 ## Details about theory and implementation
 
-Persistable is based on multi-parameter persistence, a notion from Topological Data Analysis [ref].
+Persistable is based on multi-parameter persistence, a notion from Topological Data Analysis.
 The theory behind Persistable is developed in [1], while this implementation uses the high performance algorithms for density-based clustering developed in [3] and implemented in [4].
 
 
 
 ## Usage
 
-We are currently working on the documentation.
+Please be patient while we work on the documentation.
+Here is a brief outline of the main functionality.
 Please keep in mind that this is a beta version and the user interface may change with the stable release.
 
 ### Basic usage
@@ -48,11 +49,11 @@ pi = persistable.PersistableInteractive(p)
 cluster_labels = p.cluster(**pi._parameters)
 ```
 
-This will run the lines up to `pi = persistable.PersistableInteractive(p)`{.python}, and it will wait for you to interact with the data.
+This will run the lines up to `pi = persistable.PersistableInteractive(p)`{:.python}, and it will wait for you to interact with the data.
 Now go to `localhost:8050` in your browser to interact with the data.
-You can then fix your chosen parameters and close the app by clicking on "Choose parameters and close".
+You can then fix your chosen parameters and close the app by clicking on the "Choose parameters and close" button in the GUI.
 
-#### From a Jupyter Notebook
+#### From a Jupyter notebook
 
 In one cell, run:
 
@@ -66,13 +67,13 @@ pi = persistable.PersistableInteractive(p, jupyter = True, inline = False)
 ```
 
 Now go to `localhost:8050` in your browser to interact with the data.
-After choosing your parameters by clicking on "Choose parameters", you can get your clustering in another cell with.
+After choosing your parameters by clicking on the "Choose parameters" button in the GUI, you can get your clustering in another cell with.
 
 ```python
 cluster_labels = p.cluster(**pi._parameters)
 ```
 
-Note: you may `inline = True`{.python} to have the GUI run in the Jupyter Notebook instead of the browser!
+Note: you may `inline = True`{:.python} to have the GUI run in the Jupyter notebook instead of the browser!
 
 
 ## Installing
@@ -89,13 +90,17 @@ Luis Scoccola and Alexander Rolle.
 
 ## References
 
-    [1] Stable and consistent density-based clustering. A. Rolle and L. Scoccola. https://arxiv.org/abs/2005.09048, 2021.
+<a id="1">[1]</a> 
+*Stable and consistent density-based clustering*. A. Rolle and L. Scoccola. https://arxiv.org/abs/2005.09048, 2021.
 
-    [2] Density-based clustering based on hierarchical density estimates. R. J. G. B. Campello, D. Moulavi, and J. Sander. Advances in Knowledge Discovery and Data Mining, volume 7819 of Lecture Notes in Computer Science, pp. 160-172. Springer, 2013.
+<a id="2">[2]</a> 
+*Density-based clustering based on hierarchical density estimates*. R. J. G. B. Campello, D. Moulavi, and J. Sander. Advances in Knowledge Discovery and Data Mining, volume 7819 of Lecture Notes in Computer Science, pp. 160-172. Springer, 2013.
 
-    [3] Accelerated Hierarchical Density Based Clustering. McInnes L, Healy J. 2017 IEEE International Conference on Data Mining Workshops (ICDMW), IEEE, pp 33-42. 2017
+<a id="3">[3]</a> 
+*Accelerated Hierarchical Density Based Clustering*. McInnes L, Healy J. 2017 IEEE International Conference on Data Mining Workshops (ICDMW), IEEE, pp 33-42. 2017
 
-    [4] hdbscan: Hierarchical density based clustering. L. McInnes, J. Healy, S. Astels. Journal of Open Source Software, The Open Journal, volume 2, number 11. 2017
+<a id="4">[4]</a> 
+*hdbscan: Hierarchical density based clustering*. L. McInnes, J. Healy, S. Astels. Journal of Open Source Software, The Open Journal, volume 2, number 11. 2017
 
 
 ## License
