@@ -1,7 +1,6 @@
 # Authors: Luis Scoccola and Alexander Rolle
 # License: 3-clause BSD
 
-# from .plot import PersistablePlot
 from ._vineyard import Vineyard
 from .borrowed._hdbscan_boruvka import (
     KDTreeBoruvkaAlgorithm,
@@ -44,18 +43,25 @@ class Persistable:
         # if no n_neighbors for fitting mpspace was passed, compute a reasonable one
         if n_neighbors is None:
             if X.shape[0] < 100:
-                n_neighbors = X.shape[0]
+                self._n_neighbors = X.shape[0]
             else:
-                n_neighbors = min(int(np.log10(X.shape[0])) * 100, X.shape[0])
+                self._n_neighbors = min(int(np.log10(X.shape[0])) * 100, X.shape[0])
+        elif n_neighbors == "all":
+            self._n_neighbors = X.shape[0]
         else:
-            n_neighbors = min(n_neighbors, X.shape[0])
+            self._n_neighbors = min(self._n_neighbors, X.shape[0])
         # keep max_k (normalized n_neighbors)
-        self._maxk = n_neighbors / X.shape[0]
+        self._maxk = self._n_neighbors / X.shape[0]
         # fit the mpspace
-        self._mpspace.fit(n_neighbors)
+        self._mpspace.fit(self._n_neighbors)
         default_percentile = 0.95
         # compute and keep robust connection radius
         self._connection_radius = self._mpspace.connection_radius(default_percentile)
+
+        if n_neighbors == "all":
+            self._end = self._mpspace.find_end()
+        else:
+            self._end = self._connection_radius * 4, self._maxk
 
     def quick_cluster(
         self,
@@ -312,6 +318,42 @@ class _MetricProbabilitySpace:
                     )
             return self._nn_distance[(point_index, i_indices)]
 
+    def find_end(self, tolerance = 1e-4):
+
+        def pers_diag(k):
+            return self.lambda_linkage([0, k], [np.infty, k]).persistence_diagram()
+
+        lower_bound = 0
+        upper_bound = 1
+
+        i=0
+        while True:
+            current_k = (lower_bound + upper_bound) / 2
+            i += 1
+
+            pd = pers_diag(current_k)
+            pd = np.array(pd)
+            if len(pd[pd[:,1] == np.infty]) > 1:
+                warnings.warn("End not found! Result is infinity.")
+                return [np.infty, 1]
+            else:
+                if pd.shape[0] == 0:
+                    raise Exception("Empty persistence diagram found when trying to find end of metric measure space.")
+                # persistence diagram has more than one class
+                elif pd.shape[0] > 1:
+                    lower_bound, upper_bound = current_k, upper_bound
+                    if np.abs(current_k - 1) < _TOL:
+                        warnings.warn("End not found! Result is infinity.")
+                        return [np.infty, 1]
+                # persistence diagram has exactly one class
+                else:
+                    lower_bound, upper_bound = lower_bound, current_k
+
+                if np.abs(lower_bound - upper_bound) < tolerance:
+                    pd = pers_diag(lower_bound)
+                    return [np.max(pd[pd[:,1]!=np.infty][:,1]), current_k]
+ 
+
     def lambda_linkage(self, start, end):
         if start[0] > end[0] or start[1] < end[1]:
             raise ValueError("Parameters do not give a monotonic line.")
@@ -347,7 +389,6 @@ class _MetricProbabilitySpace:
                     self._nn_indices,
                     leaf_size=self._leaf_size // 3,
                     metric=self._metric,
-                    # p=self._p,
                     **self._kwargs
                 ).spanning_tree()
         elif self._metric in BallTree.valid_metrics:
@@ -381,10 +422,12 @@ class _MetricProbabilitySpace:
         run_in_parallel = lambda startend: self.lambda_linkage(
             startend[0], startend[1]
         ).persistence_diagram(tol=tol)
-        # return [run_in_parallel(startend) for startend in startends]
+        #return [run_in_parallel(startend) for startend in startends]
         return Parallel(n_jobs=n_jobs)(
             delayed(run_in_parallel)(startend) for startend in startends
         )
+
+
 
     def hilbert_function(self, ks, ss, n_jobs, tol=_TOL):
         n_s = len(ss)

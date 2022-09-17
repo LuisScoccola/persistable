@@ -32,11 +32,11 @@ h2 {
 .parameter-single {
     display: flex;
     flex-direction: row;
-    gap: 2px;
+    gap: 15px;
 }
 
 .parameter-single>.name {
-    width: 40%;
+    width: 30%;
 }
 
 .parameter-single>.value {
@@ -44,7 +44,7 @@ h2 {
 }
 
 .parameter-single>.small-value {
-    width: 10%;
+    width: 15%;
 }
 
 .parameter-single>.space {
@@ -126,9 +126,11 @@ input {
     overflow-y: scroll;
 }
 
+/*
 input:valid, input:invalid {
     outline: none black;
 }
+*/
 
 [hidden] {
     display: none !important;

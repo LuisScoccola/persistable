@@ -12,6 +12,7 @@ import dash
 from dash import dcc, html, DiskcacheManager, ctx
 from dash.exceptions import PreventUpdate
 from flask import request
+from .persistable import Persistable
 
 
 from ._vineyard import Vineyard
@@ -121,19 +122,68 @@ def empty_figure():
 
 
 class PersistableInteractive:
-    def __init__(
-        self, persistable, port=8050, jupyter=False, inline=False, debug=False
-    ):
+    def __init__(self, port=8050, jupyter=True, inline=False, debug=True):
+        self._persistable = None
         self._parameters = None
+        self._port = port
+        self._jupyter = jupyter
+        self._inline = inline
+        self._debug = debug
+        self._app = None
+
+        # set temporary files
+        self._cache = diskcache.Cache(PERSISTABLE_DASH_CACHE)
+        self._background_callback_manager = DiskcacheManager(self._cache)
+
+    def cluster(self):
+        if self._parameters == None:
+            raise ValueError(
+                "No parameters where chosen.\nPlease use the graphical user interface to choose parameters."
+            )
+        else:
+            return self._persistable.cluster(**self._parameters)
+
+    def run_with(self, persistable):
         self._persistable = persistable
 
+        if self._app is not None:
+            self._layout_gui()
+            print("Remember to reload your web browser.")
+        else:
+            if self._jupyter == True:
+                from jupyter_dash import JupyterDash
+
+                self._app = JupyterDash(
+                    __name__,
+                    background_callback_manager=self._background_callback_manager,
+                )
+
+                self._layout_gui()
+                self._register_callbacks()
+                if self._inline:
+                    self._app.run_server(
+                        port=self._port, mode="inline", debug=self._debug
+                    )
+                else:
+                    self._app.run_server(port=self._port, debug=self._debug)
+            else:
+                self._app = dash.Dash(
+                    __name__,
+                    background_callback_manager=self._background_callback_manager,
+                )
+                self._layout_gui()
+                self._register_callbacks()
+                self._app.run_server(port=self._port, debug=self._debug)
+
+
+    def _layout_gui(self):
         default_min_k = 0
-        default_max_k = self._persistable._maxk
+        default_max_k = self._persistable._end[1]
         default_k_step = default_max_k / 100
-        default_min_s = self._persistable._connection_radius / 5
-        default_max_s = self._persistable._connection_radius * 2
+        default_min_s = 0
+        default_max_s = self._persistable._end[0]
         default_s_step = (default_max_s - default_min_s) / 100
-        default_granularity = 2**6
+        default_granularity = 100
         default_num_jobs = 4
         default_max_dim = 15
         default_max_vines = 15
@@ -155,20 +205,6 @@ class PersistableInteractive:
         )
         default_y_end_second_line = (default_min_k + default_max_k) * (1 / 2)
 
-        # set temporary files
-        cache = diskcache.Cache(PERSISTABLE_DASH_CACHE)
-        background_callback_manager = DiskcacheManager(cache)
-
-        if jupyter == True:
-            from jupyter_dash import JupyterDash
-
-            self._app = JupyterDash(
-                __name__, background_callback_manager=background_callback_manager
-            )
-        else:
-            self._app = dash.Dash(
-                __name__, background_callback_manager=background_callback_manager
-            )
         self._app.layout = html.Div(
             className="root",
             children=[
@@ -271,8 +307,17 @@ class PersistableInteractive:
                                                                     min=min_granularity,
                                                                     max=max_granularity,
                                                                 ),
-                                                                html.Div(
-                                                                    className="space"
+                                                                html.Span(
+                                                                    className="name",
+                                                                    children="Max connected components",
+                                                                ),
+                                                                dcc.Input(
+                                                                    id=INPUT_MAX_COMPONENTS,
+                                                                    type="number",
+                                                                    value=default_max_dim,
+                                                                    min=1,
+                                                                    className="small-value",
+                                                                    step=1,
                                                                 ),
                                                             ],
                                                         ),
@@ -448,8 +493,17 @@ class PersistableInteractive:
                                                                     min=min_granularity_vineyard,
                                                                     max=max_granularity_vineyard,
                                                                 ),
-                                                                html.Div(
-                                                                    className="space"
+                                                                html.Span(
+                                                                    className="name",
+                                                                    children="Max number vines to display",
+                                                                ),
+                                                                dcc.Input(
+                                                                    id=INPUT_MAX_VINES,
+                                                                    type="number",
+                                                                    value=default_max_vines,
+                                                                    min=1,
+                                                                    className="small-value",
+                                                                    step=1,
                                                                 ),
                                                             ],
                                                         ),
@@ -469,8 +523,15 @@ class PersistableInteractive:
                                                                     step=1,
                                                                     max=16,
                                                                 ),
-                                                                html.Div(
-                                                                    className="space"
+                                                                html.Span(
+                                                                    className="name",
+                                                                    children="Prominence scale",
+                                                                ),
+                                                                dcc.RadioItems(
+                                                                    ["Lin", "Log"],
+                                                                    "Lin",
+                                                                    id=INPUT_PROM_VIN_SCALE,
+                                                                    className="small-value",
                                                                 ),
                                                             ],
                                                         ),
@@ -554,23 +615,6 @@ class PersistableInteractive:
                                             children=[
                                                 html.Span(
                                                     className="name",
-                                                    children="Max connected components",
-                                                ),
-                                                dcc.Input(
-                                                    id=INPUT_MAX_COMPONENTS,
-                                                    type="number",
-                                                    value=default_max_dim,
-                                                    min=1,
-                                                    className="small-value",
-                                                    step=1,
-                                                ),
-                                            ],
-                                        ),
-                                        html.Div(
-                                            className="parameter-single",
-                                            children=[
-                                                html.Span(
-                                                    className="name",
                                                     children="Vineyard inputs selection",
                                                 ),
                                                 dcc.RadioItems(
@@ -614,38 +658,6 @@ class PersistableInteractive:
                                     className="parameters",
                                     hidden=True,
                                     children=[
-                                        html.Div(
-                                            className="parameter-single",
-                                            children=[
-                                                html.Span(
-                                                    className="name",
-                                                    children="Max number vines to display",
-                                                ),
-                                                dcc.Input(
-                                                    id=INPUT_MAX_VINES,
-                                                    type="number",
-                                                    value=default_max_vines,
-                                                    min=1,
-                                                    className="small-value",
-                                                    step=1,
-                                                ),
-                                            ],
-                                        ),
-                                        html.Div(
-                                            className="parameter-single",
-                                            children=[
-                                                html.Span(
-                                                    className="name",
-                                                    children="Prominence scale",
-                                                ),
-                                                dcc.RadioItems(
-                                                    ["Lin", "Log"],
-                                                    "Log",
-                                                    id=INPUT_PROM_VIN_SCALE,
-                                                    className=VALUE,
-                                                ),
-                                            ],
-                                        ),
                                         html.Div(
                                             className="parameter-single",
                                             children=[
@@ -729,6 +741,7 @@ class PersistableInteractive:
             ],
         )
 
+    def _register_callbacks(self):
         def dash_callback(
             inputs,
             outputs,
@@ -984,7 +997,6 @@ class PersistableInteractive:
                     name=text + " line",
                     text=[text + " line start", text + " line end"],
                     marker=dict(size=15, color=color),
-                    # hoverinfo="name+text",
                     marker_symbol=marker_styles,
                     hoverinfo="skip",
                     showlegend=False,
@@ -1181,7 +1193,7 @@ class PersistableInteractive:
                     d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
                     d[
                         STORED_CCF + DATA
-                    ] = None  # pandas.DataFrame([]).to_json(date_format="iso", orient="split")
+                    ] = None
                     d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = True
                     return d
 
@@ -1435,12 +1447,3 @@ class PersistableInteractive:
             self._parameters = json.loads(d[FIXED_PARAMETERS + DATA])
             d[DUMMY_OUTPUT + CHILDREN] = []
             return d
-
-
-        if jupyter:
-            if inline:
-                self._app.run_server(port=port, mode="inline", debug=debug)
-            else:
-                self._app.run_server(port=port, debug=debug)
-        else:
-            self._app.run_server(port=port, debug=debug)
