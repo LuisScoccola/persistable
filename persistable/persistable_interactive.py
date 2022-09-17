@@ -12,6 +12,7 @@ import dash
 from dash import dcc, html, DiskcacheManager, ctx
 from dash.exceptions import PreventUpdate
 from flask import request
+from .persistable import Persistable
 
 
 from ._vineyard import Vineyard
@@ -144,9 +145,13 @@ class PersistableInteractive:
         else:
             return self._persistable.cluster(**self._parameters)
 
-    def run_with(self, persistable):
+    def run_with(self, persistable, find_end=True):
         self._persistable = persistable
 
+        max_k = None
+        max_s = None
+        if find_end:
+            max_s, max_k = self._persistable._mpspace.find_end()
         if self._running:
             self._layout_gui()
             print("Remember to reload your web browser.")
@@ -159,9 +164,7 @@ class PersistableInteractive:
 
                 self._layout_gui()
                 self._register_callbacks()
-
                 if self._inline:
-                    print("bad")
                     self._app.run_server(port=self._port, mode="inline", debug=self._debug)
                 else:
                     self._app.run_server(port=self._port, debug=self._debug)
@@ -169,16 +172,24 @@ class PersistableInteractive:
                 self._app = dash.Dash(
                     __name__, background_callback_manager=self._background_callback_manager
                 )
+                self._layout_gui()
+                self._register_callbacks()
                 self._app.run_server(port=self._port, debug=self._debug)
+
             self._running = True
 
 
     def _layout_gui(self):
         default_min_k = 0
-        default_max_k = self._persistable._maxk
+        default_max_k = self._persistable._end[1]
+        #default_max_k = self._persistable._maxk if max_k is None else max_k
+        #default_max_k = self._persistable._maxk
         default_k_step = default_max_k / 100
-        default_min_s = self._persistable._connection_radius / 5
-        default_max_s = self._persistable._connection_radius * 2
+        default_min_s = 0 #self._persistable._connection_radius / 5
+        #default_min_s = self._persistable._connection_radius / 5
+        default_max_s = self._persistable._end[0]
+        #default_max_s = self._persistable._connection_radius * 2 if max_s is None else max_s
+        #default_max_s = self._persistable._connection_radius * 2
         default_s_step = (default_max_s - default_min_s) / 100
         default_granularity = 2**6
         default_num_jobs = 4
@@ -197,7 +208,6 @@ class PersistableInteractive:
         default_y_start_second_line = (default_min_k + default_max_k) * ( (defr - 1) / defr)
         default_x_end_second_line = (default_max_s + default_min_s) * ( (defr - 1) / defr)
         default_y_end_second_line = (default_min_k + default_max_k) * (1 / 2)
-
 
         self._app.layout = html.Div(
             className="root",
@@ -770,6 +780,7 @@ class PersistableInteractive:
             running=None,
             cancel=None,
         ):
+
             def cs(l):
                 return l[0] + l[1]
 
