@@ -2,19 +2,16 @@
 
 Persistable is a density-based clustering algorithm intended for exploratory data analysis.
 What distinguish Persistable from other clustering algorithms are its visualization capabilities.
-Persistable's interactive mode lets the user visualize muti-scale as well as multi-density cluster structure present in the data.
-This structure is intrinsic to the data and independent of parameter choices, and is used to inform the choice of parameters needed to obtain the final clustering.
+Persistable's interactive lets you visualize muti-scale and multi-density cluster structure present in the data.
+This structure is used to inform the choice of parameters needed to obtain the final clustering.
 
 
 ## Usage
 
-Please be patient while we work on the documentation.
-Here is a brief outline of the main functionality.
-Please keep in mind that this is a beta version and the user interface may change with the stable release.
+Here is a brief outline of the main functionality, please be patient while we work on the documentation.
+Keep in mind that this is a beta version and the user interface may change with the stable release.
 
 ### Basic usage
-
-For further examples, please see the Jupyter notebooks.
 
 ```python
 import persistable
@@ -28,12 +25,10 @@ clustering_labels = p.quick_cluster()
 
 ### Interactive mode 
 
-This is where the real power of Persistable lies.
-
 #### From a Jupyter notebook
 
-For now, interactive mode is only supported through Jupyter notebooks.
-In one cell, run:
+For now, Persistable's interactive mode is supported only through Jupyter notebooks.
+In order to run Persistable's interactive mode from a Jupyter notebook, run the following in a Jupyter cell:
 
 ```python
 import persistable
@@ -44,11 +39,11 @@ p = persistable.Persistable(X)
 pi = persistable.PersistableInteractive(p, jupyter = True, inline = False)
 ```
 
-Now go to `localhost:8050` in your web browser to interact with the data.
-After choosing your parameters by clicking on the "Choose parameters" button in the GUI, you can get your clustering in another cell with.
+Now go to `localhost:8050` in your web browser to access the graphical user interface.
+After choosing your parameters using the user interface, you can get your clustering in another Jupyter cell by running:
 
 ```python
-cluster_labels = p.cluster(**pi._parameters)
+cluster_labels = pi.cluster()
 ```
 
 **Note:** you may use `inline = True` to have the GUI run directly in the Jupyter notebook instead of the web browser!
