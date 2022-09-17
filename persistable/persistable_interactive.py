@@ -183,7 +183,7 @@ class PersistableInteractive:
         default_min_s = 0
         default_max_s = self._persistable._end[0]
         default_s_step = (default_max_s - default_min_s) / 100
-        default_granularity = 2**6
+        default_granularity = 100
         default_num_jobs = 4
         default_max_dim = 15
         default_max_vines = 15

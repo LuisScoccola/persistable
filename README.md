@@ -17,7 +17,7 @@ Keep in mind that this is a beta version and the user interface may change with 
 import persistable
 from sklearn.datasets import make_blobs
 
-X = make_blobs(2000)[0]
+X = make_blobs(2000, random_state=1)[0]
 p = persistable.Persistable(X)
 clustering_labels = p.quick_cluster()
 ```
@@ -34,9 +34,12 @@ In order to run Persistable's interactive mode from a Jupyter notebook, run the 
 import persistable
 from sklearn.datasets import make_blobs
 
-X = make_blobs(2000)[0]
-p = persistable.Persistable(X)
-pi = persistable.PersistableInteractive(p, jupyter = True, inline = False)
+X = make_blobs(2000, centers=4, random_state=1)[0]
+# using n_neighbors="all" will compute better defaults for visualization,
+# but you might want to omit this for large datasets
+p = persistable.Persistable(X, n_neighbors="all")
+pi = persistable.PersistableInteractive(jupyter = True, inline = False)
+pi.run_with(p)
 ```
 
 Now go to `localhost:8050` in your web browser to access the graphical user interface.
