@@ -135,13 +135,13 @@ class PersistableInteractive:
         self._cache = diskcache.Cache(PERSISTABLE_DASH_CACHE)
         self._background_callback_manager = DiskcacheManager(self._cache)
 
-    def cluster(self):
+    def cluster(self, **kwargs):
         if self._parameters == None:
             raise ValueError(
                 "No parameters where chosen.\nPlease use the graphical user interface to choose parameters."
             )
         else:
-            return self._persistable.cluster(**self._parameters)
+            return self._persistable.cluster(**self._parameters, **kwargs)
 
     def run_with(self, persistable):
         self._persistable = persistable
