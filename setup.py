@@ -71,7 +71,7 @@ if not HAVE_CYTHON:
 
 setup(
     name="persistable",
-    version="0.3",
+    version="0.3.1",
     description="Persistable: persistent and stable clustering. Versatile density-based clustering for exploratory data analysis.",
     license="3-clause BSD",
     maintainer="Luis Scoccola",
