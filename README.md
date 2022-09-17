@@ -84,9 +84,21 @@ Persistable is based on multi-parameter persistence [[4]](#4), a method from Top
 The theory behind Persistable is developed in [[1]](#1), while this implementation uses the high performance algorithms for density-based clustering developed in [[2]](#2) and implemented in [[3]](#3).
 Persistable's interactive mode is inspired by RIVET [[5]](#5).
 
+
+## Contributing
+
+If you would like to contribute, please contact [Luis Scoccola](https://luisscoccola.github.io/).
+The next steps in our to-do list are:
+- Documentation and examples.
+- Further tests for main functionality and test for GUI.
+- Improving the GUI: responsiveness and more intuitive workflow.
+- Computing and displaying further algebraic invariants of multi-parameter hierarchical clusterings.
+- Improving efficiency of current algorithms.
+
+
 ## Authors
 
-Luis Scoccola and Alexander Rolle.
+[Luis Scoccola](https://luisscoccola.github.io/) and [Alexander Rolle](https://alexanderrolle.github.io/).
 
 
 ## References
