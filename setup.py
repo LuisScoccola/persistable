@@ -2,7 +2,7 @@ import warnings
 
 try:
     from Cython.Distutils import build_ext
-    from setuptools import setup, Extension
+    from setuptools import setup, Extension, find_packages
 
     HAVE_CYTHON = True
 
@@ -87,5 +87,6 @@ setup(
         _hdbscan_boruvka,
     ],
     cmdclass={"build_ext": CustomBuildExtCommand},
-    data_files=("persistable/borrowed/dist_metrics.pxd","persistable/assets/style.css",),
+    data_files=("persistable/borrowed/dist_metrics.pxd",),
+    include_package_data=True,
 )
