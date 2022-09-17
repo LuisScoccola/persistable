@@ -1,9 +1,9 @@
 # Persistable: persistent and stable clustering
 
 Persistable is a density-based clustering algorithm intended for exploratory data analysis.
-What distinguish Persistable from other clustering algorithms are its visualization capabilities.
-Persistable's interactive lets you visualize muti-scale and multi-density cluster structure present in the data.
-This structure is used to inform the choice of parameters needed to obtain the final clustering.
+What distinguishes Persistable from other clustering algorithms is its visualization capabilities.
+Persistable's interactive mode lets you visualize muti-scale and multi-density cluster structure present in the data.
+This structure is used to guide the choice of parameters that lead to the final clustering.
 
 
 ## Usage
@@ -46,7 +46,7 @@ After choosing your parameters using the user interface, you can get your cluste
 cluster_labels = pi.cluster()
 ```
 
-**Note:** you may use `inline = True` to have the GUI run directly in the Jupyter notebook instead of the web browser!
+**Note:** You may use `inline = True` to have the graphical user interface run directly in the Jupyter notebook instead of the web browser!
 
 
 <!---
@@ -77,9 +77,9 @@ pip install git+https://github.com/LuisScoccola/persistable.git
 
 ## Details about theory and implementation
 
-Persistable is based on multi-parameter persistence [[4]](#4), a notion from Topological Data Analysis.
+Persistable is based on multi-parameter persistence [[4]](#4), a method from Topological Data Analysis.
 The theory behind Persistable is developed in [[1]](#1), while this implementation uses the high performance algorithms for density-based clustering developed in [[2]](#2) and implemented in [[3]](#3).
-
+Persistable's interactive mode is inspired by RIVET [[5]](#5).
 
 ## Authors
 
@@ -101,6 +101,10 @@ https://arxiv.org/abs/2005.09048
 <a id="4">[4]</a> 
 *An Introduction to Multiparameter Persistence*. Magnus Bakke Botnan, Michael Lesnick.
 https://arxiv.org/abs/2203.14289
+
+<a id="5">[5]</a> 
+*RIVET*. The RIVET Developers.
+https://rivet.readthedocs.io/en/latest/index.html
 
 <!---
 <a id="4">[4]</a> 

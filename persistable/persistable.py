@@ -1,8 +1,6 @@
 # Authors: Luis Scoccola and Alexander Rolle
 # License: 3-clause BSD
 
-# from .plot import PersistablePlot
-from turtle import up
 from ._vineyard import Vineyard
 from .borrowed._hdbscan_boruvka import (
     KDTreeBoruvkaAlgorithm,
@@ -322,9 +320,6 @@ class _MetricProbabilitySpace:
 
     def find_end(self, tolerance = 1e-4):
 
-        # TODO: refit only on deman
-        self.fit(n_neighbors=self._size)
-
         def pers_diag(k):
             return self.lambda_linkage([0, k], [np.infty, k]).persistence_diagram()
 
@@ -335,8 +330,6 @@ class _MetricProbabilitySpace:
         while True:
             current_k = (lower_bound + upper_bound) / 2
             i += 1
-            #if i >= 100:
-            #    print("current: " + str(lower_bound) + " " + str(upper_bound))
 
             pd = pers_diag(current_k)
             pd = np.array(pd)
@@ -357,11 +350,9 @@ class _MetricProbabilitySpace:
                     lower_bound, upper_bound = lower_bound, current_k
 
                 if np.abs(lower_bound - upper_bound) < tolerance:
-                    #print(i)
                     pd = pers_diag(lower_bound)
                     return [np.max(pd[pd[:,1]!=np.infty][:,1]), current_k]
  
-               
 
     def lambda_linkage(self, start, end):
         if start[0] > end[0] or start[1] < end[1]:
@@ -398,7 +389,6 @@ class _MetricProbabilitySpace:
                     self._nn_indices,
                     leaf_size=self._leaf_size // 3,
                     metric=self._metric,
-                    # p=self._p,
                     **self._kwargs
                 ).spanning_tree()
         elif self._metric in BallTree.valid_metrics:
