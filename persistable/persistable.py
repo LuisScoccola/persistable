@@ -47,6 +47,8 @@ class Persistable:
                 n_neighbors = X.shape[0]
             else:
                 n_neighbors = min(int(np.log10(X.shape[0])) * 100, X.shape[0])
+        elif n_neighbors == "all" :
+            n_neighbors = X.shape[0]
         else:
             n_neighbors = min(n_neighbors, X.shape[0])
         # keep max_k (normalized n_neighbors)
