@@ -122,7 +122,19 @@ def empty_figure():
 
 
 class PersistableInteractive:
+    """A graphical user interface for doing parameter selection for Persistable.
+    """
+
     def __init__(self, port=8050, jupyter=True, inline=False, debug=True):
+        """Initializes a PersistableInteractive instance.
+        
+        Args:
+            port: Integer representing which port of localhost to use to run the GUI.
+            jupyter: Must be set to [True] for now.
+            inline: Boolean representing whether or not to display the GUI inside
+                the Jupyter notebook.
+            debug: Must be set to [True] for now.
+        """
         self._persistable = None
         self._parameters = None
         self._port = port
@@ -136,6 +148,16 @@ class PersistableInteractive:
         self._background_callback_manager = DiskcacheManager(self._cache)
 
     def cluster(self, **kwargs):
+        """Clusters the dataset with which the Persistable instance that was
+        passed through [run_with] was initialized.
+        
+        Returns:
+            A numpy array of length the number of points in the dataset containing
+            integers from -1 to the number of clusters minus 1, representing the
+            labels of the final clustering. The label -1 represents noise points,
+            i.e., points deemed not to belong to any cluster by the algorithm.
+ 
+        """
         if self._parameters == None:
             raise ValueError(
                 "No parameters where chosen.\nPlease use the graphical user interface to choose parameters."
@@ -144,6 +166,14 @@ class PersistableInteractive:
             return self._persistable.cluster(**self._parameters, **kwargs)
 
     def run_with(self, persistable):
+        """Starts the GUI with a given persistable instance.
+        
+        Args:
+            persistable: An instance of the class Persistable.
+
+        Returns:
+            None
+        """
         self._persistable = persistable
 
         if self._app is not None:
