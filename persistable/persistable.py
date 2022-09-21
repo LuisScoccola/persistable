@@ -257,7 +257,7 @@ class Persistable:
             warnings.warn(
                 "Not enough neighbors to compute chosen max_k, using max_k="
                 + str(max_k)
-                + " instead. If needed, re-initialize the Persistable intance with a larger n_neighbors."
+                + " instead. If needed, re-initialize the Persistable instance with a larger n_neighbors."
             )
         if min_k >= max_k:
             min_k = max_k / 2
