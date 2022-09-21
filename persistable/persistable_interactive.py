@@ -1107,26 +1107,30 @@ class PersistableInteractive:
                             mode="lines",
                             line=dict(width=6),
                         )
+                    st_x = params["start"][0]
+                    st_y = params["start"][1]
+                    end_x = params["end"][0]
+                    end_y = params["end"][1]
+                    st = np.array([st_x,st_y])
+                    end = np.array([end_x,end_y])
+                    A = end-st
+                    B = np.array([-A[1],A[0]])
+                    B = B/np.linalg.norm(B)
 
-                    shift = 65
-                    tau = (
-                        np.array(
+                    shift = 50
+                    tau = np.array(
                             [
                                 d[MAX_DIST_SCALE + VALUE] - d[MIN_DIST_SCALE + VALUE],
-                                d[MAX_DENSITY_THRESHOLD + VALUE]
-                                - d[MIN_DENSITY_THRESHOLD + VALUE],
+                                d[MAX_DENSITY_THRESHOLD + VALUE] - d[MIN_DENSITY_THRESHOLD + VALUE],
                             ]
-                        )
-                        / shift
-                    )
+                        ) / shift
+                    tau[0] = tau[0] * B[0]
+                    tau[1] = tau[1] * B[1]
+
                     pd = np.array(pd)
                     lengths = pd[:, 1] - pd[:, 0]
                     pd = pd[np.argsort(lengths)[::-1]]
                     for i, point in enumerate(pd):
-                        st_x = params["start"][0]
-                        st_y = params["start"][1]
-                        end_x = params["end"][0]
-                        end_y = params["end"][1]
                         l = end_x - st_x
                         p_st = point[0]
                         p_end = point[1]
@@ -1150,8 +1154,7 @@ class PersistableInteractive:
                         )
                 fig.add_trace(
                     generate_line(
-                        [params["start"][0], params["end"][0]],
-                        [params["start"][1], params["end"][1]],
+                        [st_x, end_x], [st_y,end_y],
                         "selected",
                         color="blue",
                     )
