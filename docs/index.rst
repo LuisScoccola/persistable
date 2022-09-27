@@ -7,3 +7,11 @@ Persistable's interactive mode lets you visualize multi-scale and multi-density 
 This is used to guide the choice of parameters that lead to the final clustering.
 
 Please be patient while we work on this documentation.
+
+
+Contents
+--------
+
+.. toctree::
+
+   api
