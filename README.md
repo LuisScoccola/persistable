@@ -5,10 +5,11 @@ What distinguishes Persistable from other clustering algorithms is its visualiza
 Persistable's interactive mode lets you visualize multi-scale and multi-density cluster structure present in the data.
 This is used to guide the choice of parameters that lead to the final clustering.
 
+Next is a brief outline of the main functionality, please bear with us while we keep working on the documentation: [persistable.readthedocs.io](https://persistable.readthedocs.io/)!
+
 
 ## Usage
 
-Here is a brief outline of the main functionality, please be patient while we work on the documentation.
 Keep in mind that this is a beta version and the user interface may change with the stable release.
 
 ### Basic usage
@@ -24,8 +25,6 @@ clustering_labels = p.quick_cluster()
 
 
 ### Interactive mode 
-
-#### From a Jupyter notebook
 
 For now, Persistable's interactive mode is supported only through Jupyter notebooks.
 In order to run Persistable's interactive mode from a Jupyter notebook, run the following in a Jupyter cell:
