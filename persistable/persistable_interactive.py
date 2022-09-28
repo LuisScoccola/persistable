@@ -172,7 +172,7 @@ class PersistableInteractive:
         """Starts the GUI with a given persistable instance.
         
         persistable:
-            An instance of the class Persistable.
+            An instance of the class Persistable with which to run the GUI.
 
         """
         self._persistable = persistable

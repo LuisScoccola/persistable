@@ -24,11 +24,11 @@ _TOL = 1e-08
 class Persistable:
     """Does density-based clustering on finite metric spaces.
     
-    Persistable has two main clustering methods: cluster() and quick_cluster().
-    The methods are similar, the main difference being that quick_cluster() takes
-    parameters that are sometimes easier to set. The parameters for cluster()
+    Persistable has two main clustering methods: ``cluster()`` and ``quick_cluster()``.
+    The methods are similar, the main difference being that ``quick_cluster()`` takes
+    parameters that are sometimes easier to set. The parameters for ``cluster()``
     are usually set by using the graphical user interface implemented by the
-    PersistableInteractive class.
+    ``PersistableInteractive`` class.
     """
 
     def __init__(
@@ -47,7 +47,7 @@ class Persistable:
             A string determining which metric is used to compute distances
             between the points in X. It can be a metric in ``KDTree.valid_metrics``
             or ``BallTree.valid_metric`` (which can be found by
-            ``from sklearn.neighbors import KDTree, BallTree``) or "precomputed" if X is a
+            ``from sklearn.neighbors import KDTree, BallTree``) or ``"precomputed"`` if X is a
             distance matrix.
         measure:
             Must be set to ``None`` for now.
@@ -55,7 +55,7 @@ class Persistable:
             Number of neighbors for each point in X used to initialize
             datastructures used for clustering.
         **kwargs:
-            Passed to KDTree or BallTree.
+            Passed to ``KDTree`` or ``BallTree``.
         """
         # keep dataset
         self._data = X
@@ -512,10 +512,12 @@ class _MetricProbabilitySpace:
         run_in_parallel = lambda startend: self.lambda_linkage(
             startend[0], startend[1]
         ).persistence_diagram(tol=tol)
-        #return [run_in_parallel(startend) for startend in startends]
-        return Parallel(n_jobs=n_jobs)(
-            delayed(run_in_parallel)(startend) for startend in startends
-        )
+        if n_jobs == 1:
+            return [run_in_parallel(startend) for startend in startends]
+        else:
+            return Parallel(n_jobs=n_jobs)(
+                delayed(run_in_parallel)(startend) for startend in startends
+            )
 
     def hilbert_function(self, ks, ss, n_jobs, tol=_TOL):
         n_s = len(ss)
