@@ -24,49 +24,63 @@ _TOL = 1e-08
 class Persistable:
     """Does density-based clustering on finite metric spaces.
     
-    Persistable has two main clustering methods: cluster() and quick_cluster().
-    The methods are similar, the main difference being that quick_cluster() takes
-    parameters that are sometimes easier to set. The parameters for cluster()
+    Persistable has two main clustering methods: ``cluster()`` and ``quick_cluster()``.
+    The methods are similar, the main difference being that ``quick_cluster()`` takes
+    parameters that are sometimes easier to set. The parameters for ``cluster()``
     are usually set by using the graphical user interface implemented by the
-    PersistableInteractive class.
+    ``PersistableInteractive`` class.
+
+    X:
+        A numpy vector of shape (samples, features) or a distance matrix.
+
+    metric:
+        A string determining which metric is used to compute distances
+        between the points in X. It can be a metric in ``KDTree.valid_metrics``
+        or ``BallTree.valid_metric`` (which can be found by
+        ``from sklearn.neighbors import KDTree, BallTree``) or ``"precomputed"`` if X is a
+        distance matrix.
+
+    n_neighbors:
+        Number of neighbors for each point in X used to initialize
+        datastructures used for clustering. If set to ``"all"`` it will use
+        the number of points in the dataset, if set to ``"auto"`` it will find
+        a reasonable default.
+
+    auto_find_end_hierachical_clustering:
+        Whether to automatically find the last time in the hierarchical clustering
+        where there is more than one cluster.
+
+    ``**kwargs``:
+        Passed to ``KDTree`` or ``BallTree``.
+
     """
 
     def __init__(
         self,
         X,
         metric="minkowski",
-        measure=None,
         n_neighbors="auto",
-        leaf_size: int = 40,
         auto_find_end_hierachical_clustering=True,
         **kwargs
     ):
-        """Initializes a Persistable instance.
-
-        Args:
-            X: A numpy vector of shape (samples, features) or a distance matrix.
-            metric: A string determining which metric is used to compute distances
-                between the points in X. It can be a metric in [KDTree.valid_metrics]
-                or [BallTree.valid_metric] (which can be found by
-                [from sklearn.neighbors import KDTree, BallTree]) or "precomputed" if X is a
-                distance matrix.
-            measure: Must be set to [None] for now.
-            n_neighbors: Number of neighbors for each point in X used to initialize
-                datastructures used for clustering.
-            leaf_size: Used to initialize the KDTree or BallTree.
-            auto_find_end_hierachical_clustering:
-                Whether to automatically find the last time in the hierarchical clustering
-                where there is more than one cluster.
-            **kwargs: Passed to KDTree or BallTree.
-        """
         # keep dataset
         self._data = X
         # if metric is minkowski but no p was passed, assume p = 2
         if metric == "minkowski" and "p" not in kwargs:
             kwargs["p"] = 2
         # if no measure was passed, assume normalized counting measure
-        if measure is None:
+        if "measure" not in kwargs:
             measure = np.full(X.shape[0], 1.0 / X.shape[0])
+        elif "measure" in kwargs and kwargs["measure"] is None:
+            measure = np.full(X.shape[0], 1.0 / X.shape[0])
+            del kwargs["measure"]
+        else:
+            measure = kwargs["measure"]
+            del kwargs["measure"]
+        if "leaf_size" in kwargs:
+            leaf_size = kwargs["leaf_size"]
+        else:
+            leaf_size = 40
         self._mpspace = _MetricProbabilitySpace(X, metric, measure, leaf_size, **kwargs)
         # if no n_neighbors for fitting mpspace was passed, compute a reasonable one
         if n_neighbors == "auto":
@@ -107,20 +121,27 @@ class Persistable:
         by the user, according to a certain measure of goodness of clustering
         based on prominence of modes of the underlying distribution.
         
-        Args:
-            n_neighbors: Number of neighbors used as a maximum density threshold
-                when doing density-based clustering.
-            n_clusters_range: A two-element list or tuple representing an integer
-                range of possible numbers of clusters to consider when finding the
-                optimum number of clusters.
-            extend_clustering_by_hill_climbing: Boolean representing whether or
-                not to extend the clustering to noise points by hill climbing.
-            n_iterations_extend_cluster: How many iterations of hill climbing to
-                perform. More iterations will cluster more noise points.
-            n_neighbors_extend_cluster: How many neighbors to use in the hill
-                climbing procedure.
-        
-        Returns:
+        n_neighbors:
+            Number of neighbors used as a maximum density threshold
+            when doing density-based clustering.
+
+        n_clusters_range:
+            A two-element list or tuple representing an integer
+            range of possible numbers of clusters to consider when finding the
+            optimum number of clusters.
+
+        extend_clustering_by_hill_climbing:
+            Boolean representing whether or not to extend the clustering to
+            noise points by hill climbing.
+
+        n_iterations_extend_cluster:
+            How many iterations of hill climbing to perform. More iterations
+            will cluster more noise points.
+
+        n_neighbors_extend_cluster:
+            How many neighbors to use in the hill climbing procedure.
+    
+        returns:
             A numpy array of length the number of points in the dataset containing
             integers from -1 to the number of clusters minus 1, representing the
             labels of the final clustering. The label -1 represents noise points,
@@ -164,30 +185,40 @@ class Persistable:
     ):
         """Clusters the dataset with which the Persistable instance was initialized.
 
-        Args:
-            n_clusters: Integer determining how many clusters the final clustering
-                must have. Note that the final clustering can have fewer clusters
-                if the selected parameters do not allow for so many clusters.
-            start: Two-element list, tuple, or numpy array representing a point on
-                the positive plane determining the start of the segment in the
-                two-parameter hierarchical clustering used to do persistence-based
-                clustering.
-            start: Two-element list, tuple, or numpy array representing a point on
-                the positive plane determining the end of the segment in the
-                two-parameter hierarchical clustering used to do persistence-based
-                clustering.
-            extend_clustering_by_hill_climbing: Boolean representing whether or
-                not to extend the clustering to noise points by hill climbing.
-            n_iterations_extend_cluster: How many iterations of hill climbing to
-                perform. More iterations will cluster more noise points.
-            n_neighbors_extend_cluster: How many neighbors to use in the hill
-                climbing procedure.
+        n_clusters:
+            Integer determining how many clusters the final clustering
+            must have. Note that the final clustering can have fewer clusters
+            if the selected parameters do not allow for so many clusters.
 
-        Returns:
+        start:
+            Two-element list, tuple, or numpy array representing a point on
+            the positive plane determining the start of the segment in the
+            two-parameter hierarchical clustering used to do persistence-based
+            clustering.
+
+        end:
+            Two-element list, tuple, or numpy array representing a point on
+            the positive plane determining the end of the segment in the
+            two-parameter hierarchical clustering used to do persistence-based
+            clustering.
+
+        extend_clustering_by_hill_climbing:
+            Boolean representing whether or not to extend the clustering to
+            noise points by hill climbing.
+
+        n_iterations_extend_cluster:
+            How many iterations of hill climbing to perform. More iterations
+            will cluster more noise points.
+
+        n_neighbors_extend_cluster:
+            How many neighbors to use in the hill climbing procedure.
+
+        returns:
             A numpy array of length the number of points in the dataset containing
             integers from -1 to the number of clusters minus 1, representing the
             labels of the final clustering. The label -1 represents noise points,
             i.e., points deemed not to belong to any cluster by the algorithm.
+
         """
 
         start, end = np.array(start), np.array(end)
@@ -267,7 +298,7 @@ class Persistable:
             )
         if min_k >= max_k:
             min_k = max_k / 2
-            warnings.warn("min_k too large, using min_k=" + str(min_k) + " instead.")
+            warnings.warn("max density threshold too large, using " + str(min_k) + " instead.")
 
         # how many more ss than ks (note that getting more ss is very cheap)
         more_s_than_k = 1
@@ -417,24 +448,23 @@ class _MetricProbabilitySpace:
 
             pd = pers_diag(current_k)
             pd = np.array(pd)
-            if len(pd[pd[:,1] == np.infty]) > 1:
-                raise Exception("End not found! Try setting auto_find_end_hierachical_clustering to False.")
-            else:
-                if pd.shape[0] == 0:
-                    raise Exception("Empty persistence diagram found when trying to find end of metric measure space.")
-                # persistence diagram has more than one class
-                elif pd.shape[0] > 1:
-                    lower_bound, upper_bound = current_k, upper_bound
-                    if np.abs(current_k - self._maxk) < _TOL:
-                        pd = pers_diag(lower_bound)
-                        return [np.max(pd[pd[:,1]!=np.infty][:,1]), current_k]
-                # persistence diagram has exactly one class
-                else:
-                    lower_bound, upper_bound = lower_bound, current_k
-
-                if np.abs(lower_bound - upper_bound) < tolerance:
+            #if len(pd[pd[:,1] == np.infty]) > 1:
+            #    raise Exception("End not found! Try setting auto_find_end_hierachical_clustering to False.")
+            if pd.shape[0] == 0:
+                raise Exception("Empty persistence diagram found when trying to find end of metric measure space.")
+            # persistence diagram has more than one class
+            elif pd.shape[0] > 1:
+                lower_bound, upper_bound = current_k, upper_bound
+                if np.abs(current_k - self._maxk) < _TOL:
                     pd = pers_diag(lower_bound)
                     return [np.max(pd[pd[:,1]!=np.infty][:,1]), current_k]
+            # persistence diagram has exactly one class
+            else:
+                lower_bound, upper_bound = lower_bound, current_k
+
+            if np.abs(lower_bound - upper_bound) < tolerance:
+                pd = pers_diag(lower_bound)
+                return [np.max(pd[pd[:,1]!=np.infty][:,1]), current_k]
  
 
     def lambda_linkage(self, start, end):
@@ -505,12 +535,12 @@ class _MetricProbabilitySpace:
         run_in_parallel = lambda startend: self.lambda_linkage(
             startend[0], startend[1]
         ).persistence_diagram(tol=tol)
-        #return [run_in_parallel(startend) for startend in startends]
-        return Parallel(n_jobs=n_jobs)(
-            delayed(run_in_parallel)(startend) for startend in startends
-        )
-
-
+        if n_jobs == 1:
+            return [run_in_parallel(startend) for startend in startends]
+        else:
+            return Parallel(n_jobs=n_jobs)(
+                delayed(run_in_parallel)(startend) for startend in startends
+            )
 
     def hilbert_function(self, ks, ss, n_jobs, tol=_TOL):
         n_s = len(ss)

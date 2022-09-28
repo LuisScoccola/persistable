@@ -5,10 +5,11 @@ What distinguishes Persistable from other clustering algorithms is its visualiza
 Persistable's interactive mode lets you visualize multi-scale and multi-density cluster structure present in the data.
 This is used to guide the choice of parameters that lead to the final clustering.
 
+Next is a brief outline of the main functionality, please bear with us while we keep working on the documentation: [persistable.readthedocs.io](https://persistable.readthedocs.io/)!
+
 
 ## Usage
 
-Here is a brief outline of the main functionality, please be patient while we work on the documentation.
 Keep in mind that this is a beta version and the user interface may change with the stable release.
 
 ### Basic usage
@@ -25,8 +26,6 @@ clustering_labels = p.quick_cluster()
 
 ### Interactive mode 
 
-#### From a Jupyter notebook
-
 For now, Persistable's interactive mode is supported only through Jupyter notebooks.
 In order to run Persistable's interactive mode from a Jupyter notebook, run the following in a Jupyter cell:
 
@@ -38,11 +37,14 @@ X = make_blobs(2000, centers=4, random_state=1)[0]
 # using n_neighbors="all" will compute better defaults for visualization,
 # but you might want to omit this for large datasets
 p = persistable.Persistable(X, n_neighbors="all")
-pi = persistable.PersistableInteractive(jupyter = True, inline = False)
+pi = persistable.PersistableInteractive(inline = False)
 pi.run_with(p)
 ```
 
-Now go to `localhost:8050` in your web browser to access the graphical user interface.
+Now go to `localhost:8050` in your web browser to access the graphical user interface:
+
+![Alt text](docs/pictures/GUI.png?raw=true)
+
 After choosing your parameters using the user interface, you can get your clustering in another Jupyter cell by running:
 
 ```python
@@ -52,31 +54,11 @@ cluster_labels = pi.cluster()
 **Note:** You may use `inline = True` to have the graphical user interface run directly in the Jupyter notebook instead of the web browser!
 
 
-<!---
-#### From a Python script
-
-```python
-import persistable
-from sklearn.datasets import make_blobs
-
-X = make_blobs(2000)[0]
-p = persistable.Persistable(X)
-pi = persistable.PersistableInteractive(p)
-# will wait until you close the GUI
-cluster_labels = p.cluster(**pi._parameters)
-```
-
-This will run the lines up to the commented line, and it will wait for you to interact with the data.
-Now go to `localhost:8050` in your browser to interact with the data.
-You can then fix your chosen parameters and close the app by clicking on the "Choose parameters and close" button in the GUI.
---->
-
 ## Installing
 
 ```bash
 pip install git+https://github.com/LuisScoccola/persistable.git
 ```
-
 
 ## Details about theory and implementation
 
