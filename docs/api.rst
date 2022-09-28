@@ -2,7 +2,7 @@ API Reference
 =============
 
 .. autoclass:: persistable.Persistable
-   :members:
+    :members:
 
 .. autoclass:: persistable.PersistableInteractive
-   :members:
+    :members:
