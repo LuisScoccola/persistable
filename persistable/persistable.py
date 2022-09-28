@@ -29,6 +29,32 @@ class Persistable:
     parameters that are sometimes easier to set. The parameters for ``cluster()``
     are usually set by using the graphical user interface implemented by the
     ``PersistableInteractive`` class.
+
+    Parameters
+    ----------
+    X:
+        A numpy vector of shape (samples, features) or a distance matrix.
+
+    metric:
+        A string determining which metric is used to compute distances
+        between the points in X. It can be a metric in ``KDTree.valid_metrics``
+        or ``BallTree.valid_metric`` (which can be found by
+        ``from sklearn.neighbors import KDTree, BallTree``) or ``"precomputed"`` if X is a
+        distance matrix.
+
+    n_neighbors:
+        Number of neighbors for each point in X used to initialize
+        datastructures used for clustering. If set to ``"all"`` it will use
+        the number of points in the dataset, if set to ``"auto"`` it will find
+        a reasonable default.
+
+    auto_find_end_hierachical_clustering:
+        Whether to automatically find the last time in the hierarchical clustering
+        where there is more than one cluster.
+
+    **kwargs:
+        Passed to ``KDTree`` or ``BallTree``.
+
     """
 
     def __init__(
@@ -39,28 +65,6 @@ class Persistable:
         auto_find_end_hierachical_clustering=True,
         **kwargs
     ):
-        """Initializes a Persistable instance.
-
-        X:
-            A numpy vector of shape (samples, features) or a distance matrix.
-        metric:
-            A string determining which metric is used to compute distances
-            between the points in X. It can be a metric in ``KDTree.valid_metrics``
-            or ``BallTree.valid_metric`` (which can be found by
-            ``from sklearn.neighbors import KDTree, BallTree``) or ``"precomputed"`` if X is a
-            distance matrix.
-        n_neighbors:
-            Number of neighbors for each point in X used to initialize
-            datastructures used for clustering. If set to ``"all"`` it will use
-            the number of points in the dataset, if set to ``"auto"`` it will find
-            a reasonable default.
-        auto_find_end_hierachical_clustering:
-            Whether to automatically find the last time in the hierarchical clustering
-            where there is more than one cluster.
-        **kwargs:
-            Passed to ``KDTree`` or ``BallTree``.
-        """
-
         # we set it to None for now
         measure=None
         # keep dataset
@@ -115,23 +119,31 @@ class Persistable:
         by the user, according to a certain measure of goodness of clustering
         based on prominence of modes of the underlying distribution.
         
+        Parameters
+        ----------
+
         n_neighbors:
             Number of neighbors used as a maximum density threshold
             when doing density-based clustering.
+
         n_clusters_range:
             A two-element list or tuple representing an integer
             range of possible numbers of clusters to consider when finding the
             optimum number of clusters.
+
         extend_clustering_by_hill_climbing:
             Boolean representing whether or not to extend the clustering to
             noise points by hill climbing.
+
         n_iterations_extend_cluster:
             How many iterations of hill climbing to perform. More iterations
             will cluster more noise points.
+
         n_neighbors_extend_cluster:
             How many neighbors to use in the hill climbing procedure.
     
-        Returns:
+        Returns
+        -------
             A numpy array of length the number of points in the dataset containing
             integers from -1 to the number of clusters minus 1, representing the
             labels of the final clustering. The label -1 represents noise points,
@@ -175,30 +187,38 @@ class Persistable:
     ):
         """Clusters the dataset with which the Persistable instance was initialized.
 
+        Parameters
+        ----------
         n_clusters:
             Integer determining how many clusters the final clustering
             must have. Note that the final clustering can have fewer clusters
             if the selected parameters do not allow for so many clusters.
+
         start:
             Two-element list, tuple, or numpy array representing a point on
             the positive plane determining the start of the segment in the
             two-parameter hierarchical clustering used to do persistence-based
             clustering.
+
         end:
             Two-element list, tuple, or numpy array representing a point on
             the positive plane determining the end of the segment in the
             two-parameter hierarchical clustering used to do persistence-based
             clustering.
+
         extend_clustering_by_hill_climbing:
             Boolean representing whether or not to extend the clustering to
             noise points by hill climbing.
+
         n_iterations_extend_cluster:
             How many iterations of hill climbing to perform. More iterations
             will cluster more noise points.
+
         n_neighbors_extend_cluster:
             How many neighbors to use in the hill climbing procedure.
 
-        Returns:
+        Returns
+        -------
             A numpy array of length the number of points in the dataset containing
             integers from -1 to the number of clusters minus 1, representing the
             labels of the final clustering. The label -1 represents noise points,
