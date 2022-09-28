@@ -13,5 +13,9 @@ Contents
 --------
 
 .. toctree::
+   :maxdepth: 1
 
+   basicusage
+   background
+   interactivemode
    api
