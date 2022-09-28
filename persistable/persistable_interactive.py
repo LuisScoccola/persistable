@@ -124,8 +124,6 @@ def empty_figure():
 class PersistableInteractive:
     """A graphical user interface for doing parameter selection for Persistable.
 
-    Parameters
-    ----------
     port:
         Integer representing which port of localhost to use to run the GUI.
 
@@ -158,13 +156,10 @@ class PersistableInteractive:
         """Clusters the dataset with which the Persistable instance that was
         passed through ``run_with`` was initialized.
 
-        Parameters
-        ----------
-        **kwargs:
+        ``**kwargs``:
             Passed to ``Persistable.cluster``.
         
-        Returns
-        -------
+        returns:
             A numpy array of length the number of points in the dataset containing
             integers from -1 to the number of clusters minus 1, representing the
             labels of the final clustering. The label -1 represents noise points,
@@ -181,8 +176,6 @@ class PersistableInteractive:
     def run_with(self, persistable):
         """Starts the GUI with a given persistable instance.
         
-        Parameters
-        ----------
         persistable:
             An instance of the class Persistable with which to run the GUI.
 

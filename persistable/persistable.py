@@ -30,8 +30,6 @@ class Persistable:
     are usually set by using the graphical user interface implemented by the
     ``PersistableInteractive`` class.
 
-    Parameters
-    ----------
     X:
         A numpy vector of shape (samples, features) or a distance matrix.
 
@@ -52,7 +50,7 @@ class Persistable:
         Whether to automatically find the last time in the hierarchical clustering
         where there is more than one cluster.
 
-    **kwargs:
+    ``**kwargs``:
         Passed to ``KDTree`` or ``BallTree``.
 
     """
@@ -65,16 +63,17 @@ class Persistable:
         auto_find_end_hierachical_clustering=True,
         **kwargs
     ):
-        # we set it to None for now
-        measure=None
         # keep dataset
         self._data = X
         # if metric is minkowski but no p was passed, assume p = 2
         if metric == "minkowski" and "p" not in kwargs:
             kwargs["p"] = 2
         # if no measure was passed, assume normalized counting measure
-        if measure is None:
+        if "measure" not in kwargs:
             measure = np.full(X.shape[0], 1.0 / X.shape[0])
+        else:
+            measure = kwargs["measure"]
+            del kwargs["measure"]
         if "leaf_size" in kwargs:
             leaf_size = kwargs["leaf_size"]
         else:
@@ -119,9 +118,6 @@ class Persistable:
         by the user, according to a certain measure of goodness of clustering
         based on prominence of modes of the underlying distribution.
         
-        Parameters
-        ----------
-
         n_neighbors:
             Number of neighbors used as a maximum density threshold
             when doing density-based clustering.
@@ -142,8 +138,7 @@ class Persistable:
         n_neighbors_extend_cluster:
             How many neighbors to use in the hill climbing procedure.
     
-        Returns
-        -------
+        returns:
             A numpy array of length the number of points in the dataset containing
             integers from -1 to the number of clusters minus 1, representing the
             labels of the final clustering. The label -1 represents noise points,
@@ -187,8 +182,6 @@ class Persistable:
     ):
         """Clusters the dataset with which the Persistable instance was initialized.
 
-        Parameters
-        ----------
         n_clusters:
             Integer determining how many clusters the final clustering
             must have. Note that the final clustering can have fewer clusters
@@ -217,12 +210,12 @@ class Persistable:
         n_neighbors_extend_cluster:
             How many neighbors to use in the hill climbing procedure.
 
-        Returns
-        -------
+        returns:
             A numpy array of length the number of points in the dataset containing
             integers from -1 to the number of clusters minus 1, representing the
             labels of the final clustering. The label -1 represents noise points,
             i.e., points deemed not to belong to any cluster by the algorithm.
+
         """
 
         start, end = np.array(start), np.array(end)
