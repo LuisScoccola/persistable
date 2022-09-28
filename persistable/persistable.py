@@ -35,7 +35,6 @@ class Persistable:
         self,
         X,
         metric="minkowski",
-        measure=None,
         n_neighbors="auto",
         auto_find_end_hierachical_clustering=True,
         **kwargs
@@ -50,8 +49,6 @@ class Persistable:
             or ``BallTree.valid_metric`` (which can be found by
             ``from sklearn.neighbors import KDTree, BallTree``) or ``"precomputed"`` if X is a
             distance matrix.
-        measure:
-            Must be set to ``None`` for now.
         n_neighbors:
             Number of neighbors for each point in X used to initialize
             datastructures used for clustering. If set to ``"all"`` it will use
@@ -63,6 +60,9 @@ class Persistable:
         **kwargs:
             Passed to ``KDTree`` or ``BallTree``.
         """
+
+        # we set it to None for now
+        measure=None
         # keep dataset
         self._data = X
         # if metric is minkowski but no p was passed, assume p = 2
@@ -282,7 +282,7 @@ class Persistable:
             )
         if min_k >= max_k:
             min_k = max_k / 2
-            warnings.warn("min_k too large, using min_k=" + str(min_k) + " instead.")
+            warnings.warn("max density threshold too large, using " + str(min_k) + " instead.")
 
         # how many more ss than ks (note that getting more ss is very cheap)
         more_s_than_k = 1
@@ -432,24 +432,23 @@ class _MetricProbabilitySpace:
 
             pd = pers_diag(current_k)
             pd = np.array(pd)
-            if len(pd[pd[:,1] == np.infty]) > 1:
-                raise Exception("End not found! Try setting auto_find_end_hierachical_clustering to False.")
-            else:
-                if pd.shape[0] == 0:
-                    raise Exception("Empty persistence diagram found when trying to find end of metric measure space.")
-                # persistence diagram has more than one class
-                elif pd.shape[0] > 1:
-                    lower_bound, upper_bound = current_k, upper_bound
-                    if np.abs(current_k - self._maxk) < _TOL:
-                        pd = pers_diag(lower_bound)
-                        return [np.max(pd[pd[:,1]!=np.infty][:,1]), current_k]
-                # persistence diagram has exactly one class
-                else:
-                    lower_bound, upper_bound = lower_bound, current_k
-
-                if np.abs(lower_bound - upper_bound) < tolerance:
+            #if len(pd[pd[:,1] == np.infty]) > 1:
+            #    raise Exception("End not found! Try setting auto_find_end_hierachical_clustering to False.")
+            if pd.shape[0] == 0:
+                raise Exception("Empty persistence diagram found when trying to find end of metric measure space.")
+            # persistence diagram has more than one class
+            elif pd.shape[0] > 1:
+                lower_bound, upper_bound = current_k, upper_bound
+                if np.abs(current_k - self._maxk) < _TOL:
                     pd = pers_diag(lower_bound)
                     return [np.max(pd[pd[:,1]!=np.infty][:,1]), current_k]
+            # persistence diagram has exactly one class
+            else:
+                lower_bound, upper_bound = lower_bound, current_k
+
+            if np.abs(lower_bound - upper_bound) < tolerance:
+                pd = pers_diag(lower_bound)
+                return [np.max(pd[pd[:,1]!=np.infty][:,1]), current_k]
  
 
     def lambda_linkage(self, start, end):
