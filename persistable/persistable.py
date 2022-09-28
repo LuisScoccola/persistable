@@ -71,6 +71,9 @@ class Persistable:
         # if no measure was passed, assume normalized counting measure
         if "measure" not in kwargs:
             measure = np.full(X.shape[0], 1.0 / X.shape[0])
+        elif "measure" in kwargs and kwargs["measure"] is None:
+            measure = np.full(X.shape[0], 1.0 / X.shape[0])
+            del kwargs["measure"]
         else:
             measure = kwargs["measure"]
             del kwargs["measure"]
