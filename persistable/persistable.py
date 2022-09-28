@@ -36,8 +36,9 @@ class Persistable:
         X,
         metric="minkowski",
         measure=None,
-        n_neighbors=None,
+        n_neighbors="auto",
         leaf_size: int = 40,
+        auto_find_end_hierachical_clustering=True,
         **kwargs
     ):
         """Initializes a Persistable instance.
@@ -53,6 +54,9 @@ class Persistable:
             n_neighbors: Number of neighbors for each point in X used to initialize
                 datastructures used for clustering.
             leaf_size: Used to initialize the KDTree or BallTree.
+            auto_find_end_hierachical_clustering:
+                Whether to automatically find the last time in the hierarchical clustering
+                where there is more than one cluster.
             **kwargs: Passed to KDTree or BallTree.
         """
         # keep dataset
@@ -65,15 +69,17 @@ class Persistable:
             measure = np.full(X.shape[0], 1.0 / X.shape[0])
         self._mpspace = _MetricProbabilitySpace(X, metric, measure, leaf_size, **kwargs)
         # if no n_neighbors for fitting mpspace was passed, compute a reasonable one
-        if n_neighbors is None:
+        if n_neighbors == "auto":
             if X.shape[0] < 100:
                 self._n_neighbors = X.shape[0]
             else:
                 self._n_neighbors = min(int(np.log10(X.shape[0])) * 100, X.shape[0])
         elif n_neighbors == "all":
             self._n_neighbors = X.shape[0]
+        elif type(n_neighbors) == int and n_neighbors >= 1:
+            self._n_neighbors = min(n_neighbors, X.shape[0])
         else:
-            self._n_neighbors = min(self._n_neighbors, X.shape[0])
+            raise ValueError("n_neighbors must be either auto, all, or a positive integer.")
         # keep max_k (normalized n_neighbors)
         self._maxk = self._n_neighbors / X.shape[0]
         # fit the mpspace
@@ -82,7 +88,7 @@ class Persistable:
         # compute and keep robust connection radius
         self._connection_radius = self._mpspace.connection_radius(default_percentile)
 
-        if n_neighbors == "all":
+        if auto_find_end_hierachical_clustering:
             self._end = self._mpspace.find_end()
         else:
             self._end = self._connection_radius * 4, self._maxk
@@ -255,7 +261,7 @@ class Persistable:
         if max_k > self._maxk:
             max_k = min(max_k, self._maxk)
             warnings.warn(
-                "Not enough neighbors to compute chosen max_k, using max_k="
+                "Not enough neighbors to compute chosen max density threshold, using "
                 + str(max_k)
                 + " instead. If needed, re-initialize the Persistable instance with a larger n_neighbors."
             )
@@ -311,6 +317,7 @@ class _MetricProbabilitySpace:
     def fit(self, n_neighbors):
         self._fit_nn(n_neighbors)
         self._fit_density_estimates()
+        self._maxk = self._n_neighbors / self._size
 
     def _fit_nn(self, n_neighbors):
         self._n_neighbors = n_neighbors
@@ -401,7 +408,7 @@ class _MetricProbabilitySpace:
             return self.lambda_linkage([0, k], [np.infty, k]).persistence_diagram()
 
         lower_bound = 0
-        upper_bound = 1
+        upper_bound = self._maxk
 
         i=0
         while True:
@@ -411,17 +418,16 @@ class _MetricProbabilitySpace:
             pd = pers_diag(current_k)
             pd = np.array(pd)
             if len(pd[pd[:,1] == np.infty]) > 1:
-                warnings.warn("End not found! Result is infinity.")
-                return [np.infty, 1]
+                raise Exception("End not found! Try setting auto_find_end_hierachical_clustering to False.")
             else:
                 if pd.shape[0] == 0:
                     raise Exception("Empty persistence diagram found when trying to find end of metric measure space.")
                 # persistence diagram has more than one class
                 elif pd.shape[0] > 1:
                     lower_bound, upper_bound = current_k, upper_bound
-                    if np.abs(current_k - 1) < _TOL:
-                        warnings.warn("End not found! Result is infinity.")
-                        return [np.infty, 1]
+                    if np.abs(current_k - self._maxk) < _TOL:
+                        pd = pers_diag(lower_bound)
+                        return [np.max(pd[pd[:,1]!=np.infty][:,1]), current_k]
                 # persistence diagram has exactly one class
                 else:
                     lower_bound, upper_bound = lower_bound, current_k
