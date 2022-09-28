@@ -1,4 +1,14 @@
 version: 2
 
+python:
+  install:
+    - method: pip
+      path: .
+
 sphinx:
+  configuration: docs/conf.py
   fail_on_warning: true
+
+formats:
+  - pdf
+  - epub

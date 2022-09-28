@@ -37,7 +37,6 @@ class Persistable:
         metric="minkowski",
         measure=None,
         n_neighbors=None,
-        leaf_size: int = 40,
         **kwargs
     ):
         """Initializes a Persistable instance.
@@ -45,14 +44,13 @@ class Persistable:
         Args:
             X: A numpy vector of shape (samples, features) or a distance matrix.
             metric: A string determining which metric is used to compute distances
-                between the points in X. It can be a metric in [KDTree.valid_metrics]
-                or [BallTree.valid_metric] (which can be found by
-                [from sklearn.neighbors import KDTree, BallTree]) or "precomputed" if X is a
+                between the points in X. It can be a metric in ``KDTree.valid_metrics``
+                or ``BallTree.valid_metric`` (which can be found by
+                ``from sklearn.neighbors import KDTree, BallTree``) or "precomputed" if X is a
                 distance matrix.
-            measure: Must be set to [None] for now.
+            measure: Must be set to ``None`` for now.
             n_neighbors: Number of neighbors for each point in X used to initialize
                 datastructures used for clustering.
-            leaf_size: Used to initialize the KDTree or BallTree.
             **kwargs: Passed to KDTree or BallTree.
         """
         # keep dataset
@@ -63,6 +61,10 @@ class Persistable:
         # if no measure was passed, assume normalized counting measure
         if measure is None:
             measure = np.full(X.shape[0], 1.0 / X.shape[0])
+        if "leaf_size" in kwargs:
+            leaf_size = kwargs["leaf_size"]
+        else:
+            leaf_size = 40
         self._mpspace = _MetricProbabilitySpace(X, metric, measure, leaf_size, **kwargs)
         # if no n_neighbors for fitting mpspace was passed, compute a reasonable one
         if n_neighbors is None:
@@ -503,8 +505,6 @@ class _MetricProbabilitySpace:
         return Parallel(n_jobs=n_jobs)(
             delayed(run_in_parallel)(startend) for startend in startends
         )
-
-
 
     def hilbert_function(self, ks, ss, n_jobs, tol=_TOL):
         n_s = len(ss)
