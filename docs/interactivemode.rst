@@ -1,4 +1,4 @@
-Interactive parameter selection
-===============================
+Interactive mode
+================
 
 Under construction.
