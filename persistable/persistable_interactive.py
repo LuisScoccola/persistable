@@ -35,9 +35,6 @@ BaseLongCallbackManager.hash_function = monkeypatched_hash_function
 ###
 
 
-unique_id_for_cache = str(uuid.uuid4())
-PERSISTABLE_DASH_CACHE = "./persistable-dash-cache-" + unique_id_for_cache
-
 X_START_FIRST_LINE = "x-start-first-line-"
 Y_START_FIRST_LINE = "y-start-first-line-"
 X_END_FIRST_LINE = "x-end-first-line-"
@@ -148,6 +145,7 @@ class PersistableInteractive:
         self._app = None
 
         # set temporary files
+        PERSISTABLE_DASH_CACHE = "./persistable-dash-cache-port-" + str(port)
         self._cache = diskcache.Cache(PERSISTABLE_DASH_CACHE)
         self._background_callback_manager = DiskcacheManager(self._cache)
 
