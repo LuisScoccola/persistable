@@ -381,14 +381,15 @@ class _MetricProbabilitySpace:
         self._fitted_density_estimates = True
         self._kernel_estimate = np.cumsum(self._measure[self._nn_indices], axis=1)
 
-    def _core_distance(self, point_index, s_intercept, k_intercept, max_k):
-        i_indices = []
+    def _core_distance(self, point_index, s_intercept, k_intercept, max_k=None):
+        max_k = k_intercept if max_k is None else max_k
         if s_intercept != np.inf:
+            i_indices_and_finished_at_last_index = []
             mu = s_intercept / k_intercept
             k_to_s = lambda y: s_intercept - mu * y
-            not_enough_neighbors = False
+            max_k_larger_last_kernel_estimate = []
             for p in point_index:
-                i_indices.append(
+                i_indices_and_finished_at_last_index.append(
                     lazy_intersection(
                         self._kernel_estimate[p],
                         self._nn_distance[p],
@@ -396,14 +397,18 @@ class _MetricProbabilitySpace:
                         k_intercept,
                     )
                 )
-                # check if for any points we don't have enough neighbors to properly compute its core scale
-                if self._nn_distance[p,-1] < max_k:
-                    not_enough_neighbors = True
-            if not_enough_neighbors:
+                max_k_larger_last_kernel_estimate.append( (self._kernel_estimate[p,-1] < max_k) )
+            max_k_larger_last_kernel_estimate = np.array(max_k_larger_last_kernel_estimate)
+            i_indices_and_finished_at_last_index = np.array(i_indices_and_finished_at_last_index)
+            i_indices = i_indices_and_finished_at_last_index[:,0]
+            finished_at_last_index = i_indices_and_finished_at_last_index[:,1]
+            # check if for any points we don't have enough neighbors to properly compute its core scale
+            # for this, the lazy intersection must have finished at the last index and the max_k
+            # of the line segment chosen must be larger than the max kernel estimate for the point
+            if np.any( np.logical_and(finished_at_last_index, max_k_larger_last_kernel_estimate) ):
                 warnings.warn(
                     "Don't have enough neighbors to properly compute core scale, or point takes too long to appear."
                 )
-            i_indices = np.array(i_indices)[:,0]
             op = lambda p, i: np.where(
                 k_to_s(self._kernel_estimate[p, i - 1]) <= self._nn_distance[p, i],
                 k_to_s(self._kernel_estimate[p, i - 1]),
@@ -411,6 +416,7 @@ class _MetricProbabilitySpace:
             )
             return np.where(i_indices == 0, 0, op(point_index, i_indices))
         else:
+            i_indices = []
             for p in point_index:
                 i_indices.append(
                     np.searchsorted(self._kernel_estimate[p], k_intercept, side="left")
