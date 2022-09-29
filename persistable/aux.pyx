@@ -18,14 +18,18 @@ def lazy_intersection(np.ndarray[DTYPE_t, ndim=1] increasing, np.ndarray[DTYPE_t
     cdef int first = 0
     cdef int last = increasing.shape[0]-1
     cdef int midpoint
-    if s0 - mu * increasing[first] <= increasing2[first] :
-        return first, False
-    if s0 - mu * increasing[last] > increasing2[last] :
-        return last, True
-    while first+1 < last :
-        midpoint = (first + last)//2
-        if s0 - mu * increasing[midpoint] <= increasing2[midpoint] :
-            last = midpoint
-        else:
-            first = midpoint
-    return last, False
+    cdef int res1
+    cdef int res2
+    with nogil:
+        if s0 - mu * increasing[first] <= increasing2[first] :
+            res1, res2 = first, False
+        if s0 - mu * increasing[last] > increasing2[last] :
+            res1, res2 = last, True
+        while first+1 < last :
+            midpoint = (first + last)//2
+            if s0 - mu * increasing[midpoint] <= increasing2[midpoint] :
+                last = midpoint
+            else:
+                first = midpoint
+        res1, res2 = last, False
+    return res1, res2
