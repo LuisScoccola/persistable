@@ -11,8 +11,7 @@ import diskcache
 import dash
 from dash import dcc, html, DiskcacheManager, ctx
 from dash.exceptions import PreventUpdate
-from flask import request
-from .persistable import Persistable
+import socket
 
 
 from ._vineyard import Vineyard
@@ -36,7 +35,8 @@ BaseLongCallbackManager.hash_function = monkeypatched_hash_function
 ###
 
 
-PERSISTABLE_DASH_CACHE = "./persistable-dash-cache"
+unique_id_for_cache = str(uuid.uuid4())
+PERSISTABLE_DASH_CACHE = "./persistable-dash-cache-" + unique_id_for_cache
 
 X_START_FIRST_LINE = "x-start-first-line-"
 Y_START_FIRST_LINE = "y-start-first-line-"
@@ -136,9 +136,8 @@ class PersistableInteractive:
 
     """
 
-
     def __init__(self, port=8050, jupyter=True, inline=False):
-        # debug must be set to true for now
+        # must be set to True for now
         debug=True
         self._persistable = None
         self._parameters = None
@@ -158,13 +157,13 @@ class PersistableInteractive:
 
         ``**kwargs``:
             Passed to ``Persistable.cluster``.
-        
+
         returns:
             A numpy array of length the number of points in the dataset containing
             integers from -1 to the number of clusters minus 1, representing the
             labels of the final clustering. The label -1 represents noise points,
             i.e., points deemed not to belong to any cluster by the algorithm.
- 
+
         """
         if self._parameters == None:
             raise ValueError(
@@ -175,7 +174,7 @@ class PersistableInteractive:
 
     def run_with(self, persistable):
         """Starts the GUI with a given persistable instance.
-        
+
         persistable:
             An instance of the class Persistable with which to run the GUI.
 
@@ -187,6 +186,16 @@ class PersistableInteractive:
             print("Remember to reload your web browser.")
         else:
             if self._jupyter == True:
+                # check if port is in use
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    in_use = s.connect_ex(("localhost", int(self._port))) == 0
+                if in_use:
+                    raise Exception(
+                        "Port "
+                        + str(self._port)
+                        + " already in use. Either select another port or make sure that previous GUI instances are not running anymore."
+                    )
+
                 from jupyter_dash import JupyterDash
 
                 self._app = JupyterDash(
@@ -210,7 +219,6 @@ class PersistableInteractive:
                 self._layout_gui()
                 self._register_callbacks()
                 self._app.run_server(port=self._port, debug=self._debug)
-
 
     def _layout_gui(self):
         default_min_k = 0
@@ -427,7 +435,7 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_x_start_first_line,
                                                                     min=0,
-                                                                    #step=default_s_step,
+                                                                    # step=default_s_step,
                                                                 ),
                                                                 dcc.Input(
                                                                     className=VALUE,
@@ -435,7 +443,7 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_y_start_first_line,
                                                                     min=0,
-                                                                    #step=default_k_step,
+                                                                    # step=default_k_step,
                                                                 ),
                                                             ],
                                                         ),
@@ -452,7 +460,7 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_x_end_first_line,
                                                                     min=0,
-                                                                    #step=default_s_step,
+                                                                    # step=default_s_step,
                                                                 ),
                                                                 dcc.Input(
                                                                     className=VALUE,
@@ -460,7 +468,7 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_y_end_first_line,
                                                                     min=0,
-                                                                    #step=default_k_step,
+                                                                    # step=default_k_step,
                                                                 ),
                                                             ],
                                                         ),
@@ -477,7 +485,7 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_x_start_second_line,
                                                                     min=0,
-                                                                    #step=default_s_step,
+                                                                    # step=default_s_step,
                                                                 ),
                                                                 dcc.Input(
                                                                     className=VALUE,
@@ -485,7 +493,7 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_y_start_second_line,
                                                                     min=0,
-                                                                    #step=default_k_step,
+                                                                    # step=default_k_step,
                                                                 ),
                                                             ],
                                                         ),
@@ -502,7 +510,7 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_x_end_second_line,
                                                                     min=0,
-                                                                    #step=default_s_step,
+                                                                    # step=default_s_step,
                                                                 ),
                                                                 dcc.Input(
                                                                     className=VALUE,
@@ -510,7 +518,7 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_y_end_second_line,
                                                                     min=0,
-                                                                    #step=default_k_step,
+                                                                    # step=default_k_step,
                                                                 ),
                                                             ],
                                                         ),
@@ -1113,23 +1121,28 @@ class PersistableInteractive:
                             mode="lines",
                             line=dict(width=6),
                         )
+
                     st_x = params["start"][0]
                     st_y = params["start"][1]
                     end_x = params["end"][0]
                     end_y = params["end"][1]
-                    st = np.array([st_x,st_y])
-                    end = np.array([end_x,end_y])
-                    A = end-st
-                    B = np.array([-A[1],A[0]])
-                    B = B/np.linalg.norm(B)
+                    st = np.array([st_x, st_y])
+                    end = np.array([end_x, end_y])
+                    A = end - st
+                    B = np.array([-A[1], A[0]])
+                    B = B / np.linalg.norm(B)
 
                     shift = 50
-                    tau = np.array(
+                    tau = (
+                        np.array(
                             [
                                 d[MAX_DIST_SCALE + VALUE] - d[MIN_DIST_SCALE + VALUE],
-                                d[MAX_DENSITY_THRESHOLD + VALUE] - d[MIN_DENSITY_THRESHOLD + VALUE],
+                                d[MAX_DENSITY_THRESHOLD + VALUE]
+                                - d[MIN_DENSITY_THRESHOLD + VALUE],
                             ]
-                        ) / shift
+                        )
+                        / shift
+                    )
                     tau[0] = tau[0] * B[0]
                     tau[1] = tau[1] * B[1]
 
@@ -1160,7 +1173,8 @@ class PersistableInteractive:
                         )
                 fig.add_trace(
                     generate_line(
-                        [st_x, end_x], [st_y,end_y],
+                        [st_x, end_x],
+                        [st_y, end_y],
                         "selected",
                         color="blue",
                     )
@@ -1230,9 +1244,7 @@ class PersistableInteractive:
                 except ValueError:
                     out += traceback.format_exc()
                     d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
-                    d[
-                        STORED_CCF + DATA
-                    ] = None
+                    d[STORED_CCF + DATA] = None
                     d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = True
                     return d
 
