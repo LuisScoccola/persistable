@@ -381,11 +381,12 @@ class _MetricProbabilitySpace:
         self._fitted_density_estimates = True
         self._kernel_estimate = np.cumsum(self._measure[self._nn_indices], axis=1)
 
-    def _core_distance(self, point_index, s_intercept, k_intercept):
+    def _core_distance(self, point_index, s_intercept, k_intercept, max_k):
         i_indices = []
         if s_intercept != np.inf:
             mu = s_intercept / k_intercept
             k_to_s = lambda y: s_intercept - mu * y
+            not_enough_neighbors = False
             for p in point_index:
                 i_indices.append(
                     lazy_intersection(
@@ -395,13 +396,14 @@ class _MetricProbabilitySpace:
                         k_intercept,
                     )
                 )
-            i_indices = np.array(i_indices)
-            out_of_range = i_indices[:, 1]
-            if np.any(out_of_range):
+                # check if for any points we don't have enough neighbors to properly compute its core scale
+                if self._nn_distance[p,-1] < max_k:
+                    not_enough_neighbors = True
+            if not_enough_neighbors:
                 warnings.warn(
                     "Don't have enough neighbors to properly compute core scale, or point takes too long to appear."
                 )
-            i_indices = i_indices[:, 0]
+            i_indices = np.array(i_indices)[:,0]
             op = lambda p, i: np.where(
                 k_to_s(self._kernel_estimate[p, i - 1]) <= self._nn_distance[p, i],
                 k_to_s(self._kernel_estimate[p, i - 1]),
@@ -485,7 +487,8 @@ class _MetricProbabilitySpace:
         hc_end = end[0]
         indices = np.arange(self._size)
         s_intercept, k_intercept = _startend_to_intercepts(start, end)
-        core_distances = self._core_distance(indices, s_intercept, k_intercept)
+        max_k = start[1]
+        core_distances = self._core_distance(indices, s_intercept, k_intercept, max_k)
         core_distances = np.minimum(hc_end, core_distances)
         core_distances = np.maximum(hc_start, core_distances)
         if self._metric in KDTree.valid_metrics:
