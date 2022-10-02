@@ -5,12 +5,13 @@ What distinguishes Persistable from other clustering algorithms is its visualiza
 Persistable's interactive mode lets you visualize multi-scale and multi-density cluster structure present in the data.
 This is used to guide the choice of parameters that lead to the final clustering.
 
-Next is a brief outline of the main functionality, please bear with us while we keep working on the documentation: [persistable.readthedocs.io](https://persistable.readthedocs.io/)!
+Next is a brief outline of the main functionality, please bear with us while we keep working on the documentation, which you can find at [persistable.readthedocs.io](https://persistable.readthedocs.io/).
 
 
 ## Usage
 
 Keep in mind that this is a beta version and the user interface may change with the stable release.
+Please consult the [API reference](https://persistable.readthedocs.io/en/latest/api.html) for further details.
 
 ### Basic usage
 
@@ -56,20 +57,24 @@ cluster_labels = pi.cluster()
 
 ## Installing
 
+Make sure you are using Python 3.
+Installation through PyPI is coming soon.
+
 ```bash
 pip install git+https://github.com/LuisScoccola/persistable.git
 ```
 
 ## Details about theory and implementation
 
-Persistable is based on multi-parameter persistence [[4]](#4), a method from Topological Data Analysis.
+Persistable is based on multi-parameter persistence [[4]](#4), a method from topological data analysis.
 The theory behind Persistable is developed in [[1]](#1), while this implementation uses the high performance algorithms for density-based clustering developed in [[2]](#2) and implemented in [[3]](#3).
-Persistable's interactive mode is inspired by RIVET [[5]](#5).
+Persistable's interactive mode is inspired by RIVET [[5]](#5) and is implemented in [Dash](https://dash.plotly.com/).
 
 
 ## Contributing
 
-If you would like to contribute, please contact [Luis Scoccola](https://luisscoccola.github.io/).
+To contribute, you can fork the project, make your changes, and submit a pull request.
+You may want to contact [Luis Scoccola](https://luisscoccola.github.io/) first, to make sure your work does not overlap with ongoing work.
 The next steps in our to-do list are:
 - Documentation and examples.
 - Further tests for main functionality and test for GUI.
@@ -86,22 +91,19 @@ The next steps in our to-do list are:
 ## References
 
 <a id="1">[1]</a> 
-*Stable and consistent density-based clustering*. A. Rolle and L. Scoccola.
-https://arxiv.org/abs/2005.09048
+*Stable and consistent density-based clustering*. A. Rolle and L. Scoccola. [arXiv:2005.09048](https://arxiv.org/abs/2005.09048)
 
 <a id="2">[2]</a> 
-*Accelerated Hierarchical Density Based Clustering*. McInnes L, Healy J. 2017 IEEE International Conference on Data Mining Workshops (ICDMW), IEEE, pp 33-42. 2017
+*Accelerated Hierarchical Density Based Clustering*. L. McInnes, J. Healy. 2017 IEEE International Conference on Data Mining Workshops (ICDMW), IEEE, pp 33-42. 2017
 
 <a id="3">[3]</a> 
 *hdbscan: Hierarchical density based clustering*. L. McInnes, J. Healy, S. Astels. Journal of Open Source Software, The Open Journal, volume 2, number 11. 2017
 
 <a id="4">[4]</a> 
-*An Introduction to Multiparameter Persistence*. Magnus Bakke Botnan, Michael Lesnick.
-https://arxiv.org/abs/2203.14289
+*An Introduction to Multiparameter Persistence*. M. B. Botnan, M. Lesnick. Proceedings of the 2020 International Conference on Representations of Algebras. 2022
 
 <a id="5">[5]</a> 
-*RIVET*. The RIVET Developers.
-https://rivet.readthedocs.io/en/latest/index.html
+*RIVET*. The RIVET Developers. [[Git]](https://github.com/rivetTDA/rivet) [[docs]](https://rivet.readthedocs.io/en/latest/index.html)
 
 <!---
 <a id="4">[4]</a> 
@@ -112,3 +114,4 @@ https://rivet.readthedocs.io/en/latest/index.html
 ## License
 
 The software is published under the 3-clause BSD license.
+
