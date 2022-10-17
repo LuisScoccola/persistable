@@ -207,3 +207,14 @@ details>.parameters {
     border: 2px solid #b1adff;
     padding: .8em
 }
+
+/* no hide spin-button in numeric fields */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type=number] {
+    -moz-appearance:textfield;
+}

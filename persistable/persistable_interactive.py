@@ -297,7 +297,8 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_min_s,
                                                                     min=0,
-                                                                    step=default_s_step,
+                                                                    #step=default_s_step,
+                                                                    debounce=True,
                                                                 ),
                                                                 dcc.Input(
                                                                     className=VALUE,
@@ -305,7 +306,8 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_max_s,
                                                                     min=0,
-                                                                    step=default_s_step,
+                                                                    #step=default_s_step,
+                                                                    debounce=True,
                                                                 ),
                                                             ],
                                                         ),
@@ -322,7 +324,8 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_min_k,
                                                                     min=0,
-                                                                    step=default_k_step,
+                                                                    #step=default_k_step,
+                                                                    debounce=True,
                                                                 ),
                                                                 dcc.Input(
                                                                     className=VALUE,
@@ -330,7 +333,8 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_max_k,
                                                                     min=0,
-                                                                    step=default_k_step,
+                                                                    #step=default_k_step,
+                                                                    debounce=True,
                                                                 ),
                                                             ],
                                                         ),
@@ -348,6 +352,7 @@ class PersistableInteractive:
                                                                     value=default_granularity,
                                                                     min=min_granularity,
                                                                     max=max_granularity,
+                                                                    debounce=True,
                                                                 ),
                                                                 html.Span(
                                                                     className="name",
@@ -360,6 +365,7 @@ class PersistableInteractive:
                                                                     min=1,
                                                                     className="small-value",
                                                                     step=1,
+                                                                    debounce=True,
                                                                 ),
                                                             ],
                                                         ),
@@ -378,6 +384,7 @@ class PersistableInteractive:
                                                                     min=1,
                                                                     step=1,
                                                                     max=16,
+                                                                    debounce=True,
                                                                 ),
                                                                 html.Div(
                                                                     className="space"
@@ -434,6 +441,7 @@ class PersistableInteractive:
                                                                     value=default_x_start_first_line,
                                                                     min=0,
                                                                     # step=default_s_step,
+                                                                    debounce=True,
                                                                 ),
                                                                 dcc.Input(
                                                                     className=VALUE,
@@ -442,6 +450,7 @@ class PersistableInteractive:
                                                                     value=default_y_start_first_line,
                                                                     min=0,
                                                                     # step=default_k_step,
+                                                                    debounce=True,
                                                                 ),
                                                             ],
                                                         ),
@@ -459,6 +468,7 @@ class PersistableInteractive:
                                                                     value=default_x_end_first_line,
                                                                     min=0,
                                                                     # step=default_s_step,
+                                                                    debounce=True,
                                                                 ),
                                                                 dcc.Input(
                                                                     className=VALUE,
@@ -467,6 +477,7 @@ class PersistableInteractive:
                                                                     value=default_y_end_first_line,
                                                                     min=0,
                                                                     # step=default_k_step,
+                                                                    debounce=True,
                                                                 ),
                                                             ],
                                                         ),
@@ -484,6 +495,7 @@ class PersistableInteractive:
                                                                     value=default_x_start_second_line,
                                                                     min=0,
                                                                     # step=default_s_step,
+                                                                    debounce=True,
                                                                 ),
                                                                 dcc.Input(
                                                                     className=VALUE,
@@ -492,6 +504,7 @@ class PersistableInteractive:
                                                                     value=default_y_start_second_line,
                                                                     min=0,
                                                                     # step=default_k_step,
+                                                                    debounce=True,
                                                                 ),
                                                             ],
                                                         ),
@@ -534,6 +547,7 @@ class PersistableInteractive:
                                                                     value=default_granularity,
                                                                     min=min_granularity_vineyard,
                                                                     max=max_granularity_vineyard,
+                                                                    debounce=True,
                                                                 ),
                                                                 html.Span(
                                                                     className="name",
@@ -546,6 +560,7 @@ class PersistableInteractive:
                                                                     min=1,
                                                                     className="small-value",
                                                                     step=1,
+                                                                    debounce=True,
                                                                 ),
                                                             ],
                                                         ),
@@ -564,6 +579,7 @@ class PersistableInteractive:
                                                                     min=1,
                                                                     step=1,
                                                                     max=16,
+                                                                    debounce=True,
                                                                 ),
                                                                 html.Span(
                                                                     className="name",
@@ -729,6 +745,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=1,
                                                     min=1,
+                                                    debounce=True,
                                                 ),
                                                 html.Span(
                                                     className="name",
@@ -740,6 +757,7 @@ class PersistableInteractive:
                                                     type="number",
                                                     value=1,
                                                     min=1,
+                                                    debounce=True,
                                                 ),
                                                 html.Button(
                                                     "Choose parameter",
@@ -774,6 +792,7 @@ class PersistableInteractive:
                         dcc.Markdown(
                             """
             - Check the log, above, for warnings.
+            - Press enter after you modify numerical fields.
             - Computing the component counting function and prominence vineyard can take a while, depending on the size and dimensionality of the dataset as well as other factors.
             - Make sure to leave your pointer still when clicking on the component counting function plot, otherwise your interaction may not be registered.
             """
