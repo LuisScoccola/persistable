@@ -26,5 +26,9 @@ jobs:
           python -m setup build_ext --inplace
       - name: Tests
         run: |
-          pytest --cov=persistable
+          pytest --cov persistable
+      - name: Upload coverage results
+        run: |
+          bash <(curl -s https://codecov.io/bash)
+
 
