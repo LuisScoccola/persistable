@@ -1,3 +1,5 @@
+![tests](https://github.com/LuisScoccola/persistable/actions/workflows/run_tests.yaml/badge.svg)
+
 # Persistable: persistent and stable clustering
 
 Persistable is a density-based clustering algorithm intended for exploratory data analysis.
@@ -5,13 +7,17 @@ What distinguishes Persistable from other clustering algorithms is its visualiza
 Persistable's interactive mode lets you visualize multi-scale and multi-density cluster structure present in the data.
 This is used to guide the choice of parameters that lead to the final clustering.
 
-Next is a brief outline of the main functionality, please bear with us while we keep working on the documentation, which you can find at [persistable.readthedocs.io](https://persistable.readthedocs.io/).
+Keep in mind that this is a beta version and the user interface may change with the stable release.
+
+
+## Documentation
+
+You can find the documentation at [persistable.readthedocs.io](https://persistable.readthedocs.io/).
 
 
 ## Usage
 
-Keep in mind that this is a beta version and the user interface may change with the stable release.
-Please consult the [API reference](https://persistable.readthedocs.io/en/latest/api.html) for further details.
+Here is a brief outline of the main functionality; see the [documentation](https://persistable.readthedocs.io/) for details, including the [API reference](https://persistable.readthedocs.io/en/latest/api.html).
 
 ### Basic usage
 
@@ -27,7 +33,7 @@ clustering_labels = p.quick_cluster()
 
 ### Interactive mode 
 
-For now, Persistable's interactive mode is supported only through Jupyter notebooks.
+For now, Persistable's interactive mode is supported through Jupyter notebooks.
 In order to run Persistable's interactive mode from a Jupyter notebook, run the following in a Jupyter cell:
 
 ```python
@@ -64,6 +70,18 @@ Installation through PyPI is coming soon.
 pip install git+https://github.com/LuisScoccola/persistable.git
 ```
 
+
+## Running the tests
+
+After installing, you can run the tests using the following command.
+Note that, for now, *we are not testing the GUI*.
+If a test fails, please [report a bug](https://github.com/LuisScoccola/persistable/issues).
+
+```bash
+pytest persistable
+```
+
+
 ## Details about theory and implementation
 
 Persistable is based on multi-parameter persistence [[4]](#4), a method from topological data analysis.
@@ -76,9 +94,9 @@ Persistable's interactive mode is inspired by RIVET [[5]](#5) and is implemented
 To contribute, you can fork the project, make your changes, and submit a pull request.
 You may want to contact [Luis Scoccola](https://luisscoccola.github.io/) first, to make sure your work does not overlap with ongoing work.
 The next steps in our to-do list are:
-- Documentation and examples.
-- Further tests for main functionality and test for GUI.
-- Improving the GUI: responsiveness and more intuitive workflow.
+- Tests for GUI.
+- A tutorial with more examples.
+- Improving the GUI's responsiveness and workflow.
 - Computing and displaying further algebraic invariants of multi-parameter hierarchical clusterings.
 - Improving efficiency of current algorithms.
 
@@ -114,4 +132,3 @@ The next steps in our to-do list are:
 ## License
 
 The software is published under the 3-clause BSD license.
-
