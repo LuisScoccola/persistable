@@ -36,8 +36,8 @@ that encode both spatial relations among data points and density
 (see :ref:`introduction`).
 
 For a rigorous definition of hierarchical clustering, 
-see Section 2 
-`here <https://arxiv.org/abs/2005.09048>`_.
+see Section 2 of 
+`Stable and consistent density-based clustering <https://arxiv.org/abs/2005.09048>`__.
 
 The barcode of a hierarchical clustering *H(X)* consists of *bars*, 
 which are simply intervals of the real line. 

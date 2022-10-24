@@ -11,8 +11,8 @@ a flat (0-parameter) clustering.
 
 This tutorial provides a short description of the 
 persistence-based flattening algorithm. 
-For details, see Section 5 
-`here <https://arxiv.org/abs/2005.09048>`_. 
+For details, see Section 5 of 
+`Stable and consistent density-based clustering <https://arxiv.org/abs/2005.09048>`__. 
 This method is inspired by the ToMATo algorithm; 
 see :ref:`links`.
 
