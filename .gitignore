@@ -1,7 +1,16 @@
 build/*
 *.pyc
 *.c
+*.so
 */__pycache__/*
 dist/*
 persistable.egg-info/*
 notebooks/.ipynb_checkpoints/*
+docs/_build/*
+.coverage.*
+.vscode/*
+.DS_Store
+.coverage
+home/*
+*.bak
+*/bak/*

@@ -131,11 +131,12 @@ class PersistableInteractive:
         Boolean representing whether or not to display the GUI inside
         the Jupyter notebook.
 
+    debug:
+        Whether to run Dash in debug mode.
+
     """
 
-    def __init__(self, port=8050, jupyter=True, inline=False):
-        # must be set to True for now
-        debug=True
+    def __init__(self, port=8050, jupyter=True, inline=False, debug=False):
         self._persistable = None
         self._parameters = None
         self._port = port
@@ -204,10 +205,16 @@ class PersistableInteractive:
                 self._layout_gui()
                 self._register_callbacks()
                 if self._inline:
+                    import logging
+                    log = logging.getLogger('werkzeug')
+                    log.setLevel(logging.ERROR)
                     self._app.run_server(
                         port=self._port, mode="inline", debug=self._debug
                     )
                 else:
+                    import logging
+                    log = logging.getLogger('werkzeug')
+                    log.setLevel(logging.ERROR)
                     self._app.run_server(port=self._port, debug=self._debug)
             else:
                 self._app = dash.Dash(
@@ -216,6 +223,9 @@ class PersistableInteractive:
                 )
                 self._layout_gui()
                 self._register_callbacks()
+                import logging
+                log = logging.getLogger('werkzeug')
+                log.setLevel(logging.ERROR)
                 self._app.run_server(port=self._port, debug=self._debug)
 
     def _layout_gui(self):
