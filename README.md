@@ -1,4 +1,4 @@
-![tests](https://github.com/LuisScoccola/persistable/actions/workflows/run_tests.yaml/badge.svg)
+[![tests](https://github.com/LuisScoccola/persistable/actions/workflows/run_tests.yaml/badge.svg)](https://github.com/LuisScoccola/persistable/actions/workflows/run_tests.yaml)
 
 # Persistable: persistent and stable clustering
 
