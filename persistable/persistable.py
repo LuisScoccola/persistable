@@ -46,10 +46,6 @@ class Persistable:
         the number of points in the dataset, if set to ``"auto"`` it will find
         a reasonable default.
 
-    auto_find_end_hierachical_clustering:
-        Whether to automatically find the last time in the hierarchical clustering
-        where there is more than one cluster.
-
     ``**kwargs``:
         Passed to ``KDTree`` or ``BallTree``.
 
@@ -60,7 +56,6 @@ class Persistable:
         X,
         metric="minkowski",
         n_neighbors="auto",
-        auto_find_end_hierachical_clustering=True,
         **kwargs
     ):
         # keep dataset
@@ -101,11 +96,6 @@ class Persistable:
         default_percentile = 0.95
         # compute and keep robust connection radius
         self._connection_radius = self._mpspace.connection_radius(default_percentile)
-
-        if auto_find_end_hierachical_clustering:
-            self._end = self._mpspace.find_end()
-        else:
-            self._end = self._connection_radius * 4, self._maxk
 
     def quick_cluster(
         self,
@@ -249,6 +239,12 @@ class Persistable:
                 cl, n_iterations_extend_cluster, n_neighbors_extend_cluster
             )
         return cl
+
+    def _find_end(self, fast=False):
+        if fast:
+            return self._connection_radius * 4, self._maxk
+        else:
+            return self._mpspace.find_end()
 
     def _compute_vineyard(self, start_end1, start_end2, n_parameters=50, n_jobs=4):
         start1, end1 = start_end1

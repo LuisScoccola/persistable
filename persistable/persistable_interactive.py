@@ -220,11 +220,12 @@ class PersistableInteractive:
 
     def _layout_gui(self):
         default_min_k = 0
-        default_max_k = self._persistable._end[1]
-        default_k_step = default_max_k / 100
+        end = self._persistable._find_end()
+        default_max_k = end[1]
+        #default_k_step = default_max_k / 100
         default_min_s = 0
-        default_max_s = self._persistable._end[0]
-        default_s_step = (default_max_s - default_min_s) / 100
+        default_max_s = end[0]
+        #default_s_step = (default_max_s - default_min_s) / 100
         default_granularity = 100
         default_num_jobs = 4
         default_max_dim = 15
