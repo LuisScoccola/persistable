@@ -76,4 +76,5 @@ class Vineyard:
                 # we keep constructing the vine part, since the prominence is non-zero
                 current_vine_part.append(prominences[i])
                 current_time_part.append(times[i])
+            part_number += 1
         return parts

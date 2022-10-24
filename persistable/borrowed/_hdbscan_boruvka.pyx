@@ -219,7 +219,6 @@ cdef class KDTreeBoruvkaAlgorithm (object):
     cdef np.ndarray _data
     cdef np.double_t[:, ::1] _raw_data
     cdef np.double_t[:, :, ::1] node_bounds
-    cdef np.double_t alpha
     cdef np.int8_t approx_min_span_tree
     cdef np.intp_t num_points
     cdef np.intp_t num_nodes
@@ -262,14 +261,12 @@ cdef class KDTreeBoruvkaAlgorithm (object):
     cdef const np.int_t[:, ::1] nn
     ####
 
-    def __init__(self, tree, core_distance, const np.int_t[:, ::1] nn, metric='euclidean', leaf_size=20,
-                 alpha=1.0, approx_min_span_tree=False, **kwargs):
+    def __init__(self, tree, core_distance, const np.int_t[:, ::1] nn, metric='euclidean', leaf_size=20, approx_min_span_tree=False, **kwargs):
 
         self.tree = tree
         self._data = np.array(self.tree.data)
         self._raw_data = self.tree.data
         self.node_bounds = self.tree.node_bounds
-        self.alpha = alpha
         self.approx_min_span_tree = approx_min_span_tree
 
         self.num_points = self.tree.data.shape[0]
@@ -587,9 +584,6 @@ cdef class KDTreeBoruvkaAlgorithm (object):
         #           - we need to compute mutual reachability distance
         #             not just the ordinary distance; this involves
         #             fiddling with core distances.
-        #           - We need to scale distances according to alpha,
-        #             but don't want to lose performance in the case
-        #             that alpha is 1.0.
         #
         #       Finally we can compute new bounds for the query node
         #       based on the distances found here, so do that and
@@ -631,12 +625,7 @@ cdef class KDTreeBoruvkaAlgorithm (object):
                         # mr_dist = max(distances[i, j],
                         #               self.core_distance_ptr[p],
                         #               self.core_distance_ptr[q])
-                        if self.alpha != 1.0:
-                            mr_dist = max(d / self.alpha,
-                                          self.core_distance_ptr[p],
-                                          self.core_distance_ptr[q])
-                        else:
-                            mr_dist = max(d, self.core_distance_ptr[p],
+                        mr_dist = max(d, self.core_distance_ptr[p],
                                           self.core_distance_ptr[q])
                         if mr_dist < self.candidate_distance_ptr[component1]:
                             self.candidate_distance_ptr[component1] = mr_dist
@@ -770,7 +759,6 @@ cdef class BallTreeBoruvkaAlgorithm (object):
     cdef dist_metrics.DistanceMetric dist
     cdef np.ndarray _data
     cdef np.double_t[:, ::1] _raw_data
-    cdef np.double_t alpha
     cdef np.int8_t approx_min_span_tree
     cdef np.intp_t num_points
     cdef np.intp_t num_nodes
@@ -811,14 +799,12 @@ cdef class BallTreeBoruvkaAlgorithm (object):
 
     cdef const np.int_t[:, ::1] nn
 
-    def __init__(self, tree, core_distance, const np.int_t[:,::1] nn, metric='euclidean',
-                 alpha=1.0, leaf_size=20, approx_min_span_tree=False,
+    def __init__(self, tree, core_distance, const np.int_t[:,::1] nn, metric='euclidean', leaf_size=20, approx_min_span_tree=False,
                  **kwargs):
 
         self.tree = tree
         self._data = np.array(self.tree.data)
         self._raw_data = self.tree.data
-        self.alpha = alpha
         self.approx_min_span_tree = approx_min_span_tree
 
         self.num_points = self.tree.data.shape[0]
@@ -1122,9 +1108,6 @@ cdef class BallTreeBoruvkaAlgorithm (object):
         #           - we need to compute mutual reachability distance
         #             not just the ordinary distance; this involves
         #             fiddling with core distances.
-        #           - We need to scale distances according to alpha,
-        #             but don't want to lose performance in the case
-        #             that alpha is 1.0.
         #
         #       Finally we can compute new bounds for the query node
         #       based on the distances found here, so do that and
@@ -1161,14 +1144,9 @@ cdef class BallTreeBoruvkaAlgorithm (object):
 
                         d = self.dist.dist(&raw_data[self.num_features * p],
                                            &raw_data[self.num_features * q],
-                                           self.num_features) * self.alpha
+                                           self.num_features)
 
-                        if self.alpha != 1.0:
-                            mr_dist = max(d / self.alpha,
-                                          self.core_distance_ptr[p],
-                                          self.core_distance_ptr[q])
-                        else:
-                            mr_dist = max(d, self.core_distance_ptr[p],
+                        mr_dist = max(d, self.core_distance_ptr[p],
                                           self.core_distance_ptr[q])
 
                         if mr_dist < self.candidate_distance_ptr[component1]:

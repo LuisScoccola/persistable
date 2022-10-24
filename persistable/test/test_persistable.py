@@ -15,7 +15,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         np.random.seed(0)
         self._n = 25
         self._X = np.random.random_sample((self._n, 2))
-        self._ps = [2, 4, 8]
+        self._ps = [2, 4, 8, np.inf]
         self._s0s = np.linspace(0.1, 2, 10)
         self._k0s = np.linspace(0.01, 0.5, 10)
         self._number_different_weights = 3
@@ -55,25 +55,6 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         k0 = 0.6
         res = np.array([1, 1, 1, 2])
         np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
-
-    def test_hilbert_function(self):
-        X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
-        p = Persistable(X)
-        mps = p._mpspace
-
-        ss = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4]
-        ks = [0, 1 / 4 + 0.01, 1 / 2, 3 / 4, 1, 1.1]
-
-        res = np.array(
-            [
-                [4, 4, 2, 2, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
-                [0, 0, 0, 0, 1, 1, 1, 1],
-            ]
-        )
-        np.testing.assert_almost_equal(mps.hilbert_function(ks, ss, n_jobs=4), res)
 
     def test_same_core_distances(self):
         for w in self._different_weights:
@@ -116,9 +97,9 @@ class TestMetricProbabilitySpace(unittest.TestCase):
             mps3 = p3._mpspace
             for s0 in self._s0s:
                 for k0 in self._k0s:
-                    hc1 = mps1.lambda_linkage([0,k0],[s0,0])
-                    hc2 = mps2.lambda_linkage([0,k0],[s0,0])
-                    hc3 = mps3.lambda_linkage([0,k0],[s0,0])
+                    hc1 = mps1.lambda_linkage([0, k0], [s0, 0])
+                    hc2 = mps2.lambda_linkage([0, k0], [s0, 0])
+                    hc3 = mps3.lambda_linkage([0, k0], [s0, 0])
                     np.testing.assert_almost_equal(
                         hc1._merges_heights, hc2._merges_heights
                     )
@@ -144,15 +125,34 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                 mps3 = p3._mpspace
                 for s0 in self._s0s:
                     for k0 in self._k0s:
-                        hc1 = mps1.lambda_linkage([0,k0],[s0,0])
-                        hc2 = mps2.lambda_linkage([0,k0],[s0,0])
-                        hc3 = mps3.lambda_linkage([0,k0],[s0,0])
+                        hc1 = mps1.lambda_linkage([0, k0], [s0, 0])
+                        hc2 = mps2.lambda_linkage([0, k0], [s0, 0])
+                        hc3 = mps3.lambda_linkage([0, k0], [s0, 0])
                         np.testing.assert_almost_equal(
                             hc1._merges_heights, hc2._merges_heights
                         )
                         np.testing.assert_almost_equal(
                             hc2._merges_heights, hc3._merges_heights
                         )
+
+    def test_hilbert_function(self):
+        X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
+        p = Persistable(X)
+        mps = p._mpspace
+
+        ss = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4]
+        ks = [0, 1 / 4 + 0.01, 1 / 2, 3 / 4, 1, 1.1]
+
+        res = np.array(
+            [
+                [4, 4, 2, 2, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 0, 0, 1, 1, 1, 1],
+            ]
+        )
+        np.testing.assert_almost_equal(mps.hilbert_function(ks, ss, n_jobs=4), res)
 
 
 class TestHierarchicalClustering(unittest.TestCase):
@@ -232,7 +232,12 @@ class TestPersistable(unittest.TestCase):
     def test_number_clusters(self):
         n_datapoints = 1000
         n_true_points = int(n_datapoints * 0.7)
-        X, _ = datasets.make_blobs(n_samples=n_true_points, centers=6, cluster_std=[0.05,0.06,0.07,0.08,0.09,0.1], random_state=0)
+        X, _ = datasets.make_blobs(
+            n_samples=n_true_points,
+            centers=6,
+            cluster_std=[0.05, 0.06, 0.07, 0.08, 0.09, 0.1],
+            random_state=0,
+        )
         np.random.seed(0)
         n_noise = n_datapoints - n_true_points
         noise = (np.random.random_sample((n_noise, 2)) - 0.4) * 4
@@ -242,24 +247,105 @@ class TestPersistable(unittest.TestCase):
         k0 = 0.05
         for s0 in np.linspace(0.1, 0.5, 5):
             for i in list(range(2, 5)):
-                c = p.cluster(n_clusters=i, start=[0,k0], end=[s0,0])
+                c = p.cluster(n_clusters=i, start=[0, k0], end=[s0, 0])
+                self.assertEqual(len(set(c[c >= 0])), i)
+                c = p.cluster(
+                    n_clusters=i,
+                    start=[0, k0],
+                    end=[s0, 0],
+                    extend_clustering_by_hill_climbing=True,
+                )
                 self.assertEqual(len(set(c[c >= 0])), i)
 
     def test_number_clusters_quick_cluster(self):
-        X, _ = datasets.make_blobs(n_samples=1000, centers=3, cluster_std=[0.05,0.06,0.07], random_state=1)
+        X, _ = datasets.make_blobs(
+            n_samples=1000, centers=3, cluster_std=[0.05, 0.06, 0.07], random_state=1
+        )
         p = Persistable(X)
         c = p.quick_cluster()
+        self.assertEqual(len(set(c[c >= 0])), 3)
+        c = p.quick_cluster(extend_clustering_by_hill_climbing=True)
         self.assertEqual(len(set(c[c >= 0])), 3)
 
         X, _ = datasets.make_blobs(n_samples=1000, centers=4, random_state=2)
         p = Persistable(X)
         c = p.quick_cluster(n_neighbors=50)
         self.assertEqual(len(set(c[c >= 0])), 4)
+        c = p.quick_cluster(n_neighbors=50, extend_clustering_by_hill_climbing=True)
+        self.assertEqual(len(set(c[c >= 0])), 4)
 
         X, _ = datasets.make_blobs(n_samples=1000, centers=5, random_state=3)
         p = Persistable(X)
         c = p.quick_cluster()
         self.assertEqual(len(set(c[c >= 0])), 5)
+        c = p.quick_cluster(extend_clustering_by_hill_climbing=True)
+        self.assertEqual(len(set(c[c >= 0])), 5)
+
+    def test_hilbert_function(self):
+        X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
+        p = Persistable(X)
+
+        res_ss = [0.0, 0.5625, 1.125, 1.6875, 2.25, 2.8125, 3.375, 3.9375, 4.5]
+        res_ks = [
+            0.0,
+            0.140625,
+            0.28125,
+            0.421875,
+            0.5625,
+            0.703125,
+            0.84375,
+            0.984375,
+            1.125,
+        ]
+
+        res = np.array(
+            [
+                [4, 4, 2, 2, 1, 1, 1, 1],
+                [4, 4, 2, 2, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 0, 0, 1, 1, 1, 1],
+                [0, 0, 0, 0, 1, 1, 1, 1],
+            ]
+        )
+        ss, ks, hs = p._compute_hilbert_function(0, 1, 0, 4, granularity=8)
+
+        np.testing.assert_almost_equal(ss, np.array(res_ss))
+        np.testing.assert_almost_equal(ks, np.array(res_ks))
+        np.testing.assert_almost_equal(hs, res)
+
+    def test_prominence_vineyard(self):
+        X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
+        p = Persistable(X)
+
+        start_end1 = [(0, 0.1), (10, 0)]
+        start_end2 = [(0, 1), (10, 0.9)]
+        vineyard = p._compute_vineyard(start_end1, start_end2, n_parameters=4)
+
+        vines = vineyard._vineyard_to_vines()
+        res_vines = [
+            (np.array([0, 1, 2, 3]), np.array([10.0, 9.0, 9.0, 8.0])),
+            (np.array([0, 1, 2, 3]), np.array([2.0, 0.0, 0.0, 0.0])),
+            (np.array([0, 1, 2, 3]), np.array([1.0, 0.0, 0.0, 0.0])),
+            (np.array([0, 1, 2, 3]), np.array([1.0, 0.0, 0.0, 0.0])),
+        ]
+
+        res_vine_parts = [
+            [(np.array([0, 10.0, 9.0, 9.0, 8.0]), np.array([3, 0, 1, 2, 3]))],
+            [(np.array([0, 2.0, 0.0]), np.array([3, 0, 1]))],
+            [(np.array([0, 1.0, 0.0]), np.array([3, 0, 1]))],
+            [(np.array([0, 1.0, 0.0]), np.array([3, 0, 1]))],
+        ]
+
+        for tv, res_tv, res_vp in zip(vines, res_vines, res_vine_parts):
+            t, v = tv
+            res_t, res_v = res_tv
+            np.testing.assert_almost_equal(t, res_t)
+            np.testing.assert_almost_equal(v, res_v)
+            np.testing.assert_almost_equal(vineyard._vine_parts(v), res_vp)
+
 
 if __name__ == "__main__":
     unittest.main()

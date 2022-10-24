@@ -581,7 +581,7 @@ class _MetricProbabilitySpace:
                     if len(neighbors_labels) == 0:
                         new_labels.append(-1)
                     else:
-                        new_labels.append(mode(neighbors_labels)[0][0])
+                        new_labels.append(mode(neighbors_labels, keepdims=True)[0][0])
                 else:
                     new_labels.append(old_labels[x])
             new_labels = np.array(new_labels)
