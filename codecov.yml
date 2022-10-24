@@ -1,0 +1,5 @@
+coverage:
+  range: 50..100
+  threshold: 5%
+  status:
+    patch: off
