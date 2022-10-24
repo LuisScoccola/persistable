@@ -1,5 +1,7 @@
 [![tests](https://github.com/LuisScoccola/persistable/actions/workflows/run_tests.yaml/badge.svg)](https://github.com/LuisScoccola/persistable/actions/workflows/run_tests.yaml)
 
+[![license](https://img.shields.io/github/license/LuisScoccola/persistable)](https://github.com/LuisScoccola/persistable/blob/main/LICENSE)
+
 # Persistable: persistent and stable clustering
 
 Persistable is a density-based clustering algorithm intended for exploratory data analysis.
