@@ -4,6 +4,8 @@ plugins = Cython.Coverage
 omit = 
     */test*
     *__init__.py
+    # the GUI is not being tested for now!
+    persistable/persistable_interactive.py
     # the following were not modified by us
     persistable/borrowed/dist_metrics.pyx
     persistable/borrowed/dist_metrics.pxd
