@@ -1,12 +1,16 @@
 name: tests
 
-on: [push]
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   test:
     strategy:
       matrix:
-        python-version: ["3.9,3.10"]
+        python-version: ["3.9","3.10"]
         os: ["ubuntu-latest", "macos-latest", "windows-latest"]
     runs-on: ${{ matrix.os }}
 
