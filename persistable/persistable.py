@@ -369,7 +369,7 @@ class _MetricProbabilitySpace:
             _nn_distance = self._dist_mat[
                 np.arange(len(self._dist_mat)), neighbors.transpose()
             ].transpose()
-        self._nn_indices = np.array(neighbors)
+        self._nn_indices = np.array(neighbors, dtype=np.int_)
         self._nn_distance = np.array(_nn_distance)
         self._fitted_nn = True
 
