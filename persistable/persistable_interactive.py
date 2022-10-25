@@ -1,24 +1,23 @@
 # Authors: Luis Scoccola
 # License: 3-clause BSD
 
+import numpy as np
 import warnings
 import traceback
 import plotly.graph_objects as go
 import plotly
+from plotly.express.colors import sample_colorscale
 import pandas
 import json
 import diskcache
 import dash
 from dash import dcc, html, DiskcacheManager, ctx
 from dash.exceptions import PreventUpdate
+from jupyter_dash import JupyterDash
 import socket
-
-
+import logging
 from ._vineyard import Vineyard
 
-from plotly.express.colors import sample_colorscale
-
-import numpy as np
 
 # monkeypatch the hashing function of dash, so that
 # we can use a decorator to register callbacks
@@ -195,8 +194,6 @@ class PersistableInteractive:
                         + " already in use. Either select another port or make sure that previous GUI instances are not running anymore."
                     )
 
-                from jupyter_dash import JupyterDash
-
                 self._app = JupyterDash(
                     __name__,
                     background_callback_manager=self._background_callback_manager,
@@ -205,14 +202,12 @@ class PersistableInteractive:
                 self._layout_gui()
                 self._register_callbacks()
                 if self._inline:
-                    import logging
                     log = logging.getLogger('werkzeug')
                     log.setLevel(logging.ERROR)
                     self._app.run_server(
                         port=self._port, mode="inline", debug=self._debug
                     )
                 else:
-                    import logging
                     log = logging.getLogger('werkzeug')
                     log.setLevel(logging.ERROR)
                     self._app.run_server(port=self._port, debug=self._debug)
@@ -223,7 +218,6 @@ class PersistableInteractive:
                 )
                 self._layout_gui()
                 self._register_callbacks()
-                import logging
                 log = logging.getLogger('werkzeug')
                 log.setLevel(logging.ERROR)
                 self._app.run_server(port=self._port, debug=self._debug)
