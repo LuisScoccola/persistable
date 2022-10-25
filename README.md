@@ -81,6 +81,7 @@ Note that, for now, *we are not testing the GUI*.
 If a test fails, please [report a bug](https://github.com/LuisScoccola/persistable/issues).
 
 ```bash
+pip install -r requirements.txt
 python -m setup build_ext --inplace
 pytest .
 ```
