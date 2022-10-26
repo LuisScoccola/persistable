@@ -30,17 +30,17 @@ class Persistable:
     are usually set by using the graphical user interface implemented by the
     ``PersistableInteractive`` class.
 
-    X:
+    X: ndarray (n_samples, n_features)
         A numpy vector of shape (samples, features) or a distance matrix.
 
-    metric:
+    metric: string, optional, default is "minkowski"
         A string determining which metric is used to compute distances
         between the points in X. It can be a metric in ``KDTree.valid_metrics``
         or ``BallTree.valid_metric`` (which can be found by
-        ``from sklearn.neighbors import KDTree, BallTree``) or ``"precomputed"`` if X is a
-        distance matrix.
+        ``from sklearn.neighbors import KDTree, BallTree``) or ``"precomputed"``
+        if X is a distance matrix.
 
-    n_neighbors:
+    n_neighbors: int or string, optional, default is "auto"
         Number of neighbors for each point in X used to initialize
         datastructures used for clustering. If set to ``"all"`` it will use
         the number of points in the dataset, if set to ``"auto"`` it will find
@@ -111,24 +111,24 @@ class Persistable:
         by the user, according to a certain measure of goodness of clustering
         based on prominence of modes of the underlying distribution.
         
-        n_neighbors:
+        n_neighbors: int, optional, default is 30
             Number of neighbors used as a maximum density threshold
             when doing density-based clustering.
 
-        n_clusters_range:
+        n_clusters_range: (int, int), optional, default is [3, 15]
             A two-element list or tuple representing an integer
             range of possible numbers of clusters to consider when finding the
             optimum number of clusters.
 
-        extend_clustering_by_hill_climbing:
+        extend_clustering_by_hill_climbing: bool, optional, default is False
             Boolean representing whether or not to extend the clustering to
             noise points by hill climbing.
 
-        n_iterations_extend_cluster:
+        n_iterations_extend_cluster: int, optional, default is 10
             How many iterations of hill climbing to perform. More iterations
             will cluster more noise points.
 
-        n_neighbors_extend_cluster:
+        n_neighbors_extend_cluster: int, optional, default is 5
             How many neighbors to use in the hill climbing procedure.
     
         returns:
@@ -136,6 +136,7 @@ class Persistable:
             integers from -1 to the number of clusters minus 1, representing the
             labels of the final clustering. The label -1 represents noise points,
             i.e., points deemed not to belong to any cluster by the algorithm.
+
         """
         k = n_neighbors / self._mpspace._size
         s = self._connection_radius * 2
@@ -175,32 +176,32 @@ class Persistable:
     ):
         """Clusters the dataset with which the Persistable instance was initialized.
 
-        n_clusters:
+        n_clusters: int
             Integer determining how many clusters the final clustering
             must have. Note that the final clustering can have fewer clusters
             if the selected parameters do not allow for so many clusters.
 
-        start:
+        start: (float, float)
             Two-element list, tuple, or numpy array representing a point on
             the positive plane determining the start of the segment in the
             two-parameter hierarchical clustering used to do persistence-based
             clustering.
 
-        end:
+        end: (float, float)
             Two-element list, tuple, or numpy array representing a point on
             the positive plane determining the end of the segment in the
             two-parameter hierarchical clustering used to do persistence-based
             clustering.
 
-        extend_clustering_by_hill_climbing:
+        extend_clustering_by_hill_climbing: bool, optional, default is False
             Boolean representing whether or not to extend the clustering to
             noise points by hill climbing.
 
-        n_iterations_extend_cluster:
+        n_iterations_extend_cluster: int, optional, default is 10
             How many iterations of hill climbing to perform. More iterations
             will cluster more noise points.
 
-        n_neighbors_extend_cluster:
+        n_neighbors_extend_cluster: int, optional, default is 5
             How many neighbors to use in the hill climbing procedure.
 
         returns:

@@ -120,17 +120,17 @@ def empty_figure():
 class PersistableInteractive:
     """A graphical user interface for doing parameter selection for Persistable.
 
-    port:
+    port: int, optional, default is 8050
         Integer representing which port of localhost to use to run the GUI.
 
-    jupyter:
+    jupyter: bool, must set to true for now
         Must be set to ``True`` for now.
 
-    inline:
+    inline: bool, optional, default is False
         Boolean representing whether or not to display the GUI inside
         the Jupyter notebook.
 
-    debug:
+    debug: bool, optional, default is False
         Whether to run Dash in debug mode.
 
     """
@@ -173,7 +173,7 @@ class PersistableInteractive:
     def run_with(self, persistable):
         """Starts the GUI with a given persistable instance.
 
-        persistable:
+        persistable: Persistable
             An instance of the class Persistable with which to run the GUI.
 
         """
@@ -796,6 +796,7 @@ class PersistableInteractive:
                         html.Summary("Tips"),
                         dcc.Markdown(
                             """
+            - Check the documentation at [persistable.readthedocs.io](https://persistable.readthedocs.io/).
             - Check the log, above, for warnings.
             - Press enter after you modify numerical fields.
             - Computing the component counting function and prominence vineyard can take a while, depending on the size and dimensionality of the dataset as well as other factors.
