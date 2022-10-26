@@ -76,12 +76,14 @@ pip install git+https://github.com/LuisScoccola/persistable.git
 
 ## Running the tests
 
-After installing, you can run the tests using the following command.
+You can run the tests by running the following commands from the root directory of a clone of this repository.
 Note that, for now, *we are not testing the GUI*.
 If a test fails, please [report a bug](https://github.com/LuisScoccola/persistable/issues).
 
 ```bash
-pytest persistable
+pip install -r requirements.txt
+python -m setup build_ext --inplace
+pytest .
 ```
 
 

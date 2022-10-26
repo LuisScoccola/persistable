@@ -9,7 +9,7 @@ from .borrowed._hdbscan_boruvka import (
 from .borrowed.prim_mst import mst_linkage_core_vector
 from .borrowed.dense_mst import stepwise_dendrogram_with_core_distances
 from .borrowed.dist_metrics import DistanceMetric
-from .aux import lazy_intersection
+from .auxiliary import lazy_intersection
 import numpy as np
 import warnings
 from sklearn.neighbors import KDTree, BallTree
@@ -369,7 +369,7 @@ class _MetricProbabilitySpace:
             _nn_distance = self._dist_mat[
                 np.arange(len(self._dist_mat)), neighbors.transpose()
             ].transpose()
-        self._nn_indices = np.array(neighbors)
+        self._nn_indices = np.array(neighbors, dtype=np.int_)
         self._nn_distance = np.array(_nn_distance)
         self._fitted_nn = True
 

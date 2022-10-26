@@ -35,9 +35,9 @@ class CustomBuildExtCommand(build_ext):
         build_ext.run(self)
 
 
-aux = Extension(
-    "persistable.aux",
-    sources=["persistable/aux.pyx"],
+auxiliary = Extension(
+    "persistable.auxiliary",
+    sources=["persistable/auxiliary.pyx"],
     define_macros=[("CYTHON_TRACE_NOGIL", "1")],
 )
 relabel_dendrogram = Extension(
@@ -80,7 +80,7 @@ setup(
     install_requires=requirements(),
     ext_modules=[
         relabel_dendrogram,
-        aux,
+        auxiliary,
         dense_mst,
         dist_metrics,
         prim_mst,
