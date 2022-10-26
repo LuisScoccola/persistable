@@ -1,4 +1,4 @@
-numpy>=1.23
+numpy>=1.21
 scipy>=1.7
 scikit-learn>=1.0
 cython>=0.29
