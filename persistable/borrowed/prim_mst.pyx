@@ -69,7 +69,7 @@ cpdef np.ndarray[np.double_t, ndim=2] mst_linkage_core_vector(
     in_tree_arr = np.zeros(dim, dtype=np.int8)
     current_node = 0
     current_distances_arr = np.infty * np.ones(dim)
-    current_sources_arr = np.ones(dim, dtype=int)
+    current_sources_arr = np.ones(dim, dtype=np.intp)
     
     result = (<np.double_t[:dim - 1, :3:1]> (<np.double_t *> result_arr.data))
     in_tree = (<np.int8_t *> in_tree_arr.data)
