@@ -1,5 +1,5 @@
 numpy>=1.23
-scipy>=1.9
+scipy>=1.7
 scikit-learn>=1.1
 cython>=0.29
 plotly>=5.10
