@@ -120,34 +120,79 @@ def empty_figure():
 class PersistableInteractive:
     """A graphical user interface for doing parameter selection for Persistable.
 
-    port: int, optional, default is 8050
-        Integer representing which port of localhost to use to run the GUI.
-
-    jupyter: bool, must set to true for now
-        Must be set to ``True`` for now.
-
-    inline: bool, optional, default is False
-        Boolean representing whether or not to display the GUI inside
-        the Jupyter notebook.
-
-    debug: bool, optional, default is False
-        Whether to run Dash in debug mode.
+    persistable: Persistable
+        Persistable instance with which to interact with the user interface.
 
     """
 
-    def __init__(self, port=8050, jupyter=True, inline=False, debug=False):
-        self._persistable = None
-        self._parameters = None
-        self._port = port
-        self._jupyter = jupyter
-        self._inline = inline
-        self._debug = debug
+    def __init__(self, persistable):
+        self._persistable = persistable
         self._app = None
+        self._cache = None
+        self._background_callback_manager = None
+
+
+    def start_UI(self, port=8050, jupyter=True, inline=False, debug=False):
+        """Starts the GUI with a given persistable instance.
+
+        port: int, optional, default is 8050
+            Integer representing which port of localhost to use to run the GUI.
+
+        jupyter: bool, must set to true for now
+            Must be set to ``True`` for now.
+
+        inline: bool, optional, default is False
+            Boolean representing whether or not to display the GUI inside
+            the Jupyter notebook.
+
+        debug: bool, optional, default is False
+            Whether to run Dash in debug mode.
+
+        """
+        max_port = 65535
+        for possible_port in range(port, max_port+1):
+            # check if port is in use
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                in_use = s.connect_ex(("localhost", int(possible_port))) == 0
+            if in_use:
+                continue
+            else:
+                port = possible_port
+                break
+        if possible_port == max_port:
+            raise Exception(
+                "All ports are already in use. Cannot start the GUI."
+            )
 
         # set temporary files
-        PERSISTABLE_DASH_CACHE = "./persistable-dash-cache-port-" + str(port)
-        self._cache = diskcache.Cache(PERSISTABLE_DASH_CACHE)
+        persistable_dash_cache = "./persistable-dash-cache-port-" + str(port)
+        self._cache = diskcache.Cache(persistable_dash_cache)
         self._background_callback_manager = DiskcacheManager(self._cache)
+
+        if jupyter == True:
+
+            self._app = JupyterDash(
+                __name__,
+                background_callback_manager=self._background_callback_manager,
+            )
+
+            self._layout_gui()
+            self._register_callbacks()
+
+            mode = "inline" if inline else "external"
+            log = logging.getLogger('werkzeug')
+            log.setLevel(logging.ERROR)
+            self._app.run_server(port=port, mode=mode, debug=debug)
+        else:
+            self._app = dash.Dash(
+                __name__,
+                background_callback_manager=self._background_callback_manager,
+            )
+            self._layout_gui()
+            self._register_callbacks()
+            log = logging.getLogger('werkzeug')
+            log.setLevel(logging.ERROR)
+            self._app.run_server(port=port, debug=port)
 
     def cluster(self, **kwargs):
         """Clusters the dataset with which the Persistable instance that was
@@ -169,64 +214,6 @@ class PersistableInteractive:
             )
         else:
             return self._persistable.cluster(**self._parameters, **kwargs)
-
-    def run_with(self, persistable):
-        """Starts the GUI with a given persistable instance.
-
-        persistable: Persistable
-            An instance of the class Persistable with which to run the GUI.
-
-        """
-        self._persistable = persistable
-
-        if self._app is not None:
-            self._layout_gui()
-            print("Remember to reload your web browser.")
-        else:
-            max_port = 65535
-            for possible_port in range(self._port, max_port+1):
-                # check if port is in use
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    in_use = s.connect_ex(("localhost", int(possible_port))) == 0
-                if in_use:
-                    continue
-                else:
-                    self._port = possible_port
-                    break
-            if possible_port == max_port:
-                raise Exception(
-                    "All ports are already in use. Cannot start the GUI."
-                )
-
-            if self._jupyter == True:
-
-                self._app = JupyterDash(
-                    __name__,
-                    background_callback_manager=self._background_callback_manager,
-                )
-
-                self._layout_gui()
-                self._register_callbacks()
-                if self._inline:
-                    log = logging.getLogger('werkzeug')
-                    log.setLevel(logging.ERROR)
-                    self._app.run_server(
-                        port=self._port, mode="inline", debug=self._debug
-                    )
-                else:
-                    log = logging.getLogger('werkzeug')
-                    log.setLevel(logging.ERROR)
-                    self._app.run_server(port=self._port, debug=self._debug)
-            else:
-                self._app = dash.Dash(
-                    __name__,
-                    background_callback_manager=self._background_callback_manager,
-                )
-                self._layout_gui()
-                self._register_callbacks()
-                log = logging.getLogger('werkzeug')
-                log.setLevel(logging.ERROR)
-                self._app.run_server(port=self._port, debug=self._debug)
 
     def _layout_gui(self):
         default_min_k = 0
