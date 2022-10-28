@@ -47,8 +47,8 @@ X = make_blobs(2000, centers=4, random_state=1)[0]
 # using n_neighbors="all" will compute better defaults for visualization,
 # but you might want to omit this for large datasets
 p = persistable.Persistable(X, n_neighbors="all")
-pi = persistable.PersistableInteractive(inline = False)
-pi.run_with(p)
+pi = persistable.PersistableInteractive(p)
+pi.start_UI()
 ```
 
 Now go to `localhost:8050` in your web browser to access the graphical user interface:
@@ -61,7 +61,7 @@ After choosing your parameters using the user interface, you can get your cluste
 cluster_labels = pi.cluster()
 ```
 
-**Note:** You may use `inline = True` to have the graphical user interface run directly in the Jupyter notebook instead of the web browser!
+**Note:** You may use `pi.start_UI(inline=True)` to have the graphical user interface display directly in the Jupyter notebook!
 
 
 ## Installing
