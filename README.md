@@ -44,9 +44,8 @@ import persistable
 from sklearn.datasets import make_blobs
 
 X = make_blobs(2000, centers=4, random_state=1)[0]
-# using n_neighbors="all" will compute better defaults for visualization,
-# but you might want to omit this for large datasets
-p = persistable.Persistable(X, n_neighbors="all")
+
+p = persistable.Persistable(X)
 pi = persistable.PersistableInteractive(p)
 pi.start_UI()
 ```
