@@ -252,6 +252,7 @@ class PersistableInteractive:
         )
         default_y_end_second_line = (default_min_k + default_max_k) * (1 / 2)
 
+        self._app.title = "Persistable"
         self._app.layout = html.Div(
             className="root",
             children=[
