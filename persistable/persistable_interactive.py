@@ -131,12 +131,13 @@ class PersistableInteractive:
         self._cache = None
         self._background_callback_manager = None
 
-
     def start_UI(self, port=8050, jupyter=True, inline=False, debug=False):
-        """Starts the GUI with a given persistable instance.
+        """Serves the GUI with a given persistable instance.
 
         port: int, optional, default is 8050
-            Integer representing which port of localhost to use to run the GUI.
+            Integer representing which port of localhost to try use to run the GUI.
+            If port is not available, we look for one that is available, starting
+            from the given one.
 
         jupyter: bool, must set to true for now
             Must be set to ``True`` for now.
@@ -147,6 +148,9 @@ class PersistableInteractive:
 
         debug: bool, optional, default is False
             Whether to run Dash in debug mode.
+
+        return: int
+            The port used to serve the UI.
 
         """
         max_port = 65535
@@ -193,6 +197,8 @@ class PersistableInteractive:
             log = logging.getLogger('werkzeug')
             log.setLevel(logging.ERROR)
             self._app.run_server(port=port, debug=port)
+
+        return port
 
     def cluster(self, **kwargs):
         """Clusters the dataset with which the Persistable instance that was
