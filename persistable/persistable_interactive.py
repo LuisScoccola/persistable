@@ -183,16 +183,22 @@ class PersistableInteractive:
             self._layout_gui()
             print("Remember to reload your web browser.")
         else:
-            if self._jupyter == True:
+            max_port = 65535
+            for possible_port in range(self._port, max_port+1):
                 # check if port is in use
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    in_use = s.connect_ex(("localhost", int(self._port))) == 0
+                    in_use = s.connect_ex(("localhost", int(possible_port))) == 0
                 if in_use:
-                    raise Exception(
-                        "Port "
-                        + str(self._port)
-                        + " already in use. Either select another port or make sure that previous GUI instances are not running anymore."
-                    )
+                    continue
+                else:
+                    self._port = possible_port
+                    break
+            if possible_port == max_port:
+                raise Exception(
+                    "All ports are already in use. Cannot start the GUI."
+                )
+
+            if self._jupyter == True:
 
                 self._app = JupyterDash(
                     __name__,
