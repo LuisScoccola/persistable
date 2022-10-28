@@ -18,6 +18,8 @@ import socket
 import logging
 from ._vineyard import Vineyard
 
+import threading
+
 
 # monkeypatch the hashing function of dash, so that
 # we can use a decorator to register callbacks
@@ -183,9 +185,9 @@ class PersistableInteractive:
             self._layout_gui()
             self._register_callbacks()
 
-            mode = "inline" if inline else "external"
-            log = logging.getLogger('werkzeug')
+            log = logging.getLogger("werkzeug")
             log.setLevel(logging.ERROR)
+            mode = "inline" if inline else "external"
             self._app.run_server(port=port, mode=mode, debug=debug)
         else:
             self._app = dash.Dash(
@@ -194,11 +196,14 @@ class PersistableInteractive:
             )
             self._layout_gui()
             self._register_callbacks()
-            log = logging.getLogger('werkzeug')
+
+            log = logging.getLogger("werkzeug")
             log.setLevel(logging.ERROR)
             self._app.run_server(port=port, debug=port)
 
         return port
+
+
 
     def cluster(self, **kwargs):
         """Clusters the dataset with which the Persistable instance that was
