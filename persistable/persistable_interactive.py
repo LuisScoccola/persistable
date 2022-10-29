@@ -7,7 +7,7 @@ import traceback
 import plotly.graph_objects as go
 import plotly
 from plotly.express.colors import sample_colorscale
-import pandas
+#import pandas
 import json
 import diskcache
 import dash
@@ -260,7 +260,7 @@ class PersistableInteractive:
         self._app.layout = html.Div(
             className="root",
             children=[
-                # contains the component counting function as a pandas dataframe
+                # contains the component counting function as a dictionary
                 dcc.Store(id=STORED_CCF),
                 # contains the basic component counting function plot as a plotly figure
                 dcc.Store(id=STORED_CCF_DRAWING),
@@ -982,14 +982,15 @@ class PersistableInteractive:
         def draw_ccf(d):
             ccf = d[STORED_CCF + DATA]
 
-            ccf = pandas.read_json(ccf, orient="split")
+            ccf = json.loads(ccf)
+            #pandas.read_json(ccf, orient="split")
 
-            def df_to_plotly(df):
-                return {
-                    "z": df.values.tolist(),
-                    "x": df.columns.tolist(),
-                    "y": df.index.tolist(),
-                }
+            #def df_to_plotly(df):
+            #    return {
+            #        "z": df.values.tolist(),
+            #        "x": df.columns.tolist(),
+            #        "y": df.index.tolist(),
+            #    }
 
             fig = go.Figure(
                 layout=go.Layout(
@@ -1003,7 +1004,7 @@ class PersistableInteractive:
 
             fig.add_trace(
                 go.Heatmap(
-                    df_to_plotly(ccf),
+                    **ccf,
                     hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
                     zmin=0,
                     zmax=max_components,
@@ -1023,7 +1024,7 @@ class PersistableInteractive:
 
         @dash_callback(
             [
-                [STORED_CCF, DATA, ST],
+                #[STORED_CCF, DATA, ST],
                 [STORED_CCF_DRAWING, DATA, IN],
                 [MIN_DIST_SCALE, VALUE, IN],
                 [MAX_DIST_SCALE, VALUE, IN],
@@ -1048,11 +1049,11 @@ class PersistableInteractive:
             False,
         )
         def draw_ccf_extras(d):
-            ccf = d[STORED_CCF + DATA]
+            #ccf = d[STORED_CCF + DATA]
 
             fig = plotly.io.from_json(d[STORED_CCF_DRAWING + DATA])
 
-            ccf = pandas.read_json(ccf, orient="split")
+            #ccf = pandas.read_json(ccf, orient="split")
 
             def generate_line(
                 xs, ys, text, color="mediumslateblue", different_marker=None
@@ -1281,9 +1282,11 @@ class PersistableInteractive:
                     a.message, a.category, a.filename, a.lineno
                 )
 
-            d[STORED_CCF + DATA] = pandas.DataFrame(
-                hf, index=ks[:-1], columns=ss[:-1]
-            ).to_json(date_format="iso", orient="split")
+            d[STORED_CCF + DATA] = json.dumps(
+                {"y": ks[:-1].tolist(), "x": ss[:-1].tolist(), "z" : hf.tolist()}
+            )
+
+            print(d[STORED_CCF + DATA])
 
             d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = False
