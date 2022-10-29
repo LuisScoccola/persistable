@@ -1145,22 +1145,24 @@ class PersistableInteractive:
                     st = np.array([st_x, st_y])
                     end = np.array([end_x, end_y])
                     A = end - st
+
+                    # ideally we would get the actual ratio of the rendered picture
+                    # we are using an estimate given by the "usual" way in which persistable
+                    # is rendered
+                    ratio = np.array([3,2])
+                    ratio = (ratio / np.linalg.norm(ratio)) * np.linalg.norm(np.array([1,1]))
+                    alpha = [
+                        (d[MAX_DIST_SCALE + VALUE] - d[MIN_DIST_SCALE + VALUE]),
+                        ( d[MAX_DENSITY_THRESHOLD + VALUE] - d[MIN_DENSITY_THRESHOLD + VALUE]),
+                    ]
+                    alpha = np.array(alpha) / ratio
+
+                    A = A/alpha
                     B = np.array([-A[1], A[0]])
-                    B = B / np.linalg.norm(B)
 
                     shift = 50
-                    tau = (
-                        np.array(
-                            [
-                                d[MAX_DIST_SCALE + VALUE] - d[MIN_DIST_SCALE + VALUE],
-                                d[MAX_DENSITY_THRESHOLD + VALUE]
-                                - d[MIN_DENSITY_THRESHOLD + VALUE],
-                            ]
-                        )
-                        / shift
-                    )
-                    tau[0] = tau[0] * B[0]
-                    tau[1] = tau[1] * B[1]
+                    B = B / np.linalg.norm(B)
+                    tau = B * alpha/ shift
 
                     pd = np.array(pd)
                     lengths = pd[:, 1] - pd[:, 0]
