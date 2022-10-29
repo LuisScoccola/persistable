@@ -199,7 +199,7 @@ class PersistableInteractive:
 
             log = logging.getLogger("werkzeug")
             log.setLevel(logging.ERROR)
-            self._app.run_server(port=port, debug=port)
+            self._app.run_server(port=port, debug=debug)
 
         return port
 
@@ -986,24 +986,27 @@ class PersistableInteractive:
 
             max_components = d[INPUT_MAX_COMPONENTS + VALUE]
 
-            fig = imshow(
-                img = np.array(ccf["z"]),
-                x = ccf["x"],
-                y = np.array(ccf["y"]),
-                zmin=0,
-                zmax=max_components,
-                color_continuous_scale = "greys",
-                labels = {
-                    "x": "Distance scale",
-                    "y": "Density threshold",
-                    "color": "# components"
-                },
-                aspect="auto",
-                origin="lower"
-                )
+            fig = go.Figure(
+                layout=go.Layout(
+                    xaxis_title="Distance scale",
+                    yaxis_title="Density threshold",
+                    xaxis={"fixedrange": True},
+                    yaxis={"fixedrange": True},
+                ),
+            )
 
-            fig.layout.coloraxis.showscale = False
-            fig.update_layout( dict(xaxis={"fixedrange": True}, yaxis={"fixedrange": True}) )
+            fig.add_trace(
+                go.Heatmap(
+                    **ccf,
+                    hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
+                    zmin=0,
+                    zmax=max_components,
+                    showscale=False,
+                    name="",
+                )
+            )
+            fig.update_traces(colorscale="greys")
+            fig.update_layout(showlegend=False)
             fig.update_layout(autosize=True)
             fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
             fig.update_layout(clickmode="event+select")
@@ -1194,14 +1197,12 @@ class PersistableInteractive:
                     )
                 )
 
-            fig.update_xaxes(
-                range=[d[MIN_DIST_SCALE + VALUE], d[MAX_DIST_SCALE + VALUE]]
-            )
-            fig.update_yaxes(
-                range=[
+            fig.update_layout(
+                xaxis=dict(range=[d[MIN_DIST_SCALE + VALUE], d[MAX_DIST_SCALE + VALUE]]),
+                yaxis=dict(range=[
                     d[MIN_DENSITY_THRESHOLD + VALUE],
-                    d[MAX_DENSITY_THRESHOLD + VALUE]-0.001,
-                ]
+                    d[MAX_DENSITY_THRESHOLD + VALUE],
+                ])
             )
 
             d[CFF_PLOT + FIGURE] = fig
