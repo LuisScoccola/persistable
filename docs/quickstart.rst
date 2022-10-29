@@ -52,8 +52,8 @@ Next we launch Persistable's interactive mode:
 	
 .. code:: python
 
-	pi = persistable.PersistableInteractive(inline = False)
-	pi.run_with(p)
+	pi = persistable.PersistableInteractive(p)
+	pi.start_UI()
 	
 This opens a window that is initially pretty empty:
 
