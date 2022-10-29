@@ -7,7 +7,6 @@ import traceback
 import plotly.graph_objects as go
 import plotly
 from plotly.express.colors import sample_colorscale
-#import pandas
 import json
 import diskcache
 import dash
@@ -260,7 +259,7 @@ class PersistableInteractive:
         self._app.layout = html.Div(
             className="root",
             children=[
-                # contains the component counting function as a dictionary
+                # contains the component counting function as a dictionary of lists
                 dcc.Store(id=STORED_CCF),
                 # contains the basic component counting function plot as a plotly figure
                 dcc.Store(id=STORED_CCF_DRAWING),
@@ -983,14 +982,6 @@ class PersistableInteractive:
             ccf = d[STORED_CCF + DATA]
 
             ccf = json.loads(ccf)
-            #pandas.read_json(ccf, orient="split")
-
-            #def df_to_plotly(df):
-            #    return {
-            #        "z": df.values.tolist(),
-            #        "x": df.columns.tolist(),
-            #        "y": df.index.tolist(),
-            #    }
 
             fig = go.Figure(
                 layout=go.Layout(
@@ -1024,7 +1015,6 @@ class PersistableInteractive:
 
         @dash_callback(
             [
-                #[STORED_CCF, DATA, ST],
                 [STORED_CCF_DRAWING, DATA, IN],
                 [MIN_DIST_SCALE, VALUE, IN],
                 [MAX_DIST_SCALE, VALUE, IN],
@@ -1049,11 +1039,7 @@ class PersistableInteractive:
             False,
         )
         def draw_ccf_extras(d):
-            #ccf = d[STORED_CCF + DATA]
-
             fig = plotly.io.from_json(d[STORED_CCF_DRAWING + DATA])
-
-            #ccf = pandas.read_json(ccf, orient="split")
 
             def generate_line(
                 xs, ys, text, color="mediumslateblue", different_marker=None
