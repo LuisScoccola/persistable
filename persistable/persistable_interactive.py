@@ -84,8 +84,7 @@ STORED_CCF_COMPUTATION_WARNINGS = "stored-ccf-computation-warnings-"
 STORED_PV_COMPUTATION_WARNINGS = "stored-pv-computation-warnings-"
 # STORED_PD_COMPUTATION_WARNINGS = "stored-pd-computation-warnings-"
 
-DUMMY_OUTPUT = "dummy-output-"
-DUMMY_OUTPUT_2 = "dummy-output-2-"
+EXPORTED_PARAMETER = "exported-parameter-"
 
 SHUTDOWN_BUTTON = "shutdown-button-"
 
@@ -132,6 +131,7 @@ class PersistableInteractive:
         self._app = None
         self._cache = None
         self._background_callback_manager = None
+        self._parameters = None
 
     def start_UI(self, port=8050, jupyter=True, inline=False, debug=False):
         """Serves the GUI with a given persistable instance.
@@ -197,9 +197,14 @@ class PersistableInteractive:
             self._layout_gui()
             self._register_callbacks()
 
-            log = logging.getLogger("werkzeug")
-            log.setLevel(logging.ERROR)
-            self._app.run_server(port=port, debug=port)
+            def run():
+                log = logging.getLogger("werkzeug")
+                log.setLevel(logging.ERROR)
+                self._app.run_server(port=port, debug=debug)
+
+            self._thread = threading.Thread(target=run)
+            self._thread.daemon = True
+            self._thread.start()
 
         return port
 
@@ -277,8 +282,8 @@ class PersistableInteractive:
                 #
                 dcc.Store(id=FIXED_PARAMETERS, data=json.dumps([])),
                 #
-                html.Div(id=DUMMY_OUTPUT, hidden=True),
-                html.Div(id=DUMMY_OUTPUT_2, hidden=True),
+                html.Div(id=EXPORTED_PARAMETER, hidden=True),
+                #html.Div(id=EXPORTED_PARAMETER_2, hidden=True),
                 html.Div(
                     className="grid",
                     children=[
@@ -1519,10 +1524,10 @@ class PersistableInteractive:
                 [EXPORT_PARAMETERS_BUTTON, N_CLICKS, IN],
                 [FIXED_PARAMETERS, DATA, ST],
             ],
-            [[DUMMY_OUTPUT, CHILDREN]],
+            [[EXPORTED_PARAMETER, CHILDREN]],
             True,
         )
         def export_parameters(d):
             self._parameters = json.loads(d[FIXED_PARAMETERS + DATA])
-            d[DUMMY_OUTPUT + CHILDREN] = []
+            d[EXPORTED_PARAMETER + CHILDREN] = json.dumps(self._parameters)
             return d
