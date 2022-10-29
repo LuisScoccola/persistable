@@ -57,7 +57,7 @@ Now go to `localhost:8050` in your web browser to access the graphical user inte
 After choosing your parameters using the user interface, you can get your clustering in another Jupyter cell by running:
 
 ```python
-cluster_labels = pi.cluster()
+clustering_labels = pi.cluster()
 ```
 
 **Note:** You may use `pi.start_UI(inline=True)` to have the graphical user interface display directly in the Jupyter notebook!
