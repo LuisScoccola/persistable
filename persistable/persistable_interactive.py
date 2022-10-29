@@ -7,6 +7,7 @@ import traceback
 import plotly.graph_objects as go
 import plotly
 from plotly.express.colors import sample_colorscale
+from plotly.express import imshow
 import json
 import diskcache
 import dash
@@ -238,7 +239,7 @@ class PersistableInteractive:
         default_max_dim = 15
         default_max_vines = 15
         min_granularity = 2**4
-        max_granularity = 2**8
+        max_granularity = 2**9
         min_granularity_vineyard = 1
         max_granularity_vineyard = max_granularity
         defr = 6
@@ -983,29 +984,26 @@ class PersistableInteractive:
 
             ccf = json.loads(ccf)
 
-            fig = go.Figure(
-                layout=go.Layout(
-                    xaxis_title="Distance scale",
-                    yaxis_title="Density threshold",
-                    xaxis={"fixedrange": True},
-                    yaxis={"fixedrange": True},
-                ),
-            )
             max_components = d[INPUT_MAX_COMPONENTS + VALUE]
 
-            fig.add_trace(
-                go.Heatmap(
-                    **ccf,
-                    hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
-                    zmin=0,
-                    zmax=max_components,
-                    showscale=False,
-                    name="",
+            fig = imshow(
+                img = np.array(ccf["z"]),
+                x = ccf["x"],
+                y = np.array(ccf["y"]),
+                zmin=0,
+                zmax=max_components,
+                color_continuous_scale = "greys",
+                labels = {
+                    "x": "Distance scale",
+                    "y": "Density threshold",
+                    "color": "# components"
+                },
+                aspect="auto",
+                origin="lower"
                 )
-            )
-            fig.update_traces(colorscale="greys")
 
-            fig.update_layout(showlegend=False)
+            fig.layout.coloraxis.showscale = False
+            fig.update_layout( dict(xaxis={"fixedrange": True}, yaxis={"fixedrange": True}) )
             fig.update_layout(autosize=True)
             fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
             fig.update_layout(clickmode="event+select")
@@ -1084,6 +1082,7 @@ class PersistableInteractive:
                         fill="toself",
                         mode="none",
                         hoverinfo="skip",
+                        showlegend=False,
                         # text=text,
                         name="",
                     )
@@ -1201,7 +1200,7 @@ class PersistableInteractive:
             fig.update_yaxes(
                 range=[
                     d[MIN_DENSITY_THRESHOLD + VALUE],
-                    d[MAX_DENSITY_THRESHOLD + VALUE],
+                    d[MAX_DENSITY_THRESHOLD + VALUE]-0.001,
                 ]
             )
 
@@ -1271,8 +1270,6 @@ class PersistableInteractive:
             d[STORED_CCF + DATA] = json.dumps(
                 {"y": ks[:-1].tolist(), "x": ss[:-1].tolist(), "z" : hf.tolist()}
             )
-
-            print(d[STORED_CCF + DATA])
 
             d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = False
