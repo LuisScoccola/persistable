@@ -6,8 +6,7 @@ import warnings
 import traceback
 import plotly.graph_objects as go
 import plotly
-from plotly.express.colors import sample_colorscale
-from plotly.express import imshow
+from plotly.colors import sample_colorscale
 import json
 import diskcache
 import dash
