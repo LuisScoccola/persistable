@@ -22,6 +22,7 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
           pip install playwright
+          pip install pytest-playwright
           python -m playwright install --with-deps
       - name: Run Setup.py
         run: |
@@ -50,6 +51,7 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
           pip install playwright
+          pip install pytest-playwright
           python -m playwright install --with-deps
       - name: Run Setup.py
         shell: bash -l {0}
@@ -80,6 +82,7 @@ jobs:
           pip install -r requirements.txt
           pip install pytest-cov
           pip install playwright
+          pip install pytest-playwright
           python -m playwright install --with-deps
       - name: Run Setup.py
         run: |
