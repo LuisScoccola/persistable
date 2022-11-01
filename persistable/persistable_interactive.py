@@ -15,7 +15,6 @@ from dash import dcc, html, DiskcacheManager, ctx
 from dash.exceptions import PreventUpdate
 from jupyter_dash import JupyterDash
 import socket
-import logging
 from ._vineyard import Vineyard
 
 import threading
@@ -131,9 +130,10 @@ class PersistableInteractive:
         self._app = None
         self._cache = None
         self._background_callback_manager = None
+        self._parameters_sem = threading.Semaphore()
         self._parameters = None
 
-    def start_UI(self, port=8050, jupyter=True, inline=False, debug=False):
+    def start_UI(self, port=8050, debug=False, inline=False):
         """Serves the GUI with a given persistable instance.
 
         port: int, optional, default is 8050
@@ -141,15 +141,12 @@ class PersistableInteractive:
             If port is not available, we look for one that is available, starting
             from the given one.
 
-        jupyter: bool, must set to true for now
-            Must be set to ``True`` for now.
+        debug: bool, optional, default is False
+            Whether to run Dash in debug mode.
 
         inline: bool, optional, default is False
             Boolean representing whether or not to display the GUI inside
-            the Jupyter notebook.
-
-        debug: bool, optional, default is False
-            Whether to run Dash in debug mode.
+            the Jupyter notebook. Only works if using Persistable in a Jupyter notebook.
 
         return: int
             The port used to serve the UI.
@@ -175,7 +172,7 @@ class PersistableInteractive:
         self._cache = diskcache.Cache(persistable_dash_cache)
         self._background_callback_manager = DiskcacheManager(self._cache)
 
-        if jupyter == True:
+        if inline == True:
 
             self._app = JupyterDash(
                 __name__,
@@ -185,10 +182,10 @@ class PersistableInteractive:
             self._layout_gui()
             self._register_callbacks()
 
-            log = logging.getLogger("werkzeug")
-            log.setLevel(logging.ERROR)
-            mode = "inline" if inline else "external"
-            self._app.run_server(port=port, mode=mode, debug=debug)
+            import logging
+            logging.getLogger("werkzeug").setLevel(logging.ERROR)
+            #mode = "inline" if inline else "external"
+            self._app.run_server(port=port, mode="inline", debug=debug)
         else:
             self._app = dash.Dash(
                 __name__,
@@ -198,10 +195,10 @@ class PersistableInteractive:
             self._register_callbacks()
 
             def run():
-                log = logging.getLogger("werkzeug")
-                log.setLevel(logging.ERROR)
-                self._app.run_server(port=port, debug=debug)
+                self._app.run_server(port=port, debug=debug, use_reloader=False)
 
+            import logging
+            logging.getLogger("werkzeug").setLevel(logging.ERROR)
             self._thread = threading.Thread(target=run)
             self._thread.daemon = True
             self._thread.start()
@@ -224,12 +221,15 @@ class PersistableInteractive:
             i.e., points deemed not to belong to any cluster by the algorithm.
 
         """
-        if self._parameters == None:
+        self._parameters_sem.acquire()
+        params = self._parameters
+        self._parameters_sem.release()
+        if params == None:
             raise ValueError(
                 "No parameters where chosen. Please use the graphical user interface to choose parameters."
             )
         else:
-            return self._persistable.cluster(**self._parameters, **kwargs)
+            return self._persistable.cluster(**params, **kwargs)
 
     def _layout_gui(self):
         default_min_k = 0
@@ -1528,6 +1528,8 @@ class PersistableInteractive:
             True,
         )
         def export_parameters(d):
+            self._parameters_sem.acquire()
             self._parameters = json.loads(d[FIXED_PARAMETERS + DATA])
+            self._parameters_sem.release()
             d[EXPORTED_PARAMETER + CHILDREN] = json.dumps(self._parameters)
             return d
