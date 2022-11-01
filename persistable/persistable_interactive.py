@@ -14,6 +14,7 @@ import dash
 from dash import dcc, html, DiskcacheManager, ctx
 from dash.exceptions import PreventUpdate
 from jupyter_dash import JupyterDash
+import click
 import socket
 from ._vineyard import Vineyard
 
@@ -149,7 +150,7 @@ class PersistableInteractive:
             the Jupyter notebook. Only works if using Persistable in a Jupyter notebook.
 
         return: int
-            The port used to serve the UI.
+            If not run in inline mode, returns the port of localhost used to serve the UI.
 
         """
         max_port = 65535
@@ -177,19 +178,20 @@ class PersistableInteractive:
             self._app = JupyterDash(
                 __name__,
                 background_callback_manager=self._background_callback_manager,
+                update_title = "Persistable is computing..."
             )
-
             self._layout_gui()
             self._register_callbacks()
 
-            import logging
-            logging.getLogger("werkzeug").setLevel(logging.ERROR)
-            #mode = "inline" if inline else "external"
+            #import logging
+            #self._app.logger.setLevel(logging.WARNING)
+            #logging.getLogger("werkzeug").setLevel(logging.ERROR)
             self._app.run_server(port=port, mode="inline", debug=debug)
         else:
             self._app = dash.Dash(
                 __name__,
                 background_callback_manager=self._background_callback_manager,
+                update_title = "Persistable is computing..."
             )
             self._layout_gui()
             self._register_callbacks()
@@ -197,13 +199,21 @@ class PersistableInteractive:
             def run():
                 self._app.run_server(port=port, debug=debug, use_reloader=False)
 
-            import logging
-            logging.getLogger("werkzeug").setLevel(logging.ERROR)
+            if not debug:
+                import logging
+                self._app.logger.setLevel(logging.WARNING)
+                logging.getLogger("werkzeug").setLevel(logging.ERROR)
+                def secho(text, file=None, nl=None, err=None, color=None, **styles):
+                    pass
+                def echo(text, file=None, nl=None, err=None, color=None, **styles):
+                    pass
+                click.echo = echo
+                click.secho = secho
             self._thread = threading.Thread(target=run)
             self._thread.daemon = True
             self._thread.start()
 
-        return port
+            return port
 
 
 
