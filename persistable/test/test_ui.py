@@ -9,7 +9,7 @@ def test_app_title(page : Page):
     X = make_blobs(2000, centers=4, random_state=1)[0]
     p = persistable.Persistable(X)
     pi = persistable.PersistableInteractive(p)
-    pi.start_UI(jupyter=False)
+    pi.start_UI()
 
     time.sleep(1)
     page.goto("http://localhost:8050/")
