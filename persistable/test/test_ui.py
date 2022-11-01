@@ -1,10 +1,10 @@
-from playwright.sync_api import expect
+from playwright.sync_api import expect, Page
 import re
 import time
 from sklearn.datasets import make_blobs
 import persistable
 
-def test_app_title(page):
+def test_app_title(page : Page):
 
     X = make_blobs(2000, centers=4, random_state=1)[0]
     p = persistable.Persistable(X)
