@@ -44,7 +44,7 @@ X_START_SECOND_LINE = "x-start-second-line-"
 Y_START_SECOND_LINE = "y-start-second-line-"
 X_END_SECOND_LINE = "x-end-second-line-"
 Y_END_SECOND_LINE = "y-end-second-line-"
-CFF_PLOT = "cff-plot-"
+CCF_PLOT = "ccf-plot-"
 DISPLAY_LINES_SELECTION = "display-lines-selection-"
 ENDPOINT_SELECTION = "endpoint-selection-"
 STORED_CCF = "stored-ccf-"
@@ -648,7 +648,7 @@ class PersistableInteractive:
                             ]
                         ),
                         dcc.Graph(
-                            id=CFF_PLOT,
+                            id=CCF_PLOT,
                             className="graph",
                             figure=empty_figure(),
                             config={
@@ -935,7 +935,7 @@ class PersistableInteractive:
 
         @dash_callback(
             [
-                [CFF_PLOT, CLICKDATA, IN],
+                [CCF_PLOT, CLICKDATA, IN],
                 [DISPLAY_LINES_SELECTION, VALUE, ST],
                 [ENDPOINT_SELECTION, VALUE, ST],
                 [X_START_FIRST_LINE, VALUE, ST],
@@ -962,8 +962,8 @@ class PersistableInteractive:
         def on_ccf_click(d):
             if d[DISPLAY_LINES_SELECTION + VALUE] == "On":
                 new_x, new_y = (
-                    d[CFF_PLOT + CLICKDATA]["points"][0]["x"],
-                    d[CFF_PLOT + CLICKDATA]["points"][0]["y"],
+                    d[CCF_PLOT + CLICKDATA]["points"][0]["x"],
+                    d[CCF_PLOT + CLICKDATA]["points"][0]["y"],
                 )
                 if d[ENDPOINT_SELECTION + VALUE] == "1st line start":
                     d[X_START_FIRST_LINE + VALUE] = new_x
@@ -1059,7 +1059,7 @@ class PersistableInteractive:
                 [STORED_PD, DATA, ST],
                 [INPUT_GAP, VALUE, ST],
             ],
-            [[CFF_PLOT, FIGURE]],
+            [[CCF_PLOT, FIGURE]],
             False,
         )
         def draw_ccf_extras(d):
@@ -1233,7 +1233,7 @@ class PersistableInteractive:
                 ]
             )
 
-            d[CFF_PLOT + FIGURE] = fig
+            d[CCF_PLOT + FIGURE] = fig
             return d
 
         @dash_callback(
