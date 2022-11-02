@@ -62,6 +62,8 @@ INPUT_GRANULARITY_CCF = "input-granularity-ccf-"
 INPUT_NUM_JOBS_CCF = "input-num-jobs-ccf-"
 INPUT_MAX_COMPONENTS = "input-max-components-"
 CCF_PLOT_CONTROLS_DIV = "ccf-plot-controls-div-"
+CCF_DETAILS = "ccf-details-"
+PV_DETAILS = "pv-details-"
 PV_PLOT_CONTROLS_DIV = "pv-plot-controls-div-"
 LOG = "log-"
 LOG_DIV = "log-div-"
@@ -259,8 +261,8 @@ class PersistableInteractive:
         default_num_jobs = 4
         default_max_dim = 15
         default_max_vines = 15
-        min_granularity = 2**4
-        max_granularity = 2**8
+        min_granularity = 4
+        max_granularity = 512
         min_granularity_vineyard = 1
         max_granularity_vineyard = max_granularity
         defr = 6
@@ -310,7 +312,8 @@ class PersistableInteractive:
                                     className="parameters",
                                     children=[
                                         html.Details(
-                                            [
+                                            id = CCF_DETAILS,
+                                            children = [
                                                 html.Summary("Inputs"),
                                                 html.Div(
                                                     className="parameters",
@@ -453,7 +456,8 @@ class PersistableInteractive:
                                     className="parameters",
                                     children=[
                                         html.Details(
-                                            [
+                                            id = PV_DETAILS,
+                                            children = [
                                                 html.Summary("Inputs"),
                                                 html.Div(
                                                     className="parameters",

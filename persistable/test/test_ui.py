@@ -21,8 +21,8 @@ def setup():
 
     default_params = {
         "n_clusters": 1,
-        "start": [2.6996237730192476, 0.33253216984296086],
-        "end": [5.412951220013212, 0.16584515812421086],
+        "start": [1.356663723496982, 0.250030517578125],
+        "end": [4.069991170490947, 0.083343505859375],
     }
 
     yield
@@ -39,6 +39,10 @@ def ccf_vineyard_input_selection_radio_on_locator(page):
     )
 
 
+def ccf_details_locator(page):
+    return page.locator("details#ccf-details-")
+
+
 def pv_compute_button_locator(page):
     return page.locator("button#compute-pv-button-")
 
@@ -51,6 +55,19 @@ def pv_parameter_selection_radio_on_locator(page):
 
 def pv_export_parameters_button_locator(page):
     return page.locator("button#export-parameters-")
+
+
+def pv_details_locator(page):
+    return page.locator("details#pv-details-")
+
+
+# input fields
+def ccf_granularity_input_locator(page):
+    return page.locator("#input-granularity-ccf-")
+
+
+def pv_granularity_input_locator(page):
+    return page.locator("#input-granularity-pv-")
 
 
 # other objects
@@ -86,34 +103,42 @@ def test_end_to_end(page: Page):
 
     page.goto(url)
 
+    # ccf
+    ccf_details_locator(page).click()
+    ccf_granularity_input_locator(page).fill("4")
+
     expect(ccf_density_threshold_label_locator(page)).not_to_be_visible()
     expect(ccf_controls_div_locator(page)).not_to_be_visible()
     ccf_compute_button_locator(page).click()
     expect(ccf_density_threshold_label_locator(page)).to_be_visible(timeout=60000)
-#    expect(ccf_controls_div_locator(page)).to_be_visible()
-#
-#    expect(ccf_1st_line_start_label_locator(page)).not_to_be_visible()
-#    ccf_vineyard_input_selection_radio_on_locator(page).click()
-#    expect(ccf_1st_line_start_label_locator(page)).to_be_visible()
-#
-#    expect(pv_prominence_label_locator(page)).not_to_be_visible()
-#    pv_compute_button_locator(page).click()
-#    expect(pv_prominence_label_locator(page)).to_be_visible()
-#
-#    expect(pv_parameter_selection_locator(page)).not_to_be_visible()
-#    pv_parameter_selection_radio_on_locator(page).click()
-#    expect(pv_parameter_selection_locator(page)).to_be_visible()
-#
-#    assert pi._chosen_parameters() is None
-#    pv_export_parameters_button_locator(page).click()
-#    time.sleep(1)
-#    params = pi._chosen_parameters()
-#
-#    print(params)
-#    assert params["n_clusters"] == default_params["n_clusters"]
-#    np.testing.assert_almost_equal(
-#        np.array(params["start"]), np.array(default_params["start"])
-#    )
-#    np.testing.assert_almost_equal(
-#        np.array(params["end"]), np.array(default_params["end"])
-#    )
+    expect(ccf_controls_div_locator(page)).to_be_visible()
+
+    expect(ccf_1st_line_start_label_locator(page)).not_to_be_visible()
+    ccf_vineyard_input_selection_radio_on_locator(page).click()
+    expect(ccf_1st_line_start_label_locator(page)).to_be_visible()
+
+    # pv
+    pv_details_locator(page).click()
+    pv_granularity_input_locator(page).fill("2")
+
+    expect(pv_prominence_label_locator(page)).not_to_be_visible()
+    pv_compute_button_locator(page).click()
+    expect(pv_prominence_label_locator(page)).to_be_visible()
+
+    expect(pv_parameter_selection_locator(page)).not_to_be_visible()
+    pv_parameter_selection_radio_on_locator(page).click()
+    expect(pv_parameter_selection_locator(page)).to_be_visible()
+
+    assert pi._chosen_parameters() is None
+    pv_export_parameters_button_locator(page).click()
+    time.sleep(1)
+    params = pi._chosen_parameters()
+
+    print(params)
+    assert params["n_clusters"] == default_params["n_clusters"]
+    np.testing.assert_almost_equal(
+        np.array(params["start"]), np.array(default_params["start"])
+    )
+    np.testing.assert_almost_equal(
+        np.array(params["end"]), np.array(default_params["end"])
+    )
