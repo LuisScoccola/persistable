@@ -28,13 +28,6 @@ def setup():
     yield
 
 
-def test_app_title(page : Page):
-    global pi
-    global url
-
-    page.goto(url)
-    expect(page).to_have_title(re.compile("Persistable"))
-
 
 # buttons
 def ccf_compute_button_locator(page):
@@ -70,34 +63,42 @@ def pv_parameter_selection_locator(page):
     return page.locator("div#pv-plot-controls-div- div#parameter-selection-div-")
 
 
-def test_end_to_end(page : Page):
+def test_app_title(page : Page):
+    global pi
+    global url
 
     page.goto(url)
-    
-    expect(ccf_density_threshold_label_locator(page)).not_to_be_visible()
-    expect(ccf_controls_div_locator(page)).not_to_be_visible()
-    ccf_compute_button_locator(page).click()
-    expect(ccf_density_threshold_label_locator(page)).to_be_visible()
-    expect(ccf_controls_div_locator(page)).to_be_visible()
-
-    expect(ccf_1st_line_start_label_locator(page)).not_to_be_visible()
-    ccf_vineyard_input_selection_radio_on_locator(page).click()
-    expect(ccf_1st_line_start_label_locator(page)).to_be_visible()
-
-    expect(pv_prominence_label_locator(page)).not_to_be_visible()
-    pv_compute_button_locator(page).click()
-    expect(pv_prominence_label_locator(page)).to_be_visible()
-
-    expect(pv_parameter_selection_locator(page)).not_to_be_visible()
-    pv_parameter_selection_radio_on_locator(page).click()
-    expect(pv_parameter_selection_locator(page)).to_be_visible()
+    expect(page).to_have_title(re.compile("Persistable"))
 
 
-    assert pi._chosen_parameters() is None
-    pv_export_parameters_button_locator(page).click()
-    time.sleep(1)
-    params = pi._chosen_parameters()
-
-    assert params['n_clusters'] == default_params['n_clusters']
-    np.testing.assert_almost_equal(np.array(params['start']), np.array(default_params['start']))
-    np.testing.assert_almost_equal(np.array(params['end']), np.array(default_params['end']))
+#def test_end_to_end(page : Page):
+#
+#    page.goto(url)
+#    
+#    expect(ccf_density_threshold_label_locator(page)).not_to_be_visible()
+#    expect(ccf_controls_div_locator(page)).not_to_be_visible()
+#    ccf_compute_button_locator(page).click()
+#    expect(ccf_density_threshold_label_locator(page)).to_be_visible()
+#    expect(ccf_controls_div_locator(page)).to_be_visible()
+#
+#    expect(ccf_1st_line_start_label_locator(page)).not_to_be_visible()
+#    ccf_vineyard_input_selection_radio_on_locator(page).click()
+#    expect(ccf_1st_line_start_label_locator(page)).to_be_visible()
+#
+#    expect(pv_prominence_label_locator(page)).not_to_be_visible()
+#    pv_compute_button_locator(page).click()
+#    expect(pv_prominence_label_locator(page)).to_be_visible()
+#
+#    expect(pv_parameter_selection_locator(page)).not_to_be_visible()
+#    pv_parameter_selection_radio_on_locator(page).click()
+#    expect(pv_parameter_selection_locator(page)).to_be_visible()
+#
+#
+#    assert pi._chosen_parameters() is None
+#    pv_export_parameters_button_locator(page).click()
+#    time.sleep(1)
+#    params = pi._chosen_parameters()
+#
+#    assert params['n_clusters'] == default_params['n_clusters']
+#    np.testing.assert_almost_equal(np.array(params['start']), np.array(default_params['start']))
+#    np.testing.assert_almost_equal(np.array(params['end']), np.array(default_params['end']))
