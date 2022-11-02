@@ -65,9 +65,14 @@ def pv_details_locator(page):
 def ccf_granularity_input_locator(page):
     return page.locator("#input-granularity-ccf-")
 
+def ccf_cores_input_locator(page):
+    return page.locator("#input-num-jobs-ccf-")
 
 def pv_granularity_input_locator(page):
     return page.locator("#input-granularity-pv-")
+
+def pv_cores_input_locator(page):
+    return page.locator("#input-num-jobs-pv-")
 
 
 # other objects
@@ -106,11 +111,12 @@ def test_end_to_end(page: Page):
     # ccf
     ccf_details_locator(page).click()
     ccf_granularity_input_locator(page).fill("4")
+    ccf_cores_input_locator(page).fill("1")
 
     expect(ccf_density_threshold_label_locator(page)).not_to_be_visible()
     expect(ccf_controls_div_locator(page)).not_to_be_visible()
     ccf_compute_button_locator(page).click()
-    expect(ccf_density_threshold_label_locator(page)).to_be_visible(timeout=60000)
+    expect(ccf_density_threshold_label_locator(page)).to_be_visible()
     expect(ccf_controls_div_locator(page)).to_be_visible()
 
     expect(ccf_1st_line_start_label_locator(page)).not_to_be_visible()
@@ -120,6 +126,7 @@ def test_end_to_end(page: Page):
     # pv
     pv_details_locator(page).click()
     pv_granularity_input_locator(page).fill("2")
+    pv_cores_input_locator(page).fill("1")
 
     expect(pv_prominence_label_locator(page)).not_to_be_visible()
     pv_compute_button_locator(page).click()
