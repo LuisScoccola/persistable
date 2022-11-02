@@ -231,15 +231,21 @@ class PersistableInteractive:
             i.e., points deemed not to belong to any cluster by the algorithm.
 
         """
-        self._parameters_sem.acquire()
-        params = self._parameters
-        self._parameters_sem.release()
+        params = self._chosen_parameters()
         if params == None:
             raise ValueError(
                 "No parameters where chosen. Please use the graphical user interface to choose parameters."
             )
         else:
             return self._persistable.cluster(**params, **kwargs)
+
+
+    def _chosen_parameters(self):
+        self._parameters_sem.acquire()
+        params = self._parameters
+        self._parameters_sem.release()
+        return params
+
 
     def _layout_gui(self):
         default_min_k = 0
