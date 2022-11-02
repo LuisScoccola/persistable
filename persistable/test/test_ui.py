@@ -89,7 +89,7 @@ def test_end_to_end(page: Page):
     expect(ccf_density_threshold_label_locator(page)).not_to_be_visible()
     expect(ccf_controls_div_locator(page)).not_to_be_visible()
     ccf_compute_button_locator(page).click()
-    expect(ccf_density_threshold_label_locator(page)).to_be_visible(timeout=10000)
+    expect(ccf_density_threshold_label_locator(page)).to_be_visible(timeout=60000)
 #    expect(ccf_controls_div_locator(page)).to_be_visible()
 #
 #    expect(ccf_1st_line_start_label_locator(page)).not_to_be_visible()
