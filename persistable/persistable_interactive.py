@@ -888,12 +888,20 @@ class PersistableInteractive:
                     )
 
                 if background:
-                    self._app.long_callback(
+                    #self._app.long_callback(
+                    #    dash_outputs,
+                    #    dash_inputs,
+                    #    prevent_initial_call,
+                    #    running=dash_running_outputs,
+                    #    cancel=dash_cancel,
+                    #)(callback_function)
+                    self._app.callback(
                         dash_outputs,
                         dash_inputs,
                         prevent_initial_call,
                         running=dash_running_outputs,
                         cancel=dash_cancel,
+                        background=True,
                     )(callback_function)
                 else:
                     self._app.callback(

@@ -16,6 +16,8 @@ from sklearn.neighbors import KDTree, BallTree
 from scipy.cluster.hierarchy import DisjointSet
 from scipy.stats import mode
 from joblib import Parallel, delayed
+from joblib.parallel import cpu_count
+
 
 
 _TOL = 1e-08
@@ -544,6 +546,7 @@ class _MetricProbabilitySpace:
         if n_jobs == 1:
             return [run_in_parallel(startend) for startend in startends]
         else:
+            n_jobs = min(cpu_count(), n_jobs)
             return Parallel(n_jobs=n_jobs)(
                 delayed(run_in_parallel)(startend) for startend in startends
             )
