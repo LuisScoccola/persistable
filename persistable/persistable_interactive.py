@@ -8,13 +8,13 @@ import plotly.graph_objects as go
 import plotly
 from plotly.colors import sample_colorscale
 import json
-import diskcache
+#import diskcache
 import dash
 from dash import dcc, html, DiskcacheManager, ctx
 from dash.exceptions import PreventUpdate
 from jupyter_dash import JupyterDash
+import click
 import socket
-import logging
 from ._vineyard import Vineyard
 
 import threading
@@ -43,7 +43,7 @@ X_START_SECOND_LINE = "x-start-second-line-"
 Y_START_SECOND_LINE = "y-start-second-line-"
 X_END_SECOND_LINE = "x-end-second-line-"
 Y_END_SECOND_LINE = "y-end-second-line-"
-CFF_PLOT = "cff-plot-"
+CCF_PLOT = "ccf-plot-"
 DISPLAY_LINES_SELECTION = "display-lines-selection-"
 ENDPOINT_SELECTION = "endpoint-selection-"
 STORED_CCF = "stored-ccf-"
@@ -61,6 +61,8 @@ INPUT_GRANULARITY_CCF = "input-granularity-ccf-"
 INPUT_NUM_JOBS_CCF = "input-num-jobs-ccf-"
 INPUT_MAX_COMPONENTS = "input-max-components-"
 CCF_PLOT_CONTROLS_DIV = "ccf-plot-controls-div-"
+CCF_DETAILS = "ccf-details-"
+PV_DETAILS = "pv-details-"
 PV_PLOT_CONTROLS_DIV = "pv-plot-controls-div-"
 LOG = "log-"
 LOG_DIV = "log-div-"
@@ -83,8 +85,7 @@ STORED_CCF_COMPUTATION_WARNINGS = "stored-ccf-computation-warnings-"
 STORED_PV_COMPUTATION_WARNINGS = "stored-pv-computation-warnings-"
 # STORED_PD_COMPUTATION_WARNINGS = "stored-pd-computation-warnings-"
 
-DUMMY_OUTPUT = "dummy-output-"
-DUMMY_OUTPUT_2 = "dummy-output-2-"
+EXPORTED_PARAMETER = "exported-parameter-"
 
 SHUTDOWN_BUTTON = "shutdown-button-"
 
@@ -129,10 +130,12 @@ class PersistableInteractive:
     def __init__(self, persistable):
         self._persistable = persistable
         self._app = None
-        self._cache = None
-        self._background_callback_manager = None
+        self._debug = False
+        self._parameters_sem = threading.Semaphore()
+        self._parameters = None
 
-    def start_UI(self, port=8050, jupyter=True, inline=False, debug=False):
+
+    def start_UI(self, port=8050, debug=False, inline=False):
         """Serves the GUI with a given persistable instance.
 
         port: int, optional, default is 8050
@@ -140,20 +143,19 @@ class PersistableInteractive:
             If port is not available, we look for one that is available, starting
             from the given one.
 
-        jupyter: bool, must set to true for now
-            Must be set to ``True`` for now.
-
-        inline: bool, optional, default is False
-            Boolean representing whether or not to display the GUI inside
-            the Jupyter notebook.
-
         debug: bool, optional, default is False
             Whether to run Dash in debug mode.
 
+        inline: bool, optional, default is False
+            Boolean representing whether or not to display the GUI inside
+            the Jupyter notebook. Only works if using Persistable in a Jupyter notebook.
+
         return: int
-            The port used to serve the UI.
+            If not run in inline mode, returns the port of localhost used to serve the UI.
 
         """
+        if debug:
+            self._debug = debug
         max_port = 65535
         for possible_port in range(port, max_port+1):
             # check if port is in use
@@ -169,39 +171,49 @@ class PersistableInteractive:
                 "All ports are already in use. Cannot start the GUI."
             )
 
-        # set temporary files
-        persistable_dash_cache = "./persistable-dash-cache-port-" + str(port)
-        self._cache = diskcache.Cache(persistable_dash_cache)
-        self._background_callback_manager = DiskcacheManager(self._cache)
+        background_callback_manager = DiskcacheManager()
 
-        if jupyter == True:
+        if inline == True:
 
             self._app = JupyterDash(
                 __name__,
-                background_callback_manager=self._background_callback_manager,
+                background_callback_manager=background_callback_manager,
+                update_title = "Persistable is computing..."
             )
-
             self._layout_gui()
-            self._register_callbacks()
+            self._register_callbacks(self._persistable, self._debug)
 
-            log = logging.getLogger("werkzeug")
-            log.setLevel(logging.ERROR)
-            mode = "inline" if inline else "external"
-            self._app.run_server(port=port, mode=mode, debug=debug)
+            #import logging
+            #self._app.logger.setLevel(logging.WARNING)
+            #logging.getLogger("werkzeug").setLevel(logging.ERROR)
+            self._app.run_server(port=port, mode="inline", debug=debug)
         else:
             self._app = dash.Dash(
                 __name__,
-                background_callback_manager=self._background_callback_manager,
+                background_callback_manager=background_callback_manager,
+                update_title = "Persistable is computing..."
             )
             self._layout_gui()
-            self._register_callbacks()
+            self._register_callbacks(self._persistable, self._debug)
 
-            log = logging.getLogger("werkzeug")
-            log.setLevel(logging.ERROR)
-            self._app.run_server(port=port, debug=debug)
+            def run():
+                self._app.run_server(port=port, debug=debug, use_reloader=False)
 
-        return port
+            if not debug:
+                import logging
+                self._app.logger.setLevel(logging.WARNING)
+                logging.getLogger("werkzeug").setLevel(logging.ERROR)
+                def secho(text, file=None, nl=None, err=None, color=None, **styles):
+                    pass
+                def echo(text, file=None, nl=None, err=None, color=None, **styles):
+                    pass
+                click.echo = echo
+                click.secho = secho
+            self._thread = threading.Thread(target=run)
+            self._thread.daemon = True
+            self._thread.start()
 
+            return port
 
 
     def cluster(self, **kwargs):
@@ -218,12 +230,21 @@ class PersistableInteractive:
             i.e., points deemed not to belong to any cluster by the algorithm.
 
         """
-        if self._parameters == None:
+        params = self._chosen_parameters()
+        if params == None:
             raise ValueError(
                 "No parameters where chosen. Please use the graphical user interface to choose parameters."
             )
         else:
-            return self._persistable.cluster(**self._parameters, **kwargs)
+            return self._persistable.cluster(**params, **kwargs)
+
+
+    def _chosen_parameters(self):
+        self._parameters_sem.acquire()
+        params = self._parameters
+        self._parameters_sem.release()
+        return params
+
 
     def _layout_gui(self):
         default_min_k = 0
@@ -237,8 +258,8 @@ class PersistableInteractive:
         default_num_jobs = 4
         default_max_dim = 15
         default_max_vines = 15
-        min_granularity = 2**4
-        max_granularity = 2**9
+        min_granularity = 4
+        max_granularity = 512
         min_granularity_vineyard = 1
         max_granularity_vineyard = max_granularity
         defr = 6
@@ -276,8 +297,8 @@ class PersistableInteractive:
                 #
                 dcc.Store(id=FIXED_PARAMETERS, data=json.dumps([])),
                 #
-                html.Div(id=DUMMY_OUTPUT, hidden=True),
-                html.Div(id=DUMMY_OUTPUT_2, hidden=True),
+                html.Div(id=EXPORTED_PARAMETER, hidden=True),
+                #html.Div(id=EXPORTED_PARAMETER_2, hidden=True),
                 html.Div(
                     className="grid",
                     children=[
@@ -288,7 +309,8 @@ class PersistableInteractive:
                                     className="parameters",
                                     children=[
                                         html.Details(
-                                            [
+                                            id = CCF_DETAILS,
+                                            children = [
                                                 html.Summary("Inputs"),
                                                 html.Div(
                                                     className="parameters",
@@ -431,7 +453,8 @@ class PersistableInteractive:
                                     className="parameters",
                                     children=[
                                         html.Details(
-                                            [
+                                            id = PV_DETAILS,
+                                            children = [
                                                 html.Summary("Inputs"),
                                                 html.Div(
                                                     className="parameters",
@@ -632,7 +655,7 @@ class PersistableInteractive:
                             ]
                         ),
                         dcc.Graph(
-                            id=CFF_PLOT,
+                            id=CCF_PLOT,
                             className="graph",
                             figure=empty_figure(),
                             config={
@@ -812,7 +835,13 @@ class PersistableInteractive:
             ],
         )
 
-    def _register_callbacks(self):
+
+    # when using long callbacks, dash will pickle all the objects that are used
+    # in the function that is being registered as a long callback. In particular,
+    # using self._persistable will also pickle self, which in this case contains
+    # also a dash app, which cannot be pickled. We get around this by passing
+    # self._persistable to the _register_callbacks function.
+    def _register_callbacks(self, persistable, debug):
         def dash_callback(
             inputs,
             outputs,
@@ -869,6 +898,17 @@ class PersistableInteractive:
                         running=dash_running_outputs,
                         cancel=dash_cancel,
                     )(callback_function)
+                    # TODO: figure out why the following causes problems with joblib Parallel
+                    # Note that callback with background=True is the recommended way of running
+                    # background jobs in dash now.
+                    #self._app.callback(
+                    #    dash_outputs,
+                    #    dash_inputs,
+                    #    prevent_initial_call,
+                    #    running=dash_running_outputs,
+                    #    cancel=dash_cancel,
+                    #    background=True,
+                    #)(callback_function)
                 else:
                     self._app.callback(
                         dash_outputs,
@@ -879,6 +919,7 @@ class PersistableInteractive:
                 return function
 
             return out_function
+
 
         @dash_callback(
             [[DISPLAY_PARAMETER_SELECTION, VALUE, IN]],
@@ -919,7 +960,7 @@ class PersistableInteractive:
 
         @dash_callback(
             [
-                [CFF_PLOT, CLICKDATA, IN],
+                [CCF_PLOT, CLICKDATA, IN],
                 [DISPLAY_LINES_SELECTION, VALUE, ST],
                 [ENDPOINT_SELECTION, VALUE, ST],
                 [X_START_FIRST_LINE, VALUE, ST],
@@ -946,8 +987,8 @@ class PersistableInteractive:
         def on_ccf_click(d):
             if d[DISPLAY_LINES_SELECTION + VALUE] == "On":
                 new_x, new_y = (
-                    d[CFF_PLOT + CLICKDATA]["points"][0]["x"],
-                    d[CFF_PLOT + CLICKDATA]["points"][0]["y"],
+                    d[CCF_PLOT + CLICKDATA]["points"][0]["x"],
+                    d[CCF_PLOT + CLICKDATA]["points"][0]["y"],
                 )
                 if d[ENDPOINT_SELECTION + VALUE] == "1st line start":
                     d[X_START_FIRST_LINE + VALUE] = new_x
@@ -1035,7 +1076,7 @@ class PersistableInteractive:
                 [STORED_PD, DATA, ST],
                 [INPUT_GAP, VALUE, ST],
             ],
-            [[CFF_PLOT, FIGURE]],
+            [[CCF_PLOT, FIGURE]],
             False,
         )
         def draw_ccf_extras(d):
@@ -1206,7 +1247,7 @@ class PersistableInteractive:
                 ])
             )
 
-            d[CFF_PLOT + FIGURE] = fig
+            d[CCF_PLOT + FIGURE] = fig
             return d
 
         @dash_callback(
@@ -1242,6 +1283,9 @@ class PersistableInteractive:
             cancel=[[STOP_COMPUTE_CCF_BUTTON, N_CLICKS]],
         )
         def compute_ccf(d):
+            if debug:
+                print("Compute ccf in background started.")
+
             granularity = d[INPUT_GRANULARITY_CCF + VALUE]
             num_jobs = int(d[INPUT_NUM_JOBS_CCF + VALUE])
 
@@ -1249,7 +1293,7 @@ class PersistableInteractive:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 try:
-                    ss, ks, hf = self._persistable._compute_hilbert_function(
+                    ss, ks, hf = persistable._compute_hilbert_function(
                         d[MIN_DENSITY_THRESHOLD + VALUE],
                         d[MAX_DENSITY_THRESHOLD + VALUE],
                         d[MIN_DIST_SCALE + VALUE],
@@ -1275,6 +1319,9 @@ class PersistableInteractive:
 
             d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = False
+
+            if debug:
+                print("Compute ccf in background finished.")
 
             return d
 
@@ -1309,6 +1356,8 @@ class PersistableInteractive:
             cancel=[[STOP_COMPUTE_PV_BUTTON, N_CLICKS]],
         )
         def compute_pv(d):
+            if debug:
+                print("Compute pv in background started.")
 
             granularity = d[INPUT_GRANULARITY_PV + VALUE]
             num_jobs = int(d[INPUT_NUM_JOBS_PV + VALUE])
@@ -1317,7 +1366,7 @@ class PersistableInteractive:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 try:
-                    pv = self._persistable._compute_vineyard(
+                    pv = persistable._compute_vineyard(
                         [
                             [
                                 d[X_START_FIRST_LINE + VALUE],
@@ -1360,6 +1409,9 @@ class PersistableInteractive:
             d[EXPORT_PARAMETERS_BUTTON + DISABLED] = False
 
             d[PV_PLOT_CONTROLS_DIV + HIDDEN] = False
+
+            if debug:
+                print("Compute pv in background finished.")
 
             return d
 
@@ -1507,10 +1559,12 @@ class PersistableInteractive:
                 [EXPORT_PARAMETERS_BUTTON, N_CLICKS, IN],
                 [FIXED_PARAMETERS, DATA, ST],
             ],
-            [[DUMMY_OUTPUT, CHILDREN]],
+            [[EXPORTED_PARAMETER, CHILDREN]],
             True,
         )
         def export_parameters(d):
+            self._parameters_sem.acquire()
             self._parameters = json.loads(d[FIXED_PARAMETERS + DATA])
-            d[DUMMY_OUTPUT + CHILDREN] = []
+            self._parameters_sem.release()
+            d[EXPORTED_PARAMETER + CHILDREN] = json.dumps(self._parameters)
             return d

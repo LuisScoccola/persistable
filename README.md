@@ -50,6 +50,7 @@ pi = persistable.PersistableInteractive(p)
 pi.start_UI()
 ```
 
+The last command returns the port in `localhost` serving the UI, which is `8050` by default.
 Now go to `localhost:8050` in your web browser to access the graphical user interface:
 
 ![Alt text](docs/pictures/GUI.png?raw=true)
@@ -76,10 +77,11 @@ pip install git+https://github.com/LuisScoccola/persistable.git
 ## Running the tests
 
 You can run the tests by running the following commands from the root directory of a clone of this repository.
-Note that, for now, *we are not testing the GUI*.
 If a test fails, please [report a bug](https://github.com/LuisScoccola/persistable/issues).
 
 ```bash
+pip install pytest playwright pytest-playwright
+python -m playwright install --with-deps
 pip install -r requirements.txt
 python -m setup build_ext --inplace
 pytest .
@@ -98,7 +100,7 @@ Persistable's interactive mode is inspired by RIVET [[5]](#5) and is implemented
 To contribute, you can fork the project, make your changes, and submit a pull request.
 You may want to contact [Luis Scoccola](https://luisscoccola.github.io/) first, to make sure your work does not overlap with ongoing work.
 The next steps in our to-do list are:
-- Tests for GUI.
+- Further tests for user facing functions and GUI.
 - A tutorial with more examples.
 - Improving the GUI's responsiveness and workflow.
 - Computing and displaying further algebraic invariants of multi-parameter hierarchical clusterings.

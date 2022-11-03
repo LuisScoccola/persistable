@@ -14,7 +14,6 @@ Contents
 
     quickstart
     introductiontopersistable
-    barcode
-    persistenceflattening
+    abitoftheory 
     links
     api
