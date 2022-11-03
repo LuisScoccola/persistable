@@ -15,7 +15,7 @@ def setup():
     global default_params
 
     X = make_blobs(100, centers=2, random_state=1)[0]
-    p = persistable.Persistable(X, debug=True)
+    p = persistable.Persistable(X, debug=True, threading=True)
     pi = persistable.PersistableInteractive(p)
     port = pi.start_UI(debug=True)
     url = "http://localhost:" + str(port) + "/"

@@ -19,13 +19,12 @@ from joblib import Parallel, delayed
 from joblib.parallel import cpu_count
 
 
-
 _TOL = 1e-08
 
 
 class Persistable:
     """Does density-based clustering on finite metric spaces.
-    
+
     Persistable has two main clustering methods: ``cluster()`` and ``quick_cluster()``.
     The methods are similar, the main difference being that ``quick_cluster()`` takes
     parameters that are sometimes easier to set. The parameters for ``cluster()``
@@ -51,6 +50,12 @@ class Persistable:
     debug: bool, optional, default is False
         Whether to print debug messages.
 
+    threading: bool, optional, default is False
+        Whether to use python threads for parallel computation with ``joblib``.
+        If false, the backend ``loky`` is used. In this case, using threads is
+        significantly slower because of the GIL, but the backend ``loky`` does
+        not work well in some systems.
+
     ``**kwargs``:
         Passed to ``KDTree`` or ``BallTree``.
 
@@ -62,9 +67,11 @@ class Persistable:
         metric="minkowski",
         n_neighbors="auto",
         debug=False,
+        threading=False,
         **kwargs
     ):
         self._debug = debug
+        self._threading = threading
         # keep dataset
         self._data = X
         # if metric is minkowski but no p was passed, assume p = 2
@@ -83,7 +90,9 @@ class Persistable:
             leaf_size = kwargs["leaf_size"]
         else:
             leaf_size = 40
-        self._mpspace = _MetricProbabilitySpace(X, metric, measure, leaf_size, debug=debug, **kwargs)
+        self._mpspace = _MetricProbabilitySpace(
+            X, metric, measure, leaf_size, debug=debug, threading=threading, **kwargs
+        )
         # if no n_neighbors for fitting mpspace was passed, compute a reasonable one
         if n_neighbors == "auto":
             if X.shape[0] < 100:
@@ -95,7 +104,9 @@ class Persistable:
         elif type(n_neighbors) == int and n_neighbors >= 1:
             self._n_neighbors = min(n_neighbors, X.shape[0])
         else:
-            raise ValueError("n_neighbors must be either auto, all, or a positive integer.")
+            raise ValueError(
+                "n_neighbors must be either auto, all, or a positive integer."
+            )
         # keep max_k (normalized n_neighbors)
         self._maxk = self._n_neighbors / X.shape[0]
         # fit the mpspace
@@ -117,7 +128,7 @@ class Persistable:
         This function will find the best number of clusterings in the range passed
         by the user, according to a certain measure of goodness of clustering
         based on prominence of modes of the underlying distribution.
-        
+
         n_neighbors: int, optional, default is 30
             Number of neighbors used as a maximum density threshold
             when doing density-based clustering.
@@ -137,7 +148,7 @@ class Persistable:
 
         n_neighbors_extend_cluster: int, optional, default is 5
             How many neighbors to use in the hill climbing procedure.
-    
+
         returns:
             A numpy array of length the number of points in the dataset containing
             integers from -1 to the number of clusters minus 1, representing the
@@ -263,7 +274,9 @@ class Persistable:
             or start2[0] >= end2[0]
             or start2[1] <= end2[1]
         ):
-            raise ValueError("Parameters chosen for vineyard will result in non-monotonic lines!")
+            raise ValueError(
+                "Parameters chosen for vineyard will result in non-monotonic lines!"
+            )
         starts = list(
             zip(
                 np.linspace(start1[0], start2[0], n_parameters),
@@ -302,7 +315,9 @@ class Persistable:
             )
         if min_k >= max_k:
             min_k = max_k / 2
-            warnings.warn("max density threshold too large, using " + str(min_k) + " instead.")
+            warnings.warn(
+                "max density threshold too large, using " + str(min_k) + " instead."
+            )
 
         # how many more ss than ks (note that getting more ss is very cheap)
         more_s_than_k = 1
@@ -320,7 +335,10 @@ class _MetricProbabilitySpace:
     """Implements a finite metric probability space that can compute its \
        kernel density estimates and lambda linkage hierarchical clusterings """
 
-    def __init__(self, X, metric, measure, leaf_size=40, debug=False, **kwargs):
+    def __init__(
+        self, X, metric, measure, leaf_size=40, debug=False, threading=False, **kwargs
+    ):
+        self._threading = threading
         self._debug = debug
         self._metric = metric
         self._kwargs = kwargs
@@ -402,15 +420,25 @@ class _MetricProbabilitySpace:
                         k_intercept,
                     )
                 )
-                max_k_larger_last_kernel_estimate.append( (self._kernel_estimate[p,-1] < max_k) )
-            max_k_larger_last_kernel_estimate = np.array(max_k_larger_last_kernel_estimate)
-            i_indices_and_finished_at_last_index = np.array(i_indices_and_finished_at_last_index)
-            i_indices = i_indices_and_finished_at_last_index[:,0]
-            finished_at_last_index = i_indices_and_finished_at_last_index[:,1]
+                max_k_larger_last_kernel_estimate.append(
+                    (self._kernel_estimate[p, -1] < max_k)
+                )
+            max_k_larger_last_kernel_estimate = np.array(
+                max_k_larger_last_kernel_estimate
+            )
+            i_indices_and_finished_at_last_index = np.array(
+                i_indices_and_finished_at_last_index
+            )
+            i_indices = i_indices_and_finished_at_last_index[:, 0]
+            finished_at_last_index = i_indices_and_finished_at_last_index[:, 1]
             # check if for any points we don't have enough neighbors to properly compute its core scale
             # for this, the lazy intersection must have finished at the last index and the max_k
             # of the line segment chosen must be larger than the max kernel estimate for the point
-            if np.any( np.logical_and(finished_at_last_index, max_k_larger_last_kernel_estimate) ):
+            if np.any(
+                np.logical_and(
+                    finished_at_last_index, max_k_larger_last_kernel_estimate
+                )
+            ):
                 warnings.warn(
                     "Don't have enough neighbors to properly compute core scale, or point takes too long to appear."
                 )
@@ -446,39 +474,39 @@ class _MetricProbabilitySpace:
                     )
             return self._nn_distance[(point_index, i_indices)]
 
-    def find_end(self, tolerance = 1e-4):
-
+    def find_end(self, tolerance=1e-4):
         def pers_diag(k):
             return self.lambda_linkage([0, k], [np.infty, k]).persistence_diagram()
 
         lower_bound = 0
         upper_bound = self._maxk
 
-        i=0
+        i = 0
         while True:
             current_k = (lower_bound + upper_bound) / 2
             i += 1
 
             pd = pers_diag(current_k)
             pd = np.array(pd)
-            #if len(pd[pd[:,1] == np.infty]) > 1:
+            # if len(pd[pd[:,1] == np.infty]) > 1:
             #    raise Exception("End not found! Try setting auto_find_end_hierachical_clustering to False.")
             if pd.shape[0] == 0:
-                raise Exception("Empty persistence diagram found when trying to find end of metric measure space.")
+                raise Exception(
+                    "Empty persistence diagram found when trying to find end of metric measure space."
+                )
             # persistence diagram has more than one class
             elif pd.shape[0] > 1:
                 lower_bound, upper_bound = current_k, upper_bound
                 if np.abs(current_k - self._maxk) < _TOL:
                     pd = pers_diag(lower_bound)
-                    return [np.max(pd[pd[:,1]!=np.infty][:,1]), current_k]
+                    return [np.max(pd[pd[:, 1] != np.infty][:, 1]), current_k]
             # persistence diagram has exactly one class
             else:
                 lower_bound, upper_bound = lower_bound, current_k
 
             if np.abs(lower_bound - upper_bound) < tolerance:
                 pd = pers_diag(lower_bound)
-                return [np.max(pd[pd[:,1]!=np.infty][:,1]), current_k]
- 
+                return [np.max(pd[pd[:, 1] != np.infty][:, 1]), current_k]
 
     def lambda_linkage(self, start, end):
         if start[0] > end[0] or start[1] < end[1]:
@@ -554,9 +582,20 @@ class _MetricProbabilitySpace:
         else:
             verbose = 11 if self._debug else 0
             n_jobs = min(cpu_count(), n_jobs)
-            return Parallel(n_jobs=n_jobs, verbose=verbose)(
-                delayed(run_in_parallel)(startend) for startend in startends
-            )
+            # x = Parallel(n_jobs=n_jobs, backend="multiprocessing", verbose=verbose)(
+            #    delayed(self.lambda_linkage)(startend[0], startend[1]) for startend in startends
+            # )
+            # return [hc.persistence_diagram(tol=tol) for hc in x]
+            if self._threading:
+                return Parallel(n_jobs=n_jobs, backend="threading", verbose=verbose)(
+                    delayed(run_in_parallel)(startend) for startend in startends
+                )
+            else:
+                return Parallel(n_jobs=n_jobs, verbose=verbose)(
+                    delayed(run_in_parallel)(startend) for startend in startends
+                )
+
+
 
     def hilbert_function(self, ks, ss, n_jobs, tol=_TOL):
         n_s = len(ss)
