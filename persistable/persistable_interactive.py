@@ -134,15 +134,6 @@ class PersistableInteractive:
         self._parameters_sem = threading.Semaphore()
         self._parameters = None
 
-    # dash pickles the PersistableInteractive instance (at least when running
-    # on windows). The following two functions prevent pickling errors when using
-    # long callbacks.
-    def __getstate__(self):
-        return (self._persistable,self._debug)
-
-    def __setstate__(self, state):
-        self._persistable = state[0]
-        self._debug = state[1]
 
     def start_UI(self, port=8050, debug=False, inline=False):
         """Serves the GUI with a given persistable instance.
@@ -190,7 +181,7 @@ class PersistableInteractive:
                 update_title = "Persistable is computing..."
             )
             self._layout_gui()
-            self._register_callbacks()
+            self._register_callbacks(self._persistable, self._debug)
 
             #import logging
             #self._app.logger.setLevel(logging.WARNING)
@@ -203,7 +194,7 @@ class PersistableInteractive:
                 update_title = "Persistable is computing..."
             )
             self._layout_gui()
-            self._register_callbacks()
+            self._register_callbacks(self._persistable, self._debug)
 
             def run():
                 self._app.run_server(port=port, debug=debug, use_reloader=False)
@@ -223,7 +214,6 @@ class PersistableInteractive:
             self._thread.start()
 
             return port
-
 
 
     def cluster(self, **kwargs):
@@ -845,7 +835,13 @@ class PersistableInteractive:
             ],
         )
 
-    def _register_callbacks(self):
+
+    # when using long callbacks, dash will pickle all the objects that are used
+    # in the function that is being registered as a long callback. In particular,
+    # using self._persistable will also pickle self, which in this case contains
+    # also a dash app, which cannot be pickled. We get around this by passing
+    # self._persistable to the _register_callbacks function.
+    def _register_callbacks(self, persistable, debug):
         def dash_callback(
             inputs,
             outputs,
@@ -1287,7 +1283,7 @@ class PersistableInteractive:
             cancel=[[STOP_COMPUTE_CCF_BUTTON, N_CLICKS]],
         )
         def compute_ccf(d):
-            if self._debug:
+            if debug:
                 print("Compute ccf in background started.")
 
             granularity = d[INPUT_GRANULARITY_CCF + VALUE]
@@ -1297,7 +1293,7 @@ class PersistableInteractive:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 try:
-                    ss, ks, hf = self._persistable._compute_hilbert_function(
+                    ss, ks, hf = persistable._compute_hilbert_function(
                         d[MIN_DENSITY_THRESHOLD + VALUE],
                         d[MAX_DENSITY_THRESHOLD + VALUE],
                         d[MIN_DIST_SCALE + VALUE],
@@ -1324,7 +1320,7 @@ class PersistableInteractive:
             d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = False
 
-            if self._debug:
+            if debug:
                 print("Compute ccf in background finished.")
 
             return d
@@ -1360,7 +1356,7 @@ class PersistableInteractive:
             cancel=[[STOP_COMPUTE_PV_BUTTON, N_CLICKS]],
         )
         def compute_pv(d):
-            if self._debug:
+            if debug:
                 print("Compute pv in background started.")
 
             granularity = d[INPUT_GRANULARITY_PV + VALUE]
@@ -1370,7 +1366,7 @@ class PersistableInteractive:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 try:
-                    pv = self._persistable._compute_vineyard(
+                    pv = persistable._compute_vineyard(
                         [
                             [
                                 d[X_START_FIRST_LINE + VALUE],
@@ -1414,7 +1410,7 @@ class PersistableInteractive:
 
             d[PV_PLOT_CONTROLS_DIV + HIDDEN] = False
 
-            if self._debug:
+            if debug:
                 print("Compute pv in background finished.")
 
             return d
