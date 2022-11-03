@@ -3,6 +3,8 @@
 A bit of theory
 ===============
 
+.. _barcode:
+
 ----------------------------------------
 The barcode of a hierarchical clustering
 ----------------------------------------
@@ -79,6 +81,8 @@ See
 to see how we use the barcode of a hierarchical clustering 
 to choose parameters for Persistable.
 
+
+.. _persistence-based-flattening:
 
 ------------------------------------------
 The persistence-based flattening algorithm
