@@ -1287,7 +1287,7 @@ class PersistableInteractive:
         )
         def compute_ccf(d):
             if self._debug:
-                warnings.warn("Compute ccf in background started.")
+                print("Compute ccf in background started.")
 
             granularity = d[INPUT_GRANULARITY_CCF + VALUE]
             num_jobs = int(d[INPUT_NUM_JOBS_CCF + VALUE])
@@ -1324,7 +1324,7 @@ class PersistableInteractive:
             d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = False
 
             if self._debug:
-                warnings.warn("Compute ccf in background finished.")
+                print("Compute ccf in background finished.")
 
             return d
 
@@ -1360,7 +1360,7 @@ class PersistableInteractive:
         )
         def compute_pv(d):
             if self._debug:
-                warnings.warn("Compute pv in background started .")
+                print("Compute pv in background started.")
 
             granularity = d[INPUT_GRANULARITY_PV + VALUE]
             num_jobs = int(d[INPUT_NUM_JOBS_PV + VALUE])
@@ -1414,7 +1414,7 @@ class PersistableInteractive:
             d[PV_PLOT_CONTROLS_DIV + HIDDEN] = False
 
             if self._debug:
-                warnings.warn("Compute pv in background finished.")
+                print("Compute pv in background finished.")
 
             return d
 

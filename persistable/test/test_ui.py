@@ -16,8 +16,8 @@ def setup():
 
     X = make_blobs(100, centers=2, random_state=1)[0]
     p = persistable.Persistable(X, debug=True)
-    pi = persistable.PersistableInteractive(p, debug=True)
-    port = pi.start_UI()
+    pi = persistable.PersistableInteractive(p)
+    port = pi.start_UI(debug=True)
     url = "http://localhost:" + str(port) + "/"
 
     default_params = {
@@ -144,7 +144,6 @@ def test_end_to_end(page: Page):
     time.sleep(1)
     params = pi._chosen_parameters()
 
-    print(params)
     assert params["n_clusters"] == default_params["n_clusters"]
     np.testing.assert_almost_equal(
         np.array(params["start"]), np.array(default_params["start"])
@@ -152,3 +151,4 @@ def test_end_to_end(page: Page):
     np.testing.assert_almost_equal(
         np.array(params["end"]), np.array(default_params["end"])
     )
+    assert False
