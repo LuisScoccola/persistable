@@ -131,8 +131,6 @@ class PersistableInteractive:
     def __init__(self, persistable):
         self._persistable = persistable
         self._app = None
-        self._cache = None
-        self._background_callback_manager = None
         self._parameters_sem = threading.Semaphore()
         self._parameters = None
 
@@ -171,15 +169,14 @@ class PersistableInteractive:
             )
 
         # set temporary files
-        persistable_dash_cache = "./persistable-dash-cache-port-" + str(port)
-        self._cache = diskcache.Cache(persistable_dash_cache)
-        self._background_callback_manager = DiskcacheManager(self._cache)
+        
+        background_callback_manager = DiskcacheManager(diskcache.Cache())
 
         if inline == True:
 
             self._app = JupyterDash(
                 __name__,
-                background_callback_manager=self._background_callback_manager,
+                background_callback_manager=background_callback_manager,
                 update_title = "Persistable is computing..."
             )
             self._layout_gui()
@@ -192,7 +189,7 @@ class PersistableInteractive:
         else:
             self._app = dash.Dash(
                 __name__,
-                background_callback_manager=self._background_callback_manager,
+                background_callback_manager=background_callback_manager,
                 update_title = "Persistable is computing..."
             )
             self._layout_gui()
@@ -888,22 +885,22 @@ class PersistableInteractive:
                     )
 
                 if background:
-                    self._app.long_callback(
-                        dash_outputs,
-                        dash_inputs,
-                        prevent_initial_call,
-                        running=dash_running_outputs,
-                        cancel=dash_cancel,
-                    )(callback_function)
-                    # TODO: figure out why the following causes problems with joblib Parallel
-                    #self._app.callback(
+                    #self._app.long_callback(
                     #    dash_outputs,
                     #    dash_inputs,
                     #    prevent_initial_call,
                     #    running=dash_running_outputs,
                     #    cancel=dash_cancel,
-                    #    background=True,
                     #)(callback_function)
+                    # TODO: figure out why the following causes problems with joblib Parallel
+                    self._app.callback(
+                        dash_outputs,
+                        dash_inputs,
+                        prevent_initial_call,
+                        running=dash_running_outputs,
+                        cancel=dash_cancel,
+                        background=True,
+                    )(callback_function)
                 else:
                     self._app.callback(
                         dash_outputs,
