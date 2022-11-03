@@ -191,7 +191,7 @@ and when two clusters merge,
 one of the corresponding bars ends, 
 according to the Elder rule. 
 For more on this construction, see 
-:ref:`barcode`.
+:ref:`a-bit-of-theory`.
 
 In this example, there are six fairly long bars 
 (in dark green), as well as some shorter bars (in light green). 
@@ -210,7 +210,7 @@ between long bars and short bars.
 In this example, 6 bars is a reasonable choice. 
 Now, the *persistence-based flattening algorithm* 
 extracts a clustering with 6 clusters. 
-See :ref:`persistence-based-flattening` 
+See :ref:`a-bit-of-theory` 
 for a description of this algorithm.
 
 Going back to our example dataset, 
