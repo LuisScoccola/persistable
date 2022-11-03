@@ -1,7 +1,11 @@
 .. _a-bit-of-theory:
 
+A bit of theory
+===============
+
+----------------------------------------
 The barcode of a hierarchical clustering
-========================================
+----------------------------------------
 
 Barcodes are a visualization tool for data analysis that 
 play an important role in 
@@ -76,8 +80,9 @@ to see how we use the barcode of a hierarchical clustering
 to choose parameters for Persistable.
 
 
+------------------------------------------
 The persistence-based flattening algorithm
-==========================================
+------------------------------------------
 
 Given a hierarchical clustering of data, 
 the persistence-based flattening algorithm extracts a single clustering 
