@@ -6,8 +6,7 @@ import warnings
 import traceback
 import plotly.graph_objects as go
 import plotly
-from plotly.express.colors import sample_colorscale
-import pandas
+from plotly.colors import sample_colorscale
 import json
 #import diskcache
 import dash
@@ -281,7 +280,7 @@ class PersistableInteractive:
         self._app.layout = html.Div(
             className="root",
             children=[
-                # contains the component counting function as a pandas dataframe
+                # contains the component counting function as a dictionary of lists
                 dcc.Store(id=STORED_CCF),
                 # contains the basic component counting function plot as a plotly figure
                 dcc.Store(id=STORED_CCF_DRAWING),
@@ -1014,14 +1013,9 @@ class PersistableInteractive:
         def draw_ccf(d):
             ccf = d[STORED_CCF + DATA]
 
-            ccf = pandas.read_json(ccf, orient="split")
+            ccf = json.loads(ccf)
 
-            def df_to_plotly(df):
-                return {
-                    "z": df.values.tolist(),
-                    "x": df.columns.tolist(),
-                    "y": df.index.tolist(),
-                }
+            max_components = d[INPUT_MAX_COMPONENTS + VALUE]
 
             fig = go.Figure(
                 layout=go.Layout(
@@ -1031,11 +1025,10 @@ class PersistableInteractive:
                     yaxis={"fixedrange": True},
                 ),
             )
-            max_components = d[INPUT_MAX_COMPONENTS + VALUE]
 
             fig.add_trace(
                 go.Heatmap(
-                    df_to_plotly(ccf),
+                    **ccf,
                     hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
                     zmin=0,
                     zmax=max_components,
@@ -1044,7 +1037,6 @@ class PersistableInteractive:
                 )
             )
             fig.update_traces(colorscale="greys")
-
             fig.update_layout(showlegend=False)
             fig.update_layout(autosize=True)
             fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
@@ -1055,7 +1047,6 @@ class PersistableInteractive:
 
         @dash_callback(
             [
-                [STORED_CCF, DATA, ST],
                 [STORED_CCF_DRAWING, DATA, IN],
                 [MIN_DIST_SCALE, VALUE, IN],
                 [MAX_DIST_SCALE, VALUE, IN],
@@ -1080,11 +1071,7 @@ class PersistableInteractive:
             False,
         )
         def draw_ccf_extras(d):
-            ccf = d[STORED_CCF + DATA]
-
             fig = plotly.io.from_json(d[STORED_CCF_DRAWING + DATA])
-
-            ccf = pandas.read_json(ccf, orient="split")
 
             def generate_line(
                 xs, ys, text, color="mediumslateblue", different_marker=None
@@ -1129,6 +1116,7 @@ class PersistableInteractive:
                         fill="toself",
                         mode="none",
                         hoverinfo="skip",
+                        showlegend=False,
                         # text=text,
                         name="",
                     )
@@ -1189,22 +1177,24 @@ class PersistableInteractive:
                     st = np.array([st_x, st_y])
                     end = np.array([end_x, end_y])
                     A = end - st
+
+                    # ideally we would get the actual ratio of the rendered picture
+                    # we are using an estimate given by the "usual" way in which persistable
+                    # is rendered
+                    ratio = np.array([3,2])
+                    ratio = (ratio / np.linalg.norm(ratio)) * np.linalg.norm(np.array([1,1]))
+                    alpha = [
+                        (d[MAX_DIST_SCALE + VALUE] - d[MIN_DIST_SCALE + VALUE]),
+                        ( d[MAX_DENSITY_THRESHOLD + VALUE] - d[MIN_DENSITY_THRESHOLD + VALUE]),
+                    ]
+                    alpha = np.array(alpha) / ratio
+
+                    A = A/alpha
                     B = np.array([-A[1], A[0]])
-                    B = B / np.linalg.norm(B)
 
                     shift = 50
-                    tau = (
-                        np.array(
-                            [
-                                d[MAX_DIST_SCALE + VALUE] - d[MIN_DIST_SCALE + VALUE],
-                                d[MAX_DENSITY_THRESHOLD + VALUE]
-                                - d[MIN_DENSITY_THRESHOLD + VALUE],
-                            ]
-                        )
-                        / shift
-                    )
-                    tau[0] = tau[0] * B[0]
-                    tau[1] = tau[1] * B[1]
+                    B = B / np.linalg.norm(B)
+                    tau = B * alpha/ shift
 
                     pd = np.array(pd)
                     lengths = pd[:, 1] - pd[:, 0]
@@ -1240,14 +1230,12 @@ class PersistableInteractive:
                     )
                 )
 
-            fig.update_xaxes(
-                range=[d[MIN_DIST_SCALE + VALUE], d[MAX_DIST_SCALE + VALUE]]
-            )
-            fig.update_yaxes(
-                range=[
+            fig.update_layout(
+                xaxis=dict(range=[d[MIN_DIST_SCALE + VALUE], d[MAX_DIST_SCALE + VALUE]]),
+                yaxis=dict(range=[
                     d[MIN_DENSITY_THRESHOLD + VALUE],
                     d[MAX_DENSITY_THRESHOLD + VALUE],
-                ]
+                ])
             )
 
             d[CCF_PLOT + FIGURE] = fig
@@ -1316,9 +1304,9 @@ class PersistableInteractive:
                     a.message, a.category, a.filename, a.lineno
                 )
 
-            d[STORED_CCF + DATA] = pandas.DataFrame(
-                hf, index=ks[:-1], columns=ss[:-1]
-            ).to_json(date_format="iso", orient="split")
+            d[STORED_CCF + DATA] = json.dumps(
+                {"y": ks[:-1].tolist(), "x": ss[:-1].tolist(), "z" : hf.tolist()}
+            )
 
             d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = False
