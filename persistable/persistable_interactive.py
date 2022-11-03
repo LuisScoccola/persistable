@@ -17,13 +17,7 @@ import click
 import socket
 from ._vineyard import Vineyard
 
-
 import threading
-
-# TODO: in windows, we don't run expensive functions as
-# background processes since we get a pickling error.
-from sys import platform
-RUN_EXPENSIVE_FUNCTIONS_IN_BACKGROUND = False if platform == "win32" else True
 
 
 # monkeypatch the hashing function of dash, so that
@@ -139,6 +133,16 @@ class PersistableInteractive:
         self._debug = False
         self._parameters_sem = threading.Semaphore()
         self._parameters = None
+
+    # dash pickles the PersistableInteractive instance (at least when running
+    # on windows). The following two functions prevent pickling errors when using
+    # long callbacks.
+    def __getstate__(self):
+        return (self._persistable,self._debug)
+
+    def __setstate__(self, state):
+        self._persistable = state[0]
+        self._debug = state[1]
 
     def start_UI(self, port=8050, debug=False, inline=False):
         """Serves the GUI with a given persistable instance.
@@ -920,6 +924,7 @@ class PersistableInteractive:
 
             return out_function
 
+
         @dash_callback(
             [[DISPLAY_PARAMETER_SELECTION, VALUE, IN]],
             [[PARAMETER_SELECTION_DIV, HIDDEN]],
@@ -1274,7 +1279,7 @@ class PersistableInteractive:
                 [CCF_PLOT_CONTROLS_DIV, HIDDEN],
             ],
             prevent_initial_call=True,
-            background=RUN_EXPENSIVE_FUNCTIONS_IN_BACKGROUND,
+            background=True,
             running=[
                 [COMPUTE_CCF_BUTTON, DISABLED, True, False],
                 [STOP_COMPUTE_CCF_BUTTON, DISABLED, False, True],
@@ -1347,7 +1352,7 @@ class PersistableInteractive:
                 [PV_PLOT_CONTROLS_DIV, HIDDEN],
             ],
             prevent_initial_call=True,
-            background=RUN_EXPENSIVE_FUNCTIONS_IN_BACKGROUND,
+            background=True,
             running=[
                 [COMPUTE_PV_BUTTON, DISABLED, True, False],
                 [STOP_COMPUTE_PV_BUTTON, DISABLED, False, True],

@@ -103,6 +103,7 @@ def test_app_title(page: Page):
     global url
 
     page.goto(url)
+
     expect(page).to_have_title(re.compile("Persistable"))
 
 
