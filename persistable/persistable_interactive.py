@@ -9,7 +9,7 @@ import plotly
 from plotly.express.colors import sample_colorscale
 import pandas
 import json
-import diskcache
+#import diskcache
 import dash
 from dash import dcc, html, DiskcacheManager, ctx
 from dash.exceptions import PreventUpdate
@@ -131,6 +131,7 @@ class PersistableInteractive:
     def __init__(self, persistable):
         self._persistable = persistable
         self._app = None
+        self._debug = False
         self._parameters_sem = threading.Semaphore()
         self._parameters = None
 
@@ -153,6 +154,8 @@ class PersistableInteractive:
             If not run in inline mode, returns the port of localhost used to serve the UI.
 
         """
+        if debug:
+            self._debug = debug
         max_port = 65535
         for possible_port in range(port, max_port+1):
             # check if port is in use
@@ -168,9 +171,7 @@ class PersistableInteractive:
                 "All ports are already in use. Cannot start the GUI."
             )
 
-        # set temporary files
-        
-        background_callback_manager = DiskcacheManager(diskcache.Cache())
+        background_callback_manager = DiskcacheManager()
 
         if inline == True:
 
@@ -885,22 +886,22 @@ class PersistableInteractive:
                     )
 
                 if background:
-                    #self._app.long_callback(
-                    #    dash_outputs,
-                    #    dash_inputs,
-                    #    prevent_initial_call,
-                    #    running=dash_running_outputs,
-                    #    cancel=dash_cancel,
-                    #)(callback_function)
-                    # TODO: figure out why the following causes problems with joblib Parallel
-                    self._app.callback(
+                    self._app.long_callback(
                         dash_outputs,
                         dash_inputs,
                         prevent_initial_call,
                         running=dash_running_outputs,
                         cancel=dash_cancel,
-                        background=True,
                     )(callback_function)
+                    # TODO: figure out why the following causes problems with joblib Parallel
+                    #self._app.callback(
+                    #    dash_outputs,
+                    #    dash_inputs,
+                    #    prevent_initial_call,
+                    #    running=dash_running_outputs,
+                    #    cancel=dash_cancel,
+                    #    background=True,
+                    #)(callback_function)
                 else:
                     self._app.callback(
                         dash_outputs,
@@ -1285,6 +1286,9 @@ class PersistableInteractive:
             cancel=[[STOP_COMPUTE_CCF_BUTTON, N_CLICKS]],
         )
         def compute_ccf(d):
+            if self._debug:
+                warnings.warn("Compute ccf in background started.")
+
             granularity = d[INPUT_GRANULARITY_CCF + VALUE]
             num_jobs = int(d[INPUT_NUM_JOBS_CCF + VALUE])
 
@@ -1319,6 +1323,9 @@ class PersistableInteractive:
             d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = False
 
+            if self._debug:
+                warnings.warn("Compute ccf in background finished.")
+
             return d
 
         @dash_callback(
@@ -1352,6 +1359,8 @@ class PersistableInteractive:
             cancel=[[STOP_COMPUTE_PV_BUTTON, N_CLICKS]],
         )
         def compute_pv(d):
+            if self._debug:
+                warnings.warn("Compute pv in background started .")
 
             granularity = d[INPUT_GRANULARITY_PV + VALUE]
             num_jobs = int(d[INPUT_NUM_JOBS_PV + VALUE])
@@ -1403,6 +1412,9 @@ class PersistableInteractive:
             d[EXPORT_PARAMETERS_BUTTON + DISABLED] = False
 
             d[PV_PLOT_CONTROLS_DIV + HIDDEN] = False
+
+            if self._debug:
+                warnings.warn("Compute pv in background finished.")
 
             return d
 

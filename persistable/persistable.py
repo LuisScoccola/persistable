@@ -48,6 +48,9 @@ class Persistable:
         the number of points in the dataset, if set to ``"auto"`` it will find
         a reasonable default.
 
+    debug: bool, optional, default is False
+        Whether to print debug messages.
+
     ``**kwargs``:
         Passed to ``KDTree`` or ``BallTree``.
 
@@ -58,8 +61,10 @@ class Persistable:
         X,
         metric="minkowski",
         n_neighbors="auto",
+        debug=False,
         **kwargs
     ):
+        self._debug = debug
         # keep dataset
         self._data = X
         # if metric is minkowski but no p was passed, assume p = 2
@@ -78,7 +83,7 @@ class Persistable:
             leaf_size = kwargs["leaf_size"]
         else:
             leaf_size = 40
-        self._mpspace = _MetricProbabilitySpace(X, metric, measure, leaf_size, **kwargs)
+        self._mpspace = _MetricProbabilitySpace(X, metric, measure, leaf_size, debug=debug, **kwargs)
         # if no n_neighbors for fitting mpspace was passed, compute a reasonable one
         if n_neighbors == "auto":
             if X.shape[0] < 100:
@@ -315,7 +320,8 @@ class _MetricProbabilitySpace:
     """Implements a finite metric probability space that can compute its \
        kernel density estimates and lambda linkage hierarchical clusterings """
 
-    def __init__(self, X, metric, measure, leaf_size=40, **kwargs):
+    def __init__(self, X, metric, measure, leaf_size=40, debug=False, **kwargs):
+        self._debug = debug
         self._metric = metric
         self._kwargs = kwargs
         self._leaf_size = leaf_size
@@ -546,8 +552,9 @@ class _MetricProbabilitySpace:
         if n_jobs == 1:
             return [run_in_parallel(startend) for startend in startends]
         else:
+            verbose = 11 if self._debug else 0
             n_jobs = min(cpu_count(), n_jobs)
-            return Parallel(n_jobs=n_jobs)(
+            return Parallel(n_jobs=n_jobs, verbose=verbose)(
                 delayed(run_in_parallel)(startend) for startend in startends
             )
 
