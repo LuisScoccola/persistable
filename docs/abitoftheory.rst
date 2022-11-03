@@ -1,4 +1,3 @@
-.. _a-bit-of-theory:
 
 A bit of theory
 ===============
