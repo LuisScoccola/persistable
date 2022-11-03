@@ -17,7 +17,13 @@ import click
 import socket
 from ._vineyard import Vineyard
 
+
 import threading
+
+# TODO: in windows, we don't run expensive functions as
+# background processes since we get a pickling error.
+from sys import platform
+RUN_EXPENSIVE_FUNCTIONS_IN_BACKGROUND = False if platform == "win32" else True
 
 
 # monkeypatch the hashing function of dash, so that
@@ -893,6 +899,8 @@ class PersistableInteractive:
                         cancel=dash_cancel,
                     )(callback_function)
                     # TODO: figure out why the following causes problems with joblib Parallel
+                    # Note that callback with background=True is the recommended way of running
+                    # background jobs in dash now.
                     #self._app.callback(
                     #    dash_outputs,
                     #    dash_inputs,
@@ -1266,7 +1274,7 @@ class PersistableInteractive:
                 [CCF_PLOT_CONTROLS_DIV, HIDDEN],
             ],
             prevent_initial_call=True,
-            background=True,
+            background=RUN_EXPENSIVE_FUNCTIONS_IN_BACKGROUND,
             running=[
                 [COMPUTE_CCF_BUTTON, DISABLED, True, False],
                 [STOP_COMPUTE_CCF_BUTTON, DISABLED, False, True],
@@ -1339,7 +1347,7 @@ class PersistableInteractive:
                 [PV_PLOT_CONTROLS_DIV, HIDDEN],
             ],
             prevent_initial_call=True,
-            background=True,
+            background=RUN_EXPENSIVE_FUNCTIONS_IN_BACKGROUND,
             running=[
                 [COMPUTE_PV_BUTTON, DISABLED, True, False],
                 [STOP_COMPUTE_PV_BUTTON, DISABLED, False, True],
