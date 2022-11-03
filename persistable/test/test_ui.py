@@ -112,7 +112,7 @@ def test_end_to_end(page: Page):
     ccf_details_locator(page).click()
     ccf_granularity_input_locator(page).fill("4")
     # TODO: figure out why in github CI we can't use more than one core
-    ccf_cores_input_locator(page).fill("1")
+    #ccf_cores_input_locator(page).fill("1")
 
     expect(ccf_density_threshold_label_locator(page)).not_to_be_visible()
     expect(ccf_controls_div_locator(page)).not_to_be_visible()
@@ -128,7 +128,7 @@ def test_end_to_end(page: Page):
     pv_details_locator(page).click()
     pv_granularity_input_locator(page).fill("2")
     # TODO: figure out why in github CI we can't use more than one core
-    pv_cores_input_locator(page).fill("1")
+    #pv_cores_input_locator(page).fill("1")
 
     expect(pv_prominence_label_locator(page)).not_to_be_visible()
     pv_compute_button_locator(page).click()
