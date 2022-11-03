@@ -1,3 +1,4 @@
+from distutils.log import debug
 from playwright.sync_api import expect, Page
 import re
 import time
@@ -14,8 +15,8 @@ def setup():
     global default_params
 
     X = make_blobs(100, centers=2, random_state=1)[0]
-    p = persistable.Persistable(X)
-    pi = persistable.PersistableInteractive(p)
+    p = persistable.Persistable(X, debug=True)
+    pi = persistable.PersistableInteractive(p, debug=True)
     port = pi.start_UI()
     url = "http://localhost:" + str(port) + "/"
 
