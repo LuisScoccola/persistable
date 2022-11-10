@@ -1,11 +1,18 @@
+
 [![tests](https://github.com/LuisScoccola/persistable/actions/workflows/run_tests.yaml/badge.svg)](https://github.com/LuisScoccola/persistable/actions/workflows/run_tests.yaml)
 [![coverage](https://codecov.io/gh/LuisScoccola/persistable/branch/main/graph/badge.svg)](https://codecov.io/gh/LuisScoccola/persistable)
 [![docs](https://readthedocs.org/projects/persistable/badge/?version=latest)](https://persistable.readthedocs.io/)
 [![license](https://img.shields.io/github/license/LuisScoccola/persistable)](https://github.com/LuisScoccola/persistable/blob/main/LICENSE)
+---
 
-# Persistable: persistent and stable clustering
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://user-images.githubusercontent.com/1679929/201200296-cf9ee4f1-b43a-490e-b55a-2d7e04a994be.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://user-images.githubusercontent.com/1679929/201201699-1d6c0cec-a3a0-40ed-a309-55f777b061f4.svg">
+  <img src="https://user-images.githubusercontent.com/1679929/201201699-1d6c0cec-a3a0-40ed-a309-55f777b061f4.svg" width="600">
+</picture>
 
-Persistable is a density-based clustering algorithm intended for exploratory data analysis.
+
+Persistent and stable clustering (Persistable) is a density-based clustering algorithm intended for exploratory data analysis.
 What distinguishes Persistable from other clustering algorithms is its visualization capabilities.
 Persistable's interactive mode lets you visualize multi-scale and multi-density cluster structure present in the data.
 This is used to guide the choice of parameters that lead to the final clustering.
