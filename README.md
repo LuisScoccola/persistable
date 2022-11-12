@@ -6,7 +6,7 @@
 ---
 
 <p align="center">
-    <img src="https://user-images.githubusercontent.com/1679929/201488746-1049bfc3-d2a1-4227-b095-2876c15e571c.svg" width="600">
+    <img src="https://user-images.githubusercontent.com/1679929/201488746-1049bfc3-d2a1-4227-b095-2876c15e571c.svg" width="550">
 </p>
 
 Persistent and stable clustering (Persistable) is a density-based clustering algorithm intended for exploratory data analysis.
