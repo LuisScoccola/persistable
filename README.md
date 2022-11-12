@@ -5,10 +5,9 @@
 [![license](https://img.shields.io/github/license/LuisScoccola/persistable)](https://github.com/LuisScoccola/persistable/blob/main/LICENSE)
 ---
 
-<p >
-    <img src="https://user-images.githubusercontent.com/1679929/201489613-1e11f2a6-06fd-435a-8b2f-5c684f720722.svg" width="550">
+<p align="center">
+    <img src="https://user-images.githubusercontent.com/1679929/201497371-85cec3af-9fe6-48e8-9501-4bbb8a049792.svg" width="550">
 </p>
-
 
 Persistent and stable clustering (Persistable) is a density-based clustering algorithm intended for exploratory data analysis.
 What distinguishes Persistable from other clustering algorithms is its visualization capabilities.
