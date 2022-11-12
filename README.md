@@ -5,12 +5,9 @@
 [![license](https://img.shields.io/github/license/LuisScoccola/persistable)](https://github.com/LuisScoccola/persistable/blob/main/LICENSE)
 ---
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://user-images.githubusercontent.com/1679929/201200296-cf9ee4f1-b43a-490e-b55a-2d7e04a994be.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://user-images.githubusercontent.com/1679929/201201699-1d6c0cec-a3a0-40ed-a309-55f777b061f4.svg">
-  <img src="https://user-images.githubusercontent.com/1679929/201201699-1d6c0cec-a3a0-40ed-a309-55f777b061f4.svg" width="600">
-</picture>
-
+<p align="center">
+    <img src="./docs/pictures/logo.svg" width="550">
+</p>
 
 Persistent and stable clustering (Persistable) is a density-based clustering algorithm intended for exploratory data analysis.
 What distinguishes Persistable from other clustering algorithms is its visualization capabilities.
@@ -106,12 +103,6 @@ Persistable's interactive mode is inspired by RIVET [[5]](#5) and is implemented
 
 To contribute, you can fork the project, make your changes, and submit a pull request.
 You may want to contact [Luis Scoccola](https://luisscoccola.github.io/) first, to make sure your work does not overlap with ongoing work.
-The next steps in our to-do list are:
-- Further tests for user facing functions and GUI.
-- A tutorial with more examples.
-- Improving the GUI's responsiveness and workflow.
-- Computing and displaying further algebraic invariants of multi-parameter hierarchical clusterings.
-- Improving efficiency of current algorithms.
 
 
 ## Authors
