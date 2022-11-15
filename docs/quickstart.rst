@@ -110,8 +110,7 @@ the vineyard is displayed:
     :align: center
 	
 The Prominence Vineyard is constructed by taking a 
-family of slices that interpolate between the two user-selected slices 
-(by default, Persistable constructs 100 interpolating slices).
+family of slices that interpolate between the two user-selected slices.
 The curves ("vines") in the Prominence Vineyard represent clusters 
 in the data that evolve with the choice of slice. 
 The larger their prominence value (plotted on the vertical axis), 

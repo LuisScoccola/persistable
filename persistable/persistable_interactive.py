@@ -254,7 +254,8 @@ class PersistableInteractive:
         default_min_s = 0
         default_max_s = end[0]
         #default_s_step = (default_max_s - default_min_s) / 100
-        default_granularity = 100
+        default_granularity_ccf = 100
+        default_granularity_pv = 40
         default_num_jobs = 4
         default_max_dim = 15
         default_max_vines = 15
@@ -380,7 +381,7 @@ class PersistableInteractive:
                                                                     id=INPUT_GRANULARITY_CCF,
                                                                     className="small-value",
                                                                     type="number",
-                                                                    value=default_granularity,
+                                                                    value=default_granularity_ccf,
                                                                     min=min_granularity,
                                                                     max=max_granularity,
                                                                     debounce=True,
@@ -576,7 +577,7 @@ class PersistableInteractive:
                                                                     id=INPUT_GRANULARITY_PV,
                                                                     className="small-value",
                                                                     type="number",
-                                                                    value=default_granularity,
+                                                                    value=default_granularity_pv,
                                                                     min=min_granularity_vineyard,
                                                                     max=max_granularity_vineyard,
                                                                     debounce=True,

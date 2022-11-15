@@ -1,2 +1,2 @@
 include *.md pyproject.toml LICENSE
-recursive-include persistable *.py *.pyx *.pxd *.c *.css
+recursive-include persistable *.py *.pyx *.pxd *.c *.css *.ico

@@ -296,9 +296,8 @@ This list of prominences tells us how many clusters
 are in the hierarchy, and how long each one persists in the hierarchy.
 
 Now, the Prominence Vineyard is constructed by taking a 
-family of slices that interpolate between the two user-selected slices 
-(by default, Persistable constructs 100 interpolating slices), 
-and for each interpoltating slice, 
+family of slices that interpolate between the two user-selected slices, 
+and for each interpolating slice, 
 plotting the prominences of the bars in its barcode. 
 These prominences trace out curves that we call *vines*. 
 The result is a visual summary of how the hierarchical clustering we get 

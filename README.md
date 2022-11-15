@@ -14,8 +14,6 @@ What distinguishes Persistable from other clustering algorithms is its visualiza
 Persistable's interactive mode lets you visualize multi-scale and multi-density cluster structure present in the data.
 This is used to guide the choice of parameters that lead to the final clustering.
 
-Keep in mind that this is a beta version and the user interface may change with the stable release.
-
 
 ## Documentation
 
