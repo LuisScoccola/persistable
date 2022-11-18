@@ -1,0 +1,15 @@
+{
+  "@context": "https://raw.githubusercontent.com/codemeta/codemeta/master/codemeta.jsonld",
+  "@type": "Code",
+  "author": ["Luis Scoccola", "Alexander Rolle"],
+  "identifier": "",
+  "codeRepository": "https://github.com/LuisScoccola/persistable",
+  "datePublished": "2022-11-18",
+  "dateModified": "2022-11-18",
+  "dateCreated": "2022-11-18",
+  "description": "Persistable: persistent and stable clustering. Versatile density-based clustering for exploratory data analysis.",
+  "keywords": "clustering, unsupervised learning, machine learning, topological data analysis",
+  "license": "BSD-3-Clause",
+  "title": "persistable",
+  "version": "0.3.2"
+}
