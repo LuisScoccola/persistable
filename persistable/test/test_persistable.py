@@ -3,7 +3,8 @@
 
 import unittest
 from persistable import Persistable
-from persistable.persistable import _HierarchicalClustering, _MetricProbabilitySpace
+from persistable.persistable import _HierarchicalClustering
+from persistable.signed_betti_numbers import signed_betti
 from scipy.spatial import distance_matrix
 from scipy.spatial.distance import cdist
 from sklearn import datasets
@@ -346,6 +347,87 @@ class TestPersistable(unittest.TestCase):
             np.testing.assert_almost_equal(v, res_v)
             np.testing.assert_almost_equal(vineyard._vine_parts(v), res_vp)
 
+class TestBettiNumbers(unittest.TestCase):
+    # only tests Hilbert functions of dimensions (shape) 1, 2, 3, 4
+    def test_signed_betti(self):
+
+        np.random.seed(0)
+        N = 4
+
+        # test 1D
+        for _ in range(N):
+            a = np.random.randint(10,30)
+
+            f = np.random.randint(0,40,size=(a))
+            sb = signed_betti(f)
+
+            check = np.zeros(f.shape)
+            for i in range(f.shape[0]):
+                for i_ in range(0,i+1):
+                    check[i] += sb[i_]
+
+            np.testing.assert_equal(check,f)
+
+        # test 2D
+        for _ in range(N):
+            a = np.random.randint(10,30)
+            b = np.random.randint(10,30)
+
+            f = np.random.randint(0,40,size=(a,b))
+            sb = signed_betti(f)
+
+            check = np.zeros(f.shape)
+            for i in range(f.shape[0]):
+                for j in range(f.shape[1]):
+                    for i_ in range(0,i+1):
+                        for j_ in range(0,j+1):
+                            check[i,j] += sb[i_,j_]
+
+            np.testing.assert_equal(check,f)
+
+        # test 3D
+        for _ in range(N):
+            a = np.random.randint(5,10)
+            b = np.random.randint(5,10)
+            c = np.random.randint(5,10)
+
+            f = np.random.randint(0,40,size=(a,b,c))
+            sb = signed_betti(f)
+
+            check = np.zeros(f.shape)
+            for i in range(f.shape[0]):
+                for j in range(f.shape[1]):
+                    for k in range(f.shape[2]):
+                        for i_ in range(0,i+1):
+                            for j_ in range(0,j+1):
+                                for k_ in range(0,k+1):
+                                    check[i,j,k] += sb[i_,j_,k_]
+
+            np.testing.assert_equal(check,f)
+
+        # test 4D
+        for _ in range(N):
+            a = np.random.randint(5,10)
+            b = np.random.randint(5,10)
+            c = np.random.randint(5,10)
+            d = np.random.randint(5,10)
+
+            f = np.random.randint(0,40,size=(a,b,c,d))
+            sb = signed_betti(f)
+
+            check = np.zeros(f.shape)
+            for i in range(f.shape[0]):
+                for j in range(f.shape[1]):
+                    for k in range(f.shape[2]):
+                        for l in range(f.shape[3]):
+                            for i_ in range(0,i+1):
+                                for j_ in range(0,j+1):
+                                    for k_ in range(0,k+1):
+                                        for l_ in range(0,l+1):
+                                            check[i,j,k,l] += sb[i_,j_,k_,l_]
+
+            np.testing.assert_equal(check,f)
+    
 
 if __name__ == "__main__":
     unittest.main()
