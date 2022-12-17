@@ -1072,15 +1072,22 @@ class PersistableInteractive:
                 bn = bn.T
                 xs = ccf["x"]
                 ys = ccf["y"]
-                positive_bn = np.array([ [xs[i],ys[j],bn[i,j]] for i in range(len(xs)) for j in range(len(ys)) if bn[i,j] > 0 ])
-                negative_bn = np.array([ [xs[i],ys[j],-bn[i,j]] for i in range(len(xs)) for j in range(len(ys)) if bn[i,j] < 0 ])
+                delta_x = (xs[1] - xs[0])/2
+                delta_y = (ys[1] - ys[0])/2
+                positive_bn = np.array([ [xs[i]-delta_x,ys[j]-delta_y,bn[i,j]] for i in range(len(xs)) for j in range(len(ys)) if bn[i,j] > 0 ])
+                negative_bn = np.array([ [xs[i]-delta_x,ys[j]-delta_y,-bn[i,j]] for i in range(len(xs)) for j in range(len(ys)) if bn[i,j] < 0 ])
+                marker_size = 5
+                min_opacity = 0.3
+                positive_opacity = min_opacity + ((np.minimum(positive_bn[:,2],max_components))/max_components) * (1-min_opacity)
+                negative_opacity = min_opacity + ((np.minimum(negative_bn[:,2],max_components))/max_components) * (1-min_opacity)
+
                 # draw positive
                 fig.add_trace(
                     go.Scatter(
                         x=positive_bn[:,0],
                         y=positive_bn[:,1],
                         name="",
-                        marker=dict(color="green"),
+                        marker=dict(color="green", size=marker_size, opacity=positive_opacity),
                         hoverinfo="skip",
                         mode="markers"
                     )
@@ -1091,7 +1098,7 @@ class PersistableInteractive:
                         x=negative_bn[:,0],
                         y=negative_bn[:,1],
                         name="",
-                        marker=dict(color="red"),
+                        marker=dict(color="red", size=marker_size, opacity=negative_opacity),
                         #color="green",
                         hoverinfo="skip",
                         mode="markers"
