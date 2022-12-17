@@ -8,7 +8,8 @@ import plotly.graph_objects as go
 import plotly
 from plotly.colors import sample_colorscale
 import json
-#import diskcache
+
+# import diskcache
 import dash
 from dash import dcc, html, DiskcacheManager, ctx
 from dash.exceptions import PreventUpdate
@@ -16,6 +17,7 @@ from jupyter_dash import JupyterDash
 import click
 import socket
 from ._vineyard import Vineyard
+from .signed_betti_numbers import signed_betti
 
 import threading
 
@@ -48,6 +50,7 @@ DISPLAY_LINES_SELECTION = "display-lines-selection-"
 ENDPOINT_SELECTION = "endpoint-selection-"
 STORED_CCF = "stored-ccf-"
 STORED_CCF_DRAWING = "stored-ccf-drawing-"
+STORED_BETTI = "stored-betti-"
 MIN_DIST_SCALE = "min-dist-scale-"
 MAX_DIST_SCALE = "max-dist-scale-"
 MIN_DENSITY_THRESHOLD = "min-density-threshold-"
@@ -60,6 +63,7 @@ STOP_COMPUTE_CCF_BUTTON = "stop-compute-ccf-button-"
 INPUT_GRANULARITY_CCF = "input-granularity-ccf-"
 INPUT_NUM_JOBS_CCF = "input-num-jobs-ccf-"
 INPUT_MAX_COMPONENTS = "input-max-components-"
+INPUT_SIGNED_BETTI_NUMBERS = "input-signed-betti-numbers-"
 CCF_PLOT_CONTROLS_DIV = "ccf-plot-controls-div-"
 CCF_DETAILS = "ccf-details-"
 PV_DETAILS = "pv-details-"
@@ -134,7 +138,6 @@ class PersistableInteractive:
         self._parameters_sem = threading.Semaphore()
         self._parameters = None
 
-
     def start_UI(self, port=8050, debug=False, inline=False):
         """Serves the GUI with a given persistable instance.
 
@@ -157,7 +160,7 @@ class PersistableInteractive:
         if debug:
             self._debug = debug
         max_port = 65535
-        for possible_port in range(port, max_port+1):
+        for possible_port in range(port, max_port + 1):
             # check if port is in use
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 in_use = s.connect_ex(("localhost", int(possible_port))) == 0
@@ -167,9 +170,7 @@ class PersistableInteractive:
                 port = possible_port
                 break
         if possible_port == max_port:
-            raise Exception(
-                "All ports are already in use. Cannot start the GUI."
-            )
+            raise Exception("All ports are already in use. Cannot start the GUI.")
 
         background_callback_manager = DiskcacheManager()
 
@@ -178,20 +179,20 @@ class PersistableInteractive:
             self._app = JupyterDash(
                 __name__,
                 background_callback_manager=background_callback_manager,
-                update_title = "Persistable is computing..."
+                update_title="Persistable is computing...",
             )
             self._layout_gui()
             self._register_callbacks(self._persistable, self._debug)
 
-            #import logging
-            #self._app.logger.setLevel(logging.WARNING)
-            #logging.getLogger("werkzeug").setLevel(logging.ERROR)
+            # import logging
+            # self._app.logger.setLevel(logging.WARNING)
+            # logging.getLogger("werkzeug").setLevel(logging.ERROR)
             self._app.run_server(port=port, mode="inline", debug=debug)
         else:
             self._app = dash.Dash(
                 __name__,
                 background_callback_manager=background_callback_manager,
-                update_title = "Persistable is computing..."
+                update_title="Persistable is computing...",
             )
             self._layout_gui()
             self._register_callbacks(self._persistable, self._debug)
@@ -201,12 +202,16 @@ class PersistableInteractive:
 
             if not debug:
                 import logging
+
                 self._app.logger.setLevel(logging.WARNING)
                 logging.getLogger("werkzeug").setLevel(logging.ERROR)
+
                 def secho(text, file=None, nl=None, err=None, color=None, **styles):
                     pass
+
                 def echo(text, file=None, nl=None, err=None, color=None, **styles):
                     pass
+
                 click.echo = echo
                 click.secho = secho
             self._thread = threading.Thread(target=run)
@@ -214,7 +219,6 @@ class PersistableInteractive:
             self._thread.start()
 
             return port
-
 
     def cluster(self, **kwargs):
         """Clusters the dataset with which the Persistable instance that was
@@ -238,22 +242,20 @@ class PersistableInteractive:
         else:
             return self._persistable.cluster(**params, **kwargs)
 
-
     def _chosen_parameters(self):
         self._parameters_sem.acquire()
         params = self._parameters
         self._parameters_sem.release()
         return params
 
-
     def _layout_gui(self):
         default_min_k = 0
         end = self._persistable._find_end()
         default_max_k = end[1]
-        #default_k_step = default_max_k / 100
+        # default_k_step = default_max_k / 100
         default_min_s = 0
         default_max_s = end[0]
-        #default_s_step = (default_max_s - default_min_s) / 100
+        # default_s_step = (default_max_s - default_min_s) / 100
         default_granularity_ccf = 100
         default_granularity_pv = 40
         default_num_jobs = 4
@@ -285,6 +287,8 @@ class PersistableInteractive:
                 dcc.Store(id=STORED_CCF),
                 # contains the basic component counting function plot as a plotly figure
                 dcc.Store(id=STORED_CCF_DRAWING),
+                # contains the signed betti numbers as a list of lists
+                dcc.Store(id=STORED_BETTI),
                 # contains the vineyard as a vineyard object
                 dcc.Store(id=STORED_PV),
                 # contains the basic prominence vineyard plot as a plotly figure
@@ -299,7 +303,7 @@ class PersistableInteractive:
                 dcc.Store(id=FIXED_PARAMETERS, data=json.dumps([])),
                 #
                 html.Div(id=EXPORTED_PARAMETER, hidden=True),
-                #html.Div(id=EXPORTED_PARAMETER_2, hidden=True),
+                # html.Div(id=EXPORTED_PARAMETER_2, hidden=True),
                 html.Div(
                     className="grid",
                     children=[
@@ -310,8 +314,8 @@ class PersistableInteractive:
                                     className="parameters",
                                     children=[
                                         html.Details(
-                                            id = CCF_DETAILS,
-                                            children = [
+                                            id=CCF_DETAILS,
+                                            children=[
                                                 html.Summary("Inputs"),
                                                 html.Div(
                                                     className="parameters",
@@ -329,7 +333,7 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_min_s,
                                                                     min=0,
-                                                                    #step=default_s_step,
+                                                                    # step=default_s_step,
                                                                     debounce=True,
                                                                 ),
                                                                 dcc.Input(
@@ -338,7 +342,7 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_max_s,
                                                                     min=0,
-                                                                    #step=default_s_step,
+                                                                    # step=default_s_step,
                                                                     debounce=True,
                                                                 ),
                                                             ],
@@ -356,7 +360,7 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_min_k,
                                                                     min=0,
-                                                                    #step=default_k_step,
+                                                                    # step=default_k_step,
                                                                     debounce=True,
                                                                 ),
                                                                 dcc.Input(
@@ -365,7 +369,7 @@ class PersistableInteractive:
                                                                     type="number",
                                                                     value=default_max_k,
                                                                     min=0,
-                                                                    #step=default_k_step,
+                                                                    # step=default_k_step,
                                                                     debounce=True,
                                                                 ),
                                                             ],
@@ -418,14 +422,21 @@ class PersistableInteractive:
                                                                     max=16,
                                                                     debounce=True,
                                                                 ),
-                                                                html.Div(
-                                                                    className="space"
+                                                                html.Span(
+                                                                    className="name",
+                                                                    children="Signed Betti numbers",
+                                                                ),
+                                                                dcc.RadioItems(
+                                                                    ["On", "Off"],
+                                                                    "Off",
+                                                                    id=INPUT_SIGNED_BETTI_NUMBERS,
+                                                                    className="small-value",
                                                                 ),
                                                             ],
                                                         ),
                                                     ],
                                                 ),
-                                            ]
+                                            ],
                                         ),
                                         html.Div(
                                             className="large-buttons",
@@ -454,8 +465,8 @@ class PersistableInteractive:
                                     className="parameters",
                                     children=[
                                         html.Details(
-                                            id = PV_DETAILS,
-                                            children = [
+                                            id=PV_DETAILS,
+                                            children=[
                                                 html.Summary("Inputs"),
                                                 html.Div(
                                                     className="parameters",
@@ -628,7 +639,7 @@ class PersistableInteractive:
                                                         ),
                                                     ],
                                                 ),
-                                            ]
+                                            ],
                                         ),
                                         html.Div(
                                             className="parameters",
@@ -836,7 +847,6 @@ class PersistableInteractive:
             ],
         )
 
-
     # when using long callbacks, dash will pickle all the objects that are used
     # in the function that is being registered as a long callback. In particular,
     # using self._persistable will also pickle self, which in this case contains
@@ -902,14 +912,14 @@ class PersistableInteractive:
                     # TODO: figure out why the following causes problems with joblib Parallel
                     # Note that callback with background=True is the recommended way of running
                     # background jobs in dash now.
-                    #self._app.callback(
+                    # self._app.callback(
                     #    dash_outputs,
                     #    dash_inputs,
                     #    prevent_initial_call,
                     #    running=dash_running_outputs,
                     #    cancel=dash_cancel,
                     #    background=True,
-                    #)(callback_function)
+                    # )(callback_function)
                 else:
                     self._app.callback(
                         dash_outputs,
@@ -920,7 +930,6 @@ class PersistableInteractive:
                 return function
 
             return out_function
-
 
         @dash_callback(
             [[DISPLAY_PARAMETER_SELECTION, VALUE, IN]],
@@ -1016,7 +1025,12 @@ class PersistableInteractive:
             return d
 
         @dash_callback(
-            [[STORED_CCF, DATA, IN], [INPUT_MAX_COMPONENTS, VALUE, IN]],
+            [
+                [STORED_CCF, DATA, IN],
+                [INPUT_MAX_COMPONENTS, VALUE, IN],
+                [INPUT_SIGNED_BETTI_NUMBERS, VALUE, IN],
+                [STORED_BETTI, DATA, ST],
+            ],
             [[STORED_CCF_DRAWING, DATA]],
             False,
         )
@@ -1037,20 +1051,52 @@ class PersistableInteractive:
             )
 
             fig.add_trace(
-                go.Heatmap(
-                    **ccf,
-                    hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
-                    zmin=0,
-                    zmax=max_components,
-                    showscale=False,
-                    name="",
-                )
+               go.Heatmap(
+                   **ccf,
+                   hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
+                   zmin=0,
+                   zmax=max_components,
+                   showscale=False,
+                   name="",
+               )
             )
+
             fig.update_traces(colorscale="greys")
             fig.update_layout(showlegend=False)
             fig.update_layout(autosize=True)
             fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
             fig.update_layout(clickmode="event+select")
+
+            if d[INPUT_SIGNED_BETTI_NUMBERS + VALUE] == "On":
+                bn = np.array(json.loads(d[STORED_BETTI + DATA]))
+                bn = bn.T
+                xs = ccf["x"]
+                ys = ccf["y"]
+                positive_bn = np.array([ [xs[i],ys[j],bn[i,j]] for i in range(len(xs)) for j in range(len(ys)) if bn[i,j] > 0 ])
+                negative_bn = np.array([ [xs[i],ys[j],-bn[i,j]] for i in range(len(xs)) for j in range(len(ys)) if bn[i,j] < 0 ])
+                # draw positive
+                fig.add_trace(
+                    go.Scatter(
+                        x=positive_bn[:,0],
+                        y=positive_bn[:,1],
+                        name="",
+                        marker=dict(color="green"),
+                        hoverinfo="skip",
+                        mode="markers"
+                    )
+                )
+                # draw negative
+                fig.add_trace(
+                    go.Scatter(
+                        x=negative_bn[:,0],
+                        y=negative_bn[:,1],
+                        name="",
+                        marker=dict(color="red"),
+                        #color="green",
+                        hoverinfo="skip",
+                        mode="markers"
+                    )
+                )
 
             d[STORED_CCF_DRAWING + DATA] = plotly.io.to_json(fig)
             return d
@@ -1191,20 +1237,25 @@ class PersistableInteractive:
                     # ideally we would get the actual ratio of the rendered picture
                     # we are using an estimate given by the "usual" way in which persistable
                     # is rendered
-                    ratio = np.array([3,2])
-                    ratio = (ratio / np.linalg.norm(ratio)) * np.linalg.norm(np.array([1,1]))
+                    ratio = np.array([3, 2])
+                    ratio = (ratio / np.linalg.norm(ratio)) * np.linalg.norm(
+                        np.array([1, 1])
+                    )
                     alpha = [
                         (d[MAX_DIST_SCALE + VALUE] - d[MIN_DIST_SCALE + VALUE]),
-                        ( d[MAX_DENSITY_THRESHOLD + VALUE] - d[MIN_DENSITY_THRESHOLD + VALUE]),
+                        (
+                            d[MAX_DENSITY_THRESHOLD + VALUE]
+                            - d[MIN_DENSITY_THRESHOLD + VALUE]
+                        ),
                     ]
                     alpha = np.array(alpha) / ratio
 
-                    A = A/alpha
+                    A = A / alpha
                     B = np.array([-A[1], A[0]])
 
                     shift = 50
                     B = B / np.linalg.norm(B)
-                    tau = B * alpha/ shift
+                    tau = B * alpha / shift
 
                     pd = np.array(pd)
                     lengths = pd[:, 1] - pd[:, 0]
@@ -1241,11 +1292,15 @@ class PersistableInteractive:
                 )
 
             fig.update_layout(
-                xaxis=dict(range=[d[MIN_DIST_SCALE + VALUE], d[MAX_DIST_SCALE + VALUE]]),
-                yaxis=dict(range=[
-                    d[MIN_DENSITY_THRESHOLD + VALUE],
-                    d[MAX_DENSITY_THRESHOLD + VALUE],
-                ])
+                xaxis=dict(
+                    range=[d[MIN_DIST_SCALE + VALUE], d[MAX_DIST_SCALE + VALUE]]
+                ),
+                yaxis=dict(
+                    range=[
+                        d[MIN_DENSITY_THRESHOLD + VALUE],
+                        d[MAX_DENSITY_THRESHOLD + VALUE],
+                    ]
+                ),
             )
 
             d[CCF_PLOT + FIGURE] = fig
@@ -1273,6 +1328,7 @@ class PersistableInteractive:
             [
                 [STORED_CCF, DATA],
                 [STORED_CCF_COMPUTATION_WARNINGS, DATA],
+                [STORED_BETTI, DATA],
                 [CCF_PLOT_CONTROLS_DIV, HIDDEN],
             ],
             prevent_initial_call=True,
@@ -1302,6 +1358,8 @@ class PersistableInteractive:
                         granularity,
                         n_jobs=num_jobs,
                     )
+                    bn = signed_betti(hf)
+
                 except ValueError:
                     out += traceback.format_exc()
                     d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
@@ -1315,8 +1373,10 @@ class PersistableInteractive:
                 )
 
             d[STORED_CCF + DATA] = json.dumps(
-                {"y": ks[:-1].tolist(), "x": ss[:-1].tolist(), "z" : hf.tolist()}
+                {"y": ks[:-1].tolist(), "x": ss[:-1].tolist(), "z": hf.tolist()}
             )
+
+            d[STORED_BETTI + DATA] = json.dumps(bn.tolist())
 
             d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = False
