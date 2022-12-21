@@ -46,7 +46,8 @@
   volume={},
   number={},
   pages={33-42},
-  doi={10.1109/ICDMW.2017.12}}
+  doi={10.1109/ICDMW.2017.12}
+}
 
 @article{mcinneshealyastels,
   title={hdbscan: Hierarchical density based clustering.},
@@ -113,23 +114,21 @@
 
 
 @article{dbscan-2,
-author = {Schubert, Erich and Sander, J\"{o}rg and Ester, Martin and Kriegel, Hans Peter and Xu, Xiaowei},
-title = {DBSCAN Revisited, Revisited: Why and How You Should (Still) Use DBSCAN},
-year = {2017},
-issue_date = {September 2017},
-publisher = {Association for Computing Machinery},
-address = {New York, NY, USA},
-volume = {42},
-number = {3},
-issn = {0362-5915},
-url = {https://doi.org/10.1145/3068335},
-doi = {10.1145/3068335},
-abstract = {At SIGMOD 2015, an article was presented with the title “DBSCAN Revisited: Mis-Claim, Un-Fixability, and Approximation” that won the conference’s best paper award. In this technical correspondence, we want to point out some inaccuracies in the way DBSCAN was represented, and why the criticism should have been directed at the assumption about the performance of spatial index structures such as R-trees and not at an algorithm that can use such indexes. We will also discuss the relationship of DBSCAN performance and the indexability of the dataset, and discuss some heuristics for choosing appropriate DBSCAN parameters. Some indicators of bad parameters will be proposed to help guide future users of this algorithm in choosing parameters such as to obtain both meaningful results and good performance. In new experiments, we show that the new SIGMOD 2015 methods do not appear to offer practical benefits if the DBSCAN parameters are well chosen and thus they are primarily of theoretical interest. In conclusion, the original DBSCAN algorithm with effective indexes and reasonably chosen parameter values performs competitively compared to the method proposed by Gan and Tao.},
-journal = {ACM Trans. Database Syst.},
-month = {jul},
-articleno = {19},
-numpages = {21},
-keywords = {density-based clustering, range-search complexity, DBSCAN}
+    author = {Schubert, Erich and Sander, J\"{o}rg and Ester, Martin and Kriegel, Hans Peter and Xu, Xiaowei},
+    title = {DBSCAN Revisited, Revisited: Why and How You Should (Still) Use DBSCAN},
+    year = {2017},
+    issue_date = {September 2017},
+    publisher = {Association for Computing Machinery},
+    address = {New York, NY, USA},
+    volume = {42},
+    number = {3},
+    issn = {0362-5915},
+    url = {https://doi.org/10.1145/3068335},
+    doi = {10.1145/3068335},
+    journal = {ACM Trans. Database Syst.},
+    month = {jul},
+    articleno = {19},
+    numpages = {21},
 }
 
 @article {chazaletal,
@@ -143,19 +142,16 @@ keywords = {density-based clustering, range-search complexity, DBSCAN}
     NUMBER = {6},
      PAGES = {Art. 41, 38},
       ISSN = {0004-5411},
-   MRCLASS = {68U05 (52B55 62H30 65D18 68T05)},
-  MRNUMBER = {3144911},
-MRREVIEWER = {Arnaud de Mesmay},
        DOI = {10.1145/2535927},
        URL = {https://doi.org/10.1145/2535927},
 }
 
-@book{gudhi
-, title        = "{GUDHI} User and Reference Manual"
-, author      = "{The GUDHI Project}"
-, publisher     = "{GUDHI Editorial Board}"
-, year         = 2015
-, url =    "http://gudhi.gforge.inria.fr/doc/latest/"
+@book{gudhi,
+    title        = "{GUDHI} User and Reference Manual",
+    author      = "{The GUDHI Project}",
+    publisher     = "{GUDHI Editorial Board}",
+    year         = 2015,
+    url =    "http://gudhi.gforge.inria.fr/doc/latest/"
 }
 
 @article {lesnick-wright,
@@ -168,33 +164,27 @@ MRREVIEWER = {Arnaud de Mesmay},
       YEAR = {2022},
     NUMBER = {2},
      PAGES = {267--298},
-   MRCLASS = {55N31 (13D02)},
-  MRNUMBER = {4429408},
-MRREVIEWER = {Nicolas Boutry},
        DOI = {10.1137/20M1388425},
        URL = {https://doi.org/10.1137/20M1388425},
 }
 
 
 @inproceedings{dbscan,
-author = {Ester, Martin and Kriegel, Hans-Peter and Sander, J\"{o}rg and Xu, Xiaowei},
-title = {A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise},
-year = {1996},
-publisher = {AAAI Press},
-abstract = {Clustering algorithms are attractive for the task of class identification in spatial databases. However, the application to large spatial databases rises the following requirements for clustering algorithms: minimal requirements of domain knowledge to determine the input parameters, discovery of clusters with arbitrary shape and good efficiency on large databases. The well-known clustering algorithms offer no solution to the combination of these requirements. In this paper, we present the new clustering algorithm DBSCAN relying on a density-based notion of clusters which is designed to discover clusters of arbitrary shape. DBSCAN requires only one input parameter and supports the user in determining an appropriate value for it. We performed an experimental evaluation of the effectiveness and efficiency of DBSCAN using synthetic data and real data of the SEQUOIA 2000 benchmark. The results of our experiments demonstrate that (1) DBSCAN is significantly more effective in discovering clusters of arbitrary shape than the well-known algorithm CLAR-ANS, and that (2) DBSCAN outperforms CLARANS by a factor of more than 100 in terms of efficiency.},
-booktitle = {Proceedings of the Second International Conference on Knowledge Discovery and Data Mining},
-pages = {226–231},
-numpages = {6},
-keywords = {clustering algorithms, efficiency on large spatial databases, handling nlj4-275oise, arbitrary shape of clusters},
-location = {Portland, Oregon},
-series = {KDD'96}
+    author = {Ester, Martin and Kriegel, Hans-Peter and Sander, J\"{o}rg and Xu, Xiaowei},
+    title = {A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise},
+    year = {1996},
+    publisher = {AAAI Press},
+    booktitle = {Proceedings of the Second International Conference on Knowledge Discovery and Data Mining},
+    pages = {226-231},
+    numpages = {6},
+    location = {Portland, Oregon},
+    series = {KDD'96}
 }
 
 @misc{lesnick-wright-2,
   doi = {10.48550/ARXIV.1512.00180},
   url = {https://arxiv.org/abs/1512.00180},
   author = {Lesnick, Michael and Wright, Matthew},
-  keywords = {Algebraic Topology (math.AT), Computational Geometry (cs.CG), Commutative Algebra (math.AC), FOS: Mathematics, FOS: Mathematics, FOS: Computer and information sciences, FOS: Computer and information sciences},
   title = {Interactive Visualization of 2-D Persistence Modules},
   publisher = {(under review)},
   year = {2015},
