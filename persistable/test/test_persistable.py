@@ -161,13 +161,13 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         X = np.array([ [0,0], [1,1], [1,0], [1,-1], [2,0], [3,0], [4,0], [5,1], [5,0], [5,-1], [6,0] ])
         p = Persistable(X, debug=True)
         mps = p._mpspace
-        hc = mps.lambda_linkage_vertical(1, 1, 0)
+        hc = mps._lambda_linkage_vertical(1, 1, 0)
         np.testing.assert_almost_equal(res,hc._merges_heights)
 
         dist_mat = distance_matrix(X,X)
         p = Persistable(dist_mat, debug=True, metric="precomputed")
         mps = p._mpspace
-        hc = mps.lambda_linkage_vertical(1, 1, 0)
+        hc = mps._lambda_linkage_vertical(1, 1, 0)
         np.testing.assert_almost_equal(res,hc._merges_heights)
 
 
