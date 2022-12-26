@@ -42,11 +42,11 @@ cdef class LinkageUnionFind:
 
         return x
 
-def label(double[:, :] Z, int num_points, int num_merges):
+def label(long[:, :] Z, int num_points, int num_merges):
     """Correctly label clusters in unsorted dendrogram."""
     cdef LinkageUnionFind uf = LinkageUnionFind(num_points)
     cdef int i, x, y, x_root, y_root
-    for i in range(num_merges - 1):
+    for i in range(num_merges):
         x, y = int(Z[i, 0]), int(Z[i, 1])
         x_root, y_root = uf.find(x), uf.find(y)
         if x_root < y_root:

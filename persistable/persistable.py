@@ -567,19 +567,15 @@ class _MetricProbabilitySpace:
         Is = Is[sort_indices]
         Js = Js[sort_indices]
         vals = vals[sort_indices]
-        stepwise_dendrogram = np.zeros((vals.shape[0], 3))
-        stepwise_dendrogram[:,0] = Is
-        stepwise_dendrogram[:,1] = Js
-        stepwise_dendrogram[:,2] = vals
-
-        label(stepwise_dendrogram,self._size, vals.shape[0])
-
+        merges = np.zeros((vals.shape[0], 2), dtype = int)
+        #label(merges,self._size, vals.shape[0])
+        merges[:,0] = Is
+        merges[:,1] = Js
+        merges_heights = vals
         hc_start = 0
         hc_end = k_start - k_end
-
-        merges = stepwise_dendrogram[:, 0:2].astype(int)
-        merges_heights = np.minimum(hc_end, stepwise_dendrogram[:, 2])
-        merges_heights = np.maximum(hc_start, stepwise_dendrogram[:, 2])
+        merges_heights = np.minimum(hc_end, merges_heights)
+        merges_heights = np.maximum(hc_start, merges_heights)
         core_distances = k_start - np.minimum(k_start, k_births)
 
         return _HierarchicalClustering(
@@ -642,6 +638,7 @@ class _MetricProbabilitySpace:
                 self._size, self._dist_mat, core_distances
             )
         merges = sl[:, 0:2].astype(int)
+        #label(merges, self._size, merges.shape[0])
         merges_heights = np.minimum(hc_end, sl[:, 2])
         merges_heights = np.maximum(hc_start, sl[:, 2])
         return _HierarchicalClustering(
@@ -968,8 +965,10 @@ class _HierarchicalClustering:
     def persistence_diagram(self, tol=_TOL):
         end = self._end
         heights = self._heights
-        merges = self._merges
+        merges = self._merges.copy()
+        label(merges, heights.shape[0], merges.shape[0])
         merges_heights = self._merges_heights
+
         n_points = heights.shape[0]
         n_merges = merges.shape[0]
         # this orders the point by appearance
