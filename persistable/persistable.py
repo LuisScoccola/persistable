@@ -829,6 +829,8 @@ class _MetricProbabilitySpace:
                     new_labels.append(old_labels[x])
             new_labels = np.array(new_labels)
             old_labels = new_labels
+            if np.array_equal(new_labels,old_labels):
+                break
         return new_labels
 
 
