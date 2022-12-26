@@ -68,6 +68,6 @@ def stepwise_dendrogram_with_core_distances(int n, const double[:,:] dists, cons
     Z_arr = Z_arr[order]
 
     # Find correct cluster labels and compute cluster sizes inplace.
-    label(Z_arr, n)
+    label(Z_arr, n, n)
 
     return Z_arr

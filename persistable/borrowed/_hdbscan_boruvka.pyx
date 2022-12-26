@@ -749,7 +749,7 @@ cdef class KDTreeBoruvkaAlgorithm (object):
 
         order = np.argsort(self.edges[:, 2], kind='mergesort')
         self.dendrogram = self.edges[order]
-        label(self.dendrogram, self.num_points)
+        label(self.dendrogram, self.num_points, self.num_points)
 
         return self.dendrogram
 
@@ -1279,6 +1279,6 @@ cdef class BallTreeBoruvkaAlgorithm (object):
 
         order = np.argsort(self.edges[:, 2], kind='mergesort')
         self.dendrogram = self.edges[order]
-        label(self.dendrogram, self.num_points)
+        label(self.dendrogram, self.num_points, self.num_points)
 
         return self.dendrogram
