@@ -155,6 +155,24 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         )
         np.testing.assert_almost_equal(mps.hilbert_function(ks, ss, n_jobs=4), res)
 
+    def test_vertical_slice(self):
+        res = np.array([0.63636364, 0.63636364, 0.63636364, 0.63636364, 0.72727273, 0.72727273, 0.72727273, 0.72727273, 0.72727273, 0.72727273])
+
+        X = np.array([ [0,0], [1,1], [1,0], [1,-1], [2,0], [3,0], [4,0], [5,1], [5,0], [5,-1], [6,0] ])
+        p = Persistable(X, debug=True)
+        mps = p._mpspace
+        hc = mps.lambda_linkage_vertical(1, 1, 0)
+        np.testing.assert_almost_equal(res,hc._merges_heights)
+
+        dist_mat = distance_matrix(X,X)
+        p = Persistable(dist_mat, debug=True, metric="precomputed")
+        mps = p._mpspace
+        hc = mps.lambda_linkage_vertical(1, 1, 0)
+        np.testing.assert_almost_equal(res,hc._merges_heights)
+
+
+
+
 
 class TestHierarchicalClustering(unittest.TestCase):
     def clustering_matrix(self, c):

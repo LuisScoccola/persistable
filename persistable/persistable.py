@@ -10,10 +10,13 @@ from .borrowed.prim_mst import mst_linkage_core_vector
 from .borrowed.dense_mst import stepwise_dendrogram_with_core_distances
 from .borrowed.dist_metrics import DistanceMetric
 from .auxiliary import lazy_intersection
+from .borrowed.relabel_dendrogram import label
 import numpy as np
 import warnings
 from sklearn.neighbors import KDTree, BallTree
 from scipy.cluster.hierarchy import DisjointSet
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import minimum_spanning_tree as sparse_matrix_minimum_spanning_tree
 from scipy.stats import mode
 from joblib import Parallel, delayed
 from joblib.parallel import cpu_count
@@ -335,6 +338,8 @@ class _MetricProbabilitySpace:
     """Implements a finite metric probability space that can compute its \
        kernel density estimates and lambda linkage hierarchical clusterings """
 
+    _MAX_DIM_USE_BORUVKA = 60
+
     def __init__(
         self, X, metric, measure, leaf_size=40, debug=False, threading=False, **kwargs
     ):
@@ -364,7 +369,7 @@ class _MetricProbabilitySpace:
         elif metric in BallTree.valid_metrics:
             self._tree = BallTree(X, metric=metric, leaf_size=leaf_size, **kwargs)
         elif metric == "precomputed":
-            self._dist_mat = X
+            self._dist_mat = np.array(X)
         else:
             raise ValueError("Metric given is not supported.")
 
@@ -508,6 +513,81 @@ class _MetricProbabilitySpace:
                 pd = pers_diag(lower_bound)
                 return [np.max(pd[pd[:, 1] != np.infty][:, 1]), current_k]
 
+
+    # given a list of point indices and a radius, return the (unnormalized)
+    # kernel density estimate at those points and at that radius
+    def _density_estimate(self, point_index, radius, max_density = 1):
+        density_estimates = []
+        out_of_range = False
+        for p in point_index:
+            neighbor_idx = np.searchsorted(self._nn_distance[p], radius, side="right")
+            if neighbor_idx == self._nn_distance[p].shape[0]:
+                neighbor_idx -= 1
+                if self._nn_distance[p,neighbor_idx] < max_density:
+                    out_of_range = True
+            density_estimates.append(self._kernel_estimate[p,neighbor_idx])
+        if out_of_range:
+            warnings.warn(
+                "Don't have enough neighbors to properly compute core scale."
+            )
+        return np.array(density_estimates)
+
+
+    def lambda_linkage_vertical(self, s_intercept, k_start, k_end):
+        if k_end >= k_start:
+            raise ValueError("Parameters do not give a monotonic line.")
+
+        indices = np.arange(self._size)
+        k_births = self._density_estimate(indices, s_intercept, max_density=k_start)
+
+        # metric tree case
+        if self._metric in KDTree.valid_metrics + BallTree.valid_metrics:
+            s_neighbors = self._tree.query_radius(self._points,s_intercept)
+        # dense distance matrix case
+        else:
+            s_neighbors = []
+            for i in range(self._size):
+                s_neighbors.append(np.argwhere(self._dist_mat[i] <= s_intercept)[:,0])
+
+        edges = []
+        entries = []
+        for i in range(self._size):
+            for j in s_neighbors[i]:
+                if j>i:
+                    edges.append([i,j])
+                    entries.append(min(k_births[i],k_births[j]))
+        matrix_entries = np.array(entries)
+        matrix_entries = k_start - np.minimum(k_start, matrix_entries)
+        edges = np.array(edges,dtype=int)
+        graph = csr_matrix( (matrix_entries, (edges[:,0], edges[:,1])),  (self._size, self._size))
+
+        mst = sparse_matrix_minimum_spanning_tree(graph)
+        Is, Js = mst.nonzero()
+        vals = np.array(mst[Is,Js])[0]
+        sort_indices = np.argsort(vals)
+        Is = Is[sort_indices]
+        Js = Js[sort_indices]
+        vals = vals[sort_indices]
+        stepwise_dendrogram = np.zeros((vals.shape[0], 3))
+        stepwise_dendrogram[:,0] = Is
+        stepwise_dendrogram[:,1] = Js
+        stepwise_dendrogram[:,2] = vals
+
+        label(stepwise_dendrogram,self._size, vals.shape[0])
+
+        hc_start = 0
+        hc_end = k_start - k_end
+
+        merges = stepwise_dendrogram[:, 0:2].astype(int)
+        merges_heights = np.minimum(hc_end, stepwise_dendrogram[:, 2])
+        merges_heights = np.maximum(hc_start, stepwise_dendrogram[:, 2])
+        core_distances = k_start - np.minimum(k_start, k_births)
+
+        return _HierarchicalClustering(
+            core_distances, merges, merges_heights, hc_start, hc_end
+        )
+
+
     def lambda_linkage(self, start, end):
         if start[0] > end[0] or start[1] < end[1]:
             raise ValueError("Parameters do not give a monotonic line.")
@@ -531,7 +611,7 @@ class _MetricProbabilitySpace:
         core_distances = np.minimum(hc_end, core_distances)
         core_distances = np.maximum(hc_start, core_distances)
         if self._metric in KDTree.valid_metrics:
-            if self._dimension > 60:
+            if self._dimension > self._MAX_DIM_USE_BORUVKA:
                 X = self._points
                 if not X.flags["C_CONTIGUOUS"]:
                     X = np.array(X, dtype=np.double, order="C")
@@ -547,7 +627,7 @@ class _MetricProbabilitySpace:
                     **self._kwargs
                 ).spanning_tree()
         elif self._metric in BallTree.valid_metrics:
-            if self._dimension > 60:
+            if self._dimension > self._MAX_DIM_USE_BORUVKA:
                 X = self._points
                 if not X.flags["C_CONTIGUOUS"]:
                     X = np.array(X, dtype=np.double, order="C")
