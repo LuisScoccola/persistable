@@ -230,7 +230,7 @@ class TestHierarchicalClustering(unittest.TestCase):
 
     def test_flattening(self):
         heights = np.array([0, 1, 3, 8])
-        merges = np.array([[0, 1], [2, 4]])
+        merges = np.array([[0, 1], [2, 0]])
         merges_heights = np.array([2, 6])
         end = 10
         hc = _HierarchicalClustering(heights, merges, merges_heights, 0, end)
@@ -272,7 +272,7 @@ class TestPersistable(unittest.TestCase):
                     n_clusters=i,
                     start=[0, k0],
                     end=[s0, 0],
-                    extend_clustering_by_hill_climbing=True,
+                    propagate_labels=True,
                 )
                 self.assertEqual(len(set(c[c >= 0])), i)
 
@@ -283,21 +283,21 @@ class TestPersistable(unittest.TestCase):
         p = Persistable(X)
         c = p.quick_cluster()
         self.assertEqual(len(set(c[c >= 0])), 3)
-        c = p.quick_cluster(extend_clustering_by_hill_climbing=True)
+        c = p.quick_cluster(propagate_labels=True)
         self.assertEqual(len(set(c[c >= 0])), 3)
 
         X, _ = datasets.make_blobs(n_samples=1000, centers=4, random_state=2)
         p = Persistable(X)
         c = p.quick_cluster(n_neighbors=50)
         self.assertEqual(len(set(c[c >= 0])), 4)
-        c = p.quick_cluster(n_neighbors=50, extend_clustering_by_hill_climbing=True)
+        c = p.quick_cluster(n_neighbors=50, propagate_labels=True)
         self.assertEqual(len(set(c[c >= 0])), 4)
 
         X, _ = datasets.make_blobs(n_samples=1000, centers=5, random_state=3)
         p = Persistable(X)
         c = p.quick_cluster()
         self.assertEqual(len(set(c[c >= 0])), 5)
-        c = p.quick_cluster(extend_clustering_by_hill_climbing=True)
+        c = p.quick_cluster(propagate_labels=True)
         self.assertEqual(len(set(c[c >= 0])), 5)
 
     def test_hilbert_function(self):

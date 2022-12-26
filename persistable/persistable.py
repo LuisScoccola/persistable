@@ -114,17 +114,14 @@ class Persistable:
         self._maxk = self._n_neighbors / X.shape[0]
         # fit the mpspace
         self._mpspace.fit(self._n_neighbors)
-        default_percentile = 0.95
-        # compute and keep robust connection radius
-        self._connection_radius = self._mpspace.connection_radius(default_percentile)
 
     def quick_cluster(
         self,
         n_neighbors: int = 30,
         n_clusters_range=[3, 15],
-        extend_clustering_by_hill_climbing=False,
-        n_iterations_extend_cluster=10,
-        n_neighbors_extend_cluster=5,
+        propagate_labels=False,
+        n_iterations_propagate_labels=30,
+        n_neighbors_propagate_labels=5,
     ):
         """Clusters the dataset with which the Persistable instance was initialized.
 
@@ -141,15 +138,15 @@ class Persistable:
             range of possible numbers of clusters to consider when finding the
             optimum number of clusters.
 
-        extend_clustering_by_hill_climbing: bool, optional, default is False
+        propagate_labels: bool, optional, default is False
             Boolean representing whether or not to extend the clustering to
-            noise points by hill climbing.
+            noise points by propagating labels.
 
-        n_iterations_extend_cluster: int, optional, default is 10
-            How many iterations of hill climbing to perform. More iterations
+        n_iterations_propagate_labels: int, optional, default is 30
+            Maximum number of iterations of label propagation to perform. More iterations
             will cluster more noise points.
 
-        n_neighbors_extend_cluster: int, optional, default is 5
+        n_neighbors_propagate_labels: int, optional, default is 5
             How many neighbors to use in the hill climbing procedure.
 
         returns:
@@ -160,7 +157,9 @@ class Persistable:
 
         """
         k = n_neighbors / self._mpspace._size
-        s = self._connection_radius * 2
+        default_percentile = 0.95
+        s = self._mpspace.connection_radius(default_percentile) * 2
+
         hc = self._mpspace.lambda_linkage([0, k], [s, 0])
         pd = hc.persistence_diagram()
         if pd.shape[0] == 0:
@@ -181,9 +180,9 @@ class Persistable:
             num_clust,
             [0, k],
             [s, 0],
-            extend_clustering_by_hill_climbing=extend_clustering_by_hill_climbing,
-            n_iterations_extend_cluster=n_iterations_extend_cluster,
-            n_neighbors_extend_cluster=n_neighbors_extend_cluster,
+            propagate_labels=propagate_labels,
+            n_iterations_propagate_labels=n_iterations_propagate_labels,
+            n_neighbors_propagate_labels=n_neighbors_propagate_labels,
         )
 
     def cluster(
@@ -191,9 +190,9 @@ class Persistable:
         n_clusters,
         start,
         end,
-        extend_clustering_by_hill_climbing=False,
-        n_iterations_extend_cluster=10,
-        n_neighbors_extend_cluster=5,
+        propagate_labels=False,
+        n_iterations_propagate_labels=30,
+        n_neighbors_propagate_labels=5,
     ):
         """Clusters the dataset with which the Persistable instance was initialized.
 
@@ -214,15 +213,15 @@ class Persistable:
             two-parameter hierarchical clustering used to do persistence-based
             clustering.
 
-        extend_clustering_by_hill_climbing: bool, optional, default is False
+        propagate_labels: bool, optional, default is False
             Boolean representing whether or not to extend the clustering to
-            noise points by hill climbing.
+            noise points by propagating labels.
 
-        n_iterations_extend_cluster: int, optional, default is 10
-            How many iterations of hill climbing to perform. More iterations
+        n_iterations_propagate_labels: int, optional, default is 30
+            Maximum number of iterations of label propagation to perform. More iterations
             will cluster more noise points.
 
-        n_neighbors_extend_cluster: int, optional, default is 5
+        n_neighbors_propagate_labels: int, optional, default is 5
             How many neighbors to use in the hill climbing procedure.
 
         returns:
@@ -256,15 +255,16 @@ class Persistable:
                 )
             threshold = (spers[-n_clusters] + spers[-(n_clusters + 1)]) / 2
         cl = hc.persistence_based_flattening(threshold)
-        if extend_clustering_by_hill_climbing:
-            cl = self._mpspace.extend_clustering_by_hill_climbing(
-                cl, n_iterations_extend_cluster, n_neighbors_extend_cluster
+        if propagate_labels:
+            cl = self._mpspace.propagate_labels(
+                cl, n_iterations_propagate_labels, n_neighbors_propagate_labels
             )
         return cl
 
     def _find_end(self, fast=False):
         if fast:
-            return self._connection_radius * 4, self._maxk
+            default_percentile = 0.95
+            return self._mpspace.connection_radius(default_percentile) * 4, self._maxk
         else:
             return self._mpspace.find_end()
 
@@ -813,7 +813,7 @@ class _MetricProbabilitySpace:
         hc = self.lambda_linkage([0, 0], [np.infty, 0])
         return np.quantile(hc._merges_heights, percentiles)
 
-    def extend_clustering_by_hill_climbing(self, labels, n_iterations, n_neighbors):
+    def propagate_labels(self, labels, n_iterations, n_neighbors):
         old_labels = labels
         for _ in range(n_iterations):
             new_labels = []
@@ -900,8 +900,8 @@ class _HierarchicalClustering:
                         clusters.append(list(uf.subset(x)))
                         clusters.append(list(uf.subset(y)))
                         uf.merge(x, y)
-                        uf.add(mind + n_points)
-                        uf.merge(x, mind + n_points)
+                        #uf.add(mind + n_points)
+                        #uf.merge(x, mind + n_points)
                         rxy = uf.__getitem__(x)
                         clusters_died[rxy] = True
                     # otherwise, merge them
@@ -910,15 +910,15 @@ class _HierarchicalClustering:
                         del clusters_birth[rx]
                         del clusters_birth[ry]
                         uf.merge(x, y)
-                        uf.add(mind + n_points)
-                        uf.merge(x, mind + n_points)
+                        #uf.add(mind + n_points)
+                        #uf.merge(x, mind + n_points)
                         rxy = uf.__getitem__(x)
                         clusters_birth[rxy] = min(bx, by)
                 # if both clusters are already dead, just merge them into a dead cluster
                 elif rx in clusters_died and ry in clusters_died:
                     uf.merge(x, y)
-                    uf.add(mind + n_points)
-                    uf.merge(x, mind + n_points)
+                    #uf.add(mind + n_points)
+                    #uf.merge(x, mind + n_points)
                     rxy = uf.__getitem__(x)
                     clusters_died[rxy] = True
                 # if only one of them is dead
@@ -932,8 +932,8 @@ class _HierarchicalClustering:
                         clusters.append(list(uf.subset(x)))
                     # then merge the clusters into a dead cluster
                     uf.merge(x, y)
-                    uf.add(mind + n_points)
-                    uf.merge(x, mind + n_points)
+                    #uf.add(mind + n_points)
+                    #uf.merge(x, mind + n_points)
                     rxy = uf.__getitem__(x)
                     clusters_died[rxy] = True
                 mind += 1
@@ -966,6 +966,7 @@ class _HierarchicalClustering:
         end = self._end
         heights = self._heights
         merges = self._merges.copy()
+        # TODO: use the fast union find directly here, instead of relabeling
         label(merges, heights.shape[0], merges.shape[0])
         merges_heights = self._merges_heights
 
