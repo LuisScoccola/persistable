@@ -553,14 +553,17 @@ class _MetricProbabilitySpace:
                     entries.append(min(k_births[i],k_births[j]))
         matrix_entries = np.array(entries)
         print("original matrix entries ", matrix_entries)
-        matrix_entries = k_start - np.maximum(k_end, np.minimum(k_start, matrix_entries))
+        print("matrix pairs", edges)
+        # must add 1 otherwise edge is treated as not there by mst routine!
+        matrix_entries = k_start - np.maximum(k_end, np.minimum(k_start, matrix_entries)) + 1
         print("matrix entries ", matrix_entries)
         edges = np.array(edges,dtype=int)
         graph = csr_matrix( (matrix_entries, (edges[:,0], edges[:,1])),  (self._size, self._size))
 
         mst = sparse_matrix_minimum_spanning_tree(graph)
         Is, Js = mst.nonzero()
-        vals = np.array(mst[Is,Js])[0]
+        # we now undo the adding 1
+        vals = np.array(mst[Is,Js])[0] - 1
         sort_indices = np.argsort(vals)
         Is = Is[sort_indices]
         Js = Js[sort_indices]
@@ -577,6 +580,10 @@ class _MetricProbabilitySpace:
         core_scales = k_start - np.maximum(k_end, np.minimum(k_start, k_births))
         print("original k births ", k_births)
         print("births ", core_scales)
+
+        print("core scales", core_scales)
+        print("merges ", merges)
+        print("merges_heights ", merges_heights)
 
 
         return _HierarchicalClustering(
