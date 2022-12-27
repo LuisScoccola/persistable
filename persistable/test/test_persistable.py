@@ -156,7 +156,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         np.testing.assert_almost_equal(mps.hilbert_function(ks, ss, n_jobs=4), res)
 
     def test_vertical_slice(self):
-        res = np.array([0.63636364, 0.63636364, 0.63636364, 0.63636364, 0.72727273, 0.72727273, 0.72727273, 0.72727273, 0.72727273, 0.72727273])
+        res = np.array([0.72727273, 0.72727273, 0.72727273, 0.72727273, 0.8181818, 0.8181818,0.8181818,0.8181818,0.8181818,0.8181818])
 
         X = np.array([ [0,0], [1,1], [1,0], [1,-1], [2,0], [3,0], [4,0], [5,1], [5,0], [5,-1], [6,0] ])
         p = Persistable(X, debug=True)

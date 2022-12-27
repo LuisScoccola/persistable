@@ -272,10 +272,10 @@ class Persistable:
         start1, end1 = start_end1
         start2, end2 = start_end2
         if (
-            start1[0] >= end1[0]
-            or start1[1] <= end1[1]
-            or start2[0] >= end2[0]
-            or start2[1] <= end2[1]
+            start1[0] > end1[0]
+            or start1[1] < end1[1]
+            or start2[0] > end2[0]
+            or start2[1] < end2[1]
         ):
             raise ValueError(
                 "Parameters chosen for vineyard will result in non-monotonic lines!"
@@ -521,7 +521,7 @@ class _MetricProbabilitySpace:
                 neighbor_idx -= 1
                 if self._nn_distance[p,neighbor_idx] < max_density:
                     out_of_range = True
-            density_estimates.append(self._kernel_estimate[p,neighbor_idx])
+            density_estimates.append(self._kernel_estimate[p,neighbor_idx-1])
         if out_of_range:
             warnings.warn(
                 "Don't have enough neighbors to properly compute core scale."
@@ -552,7 +552,9 @@ class _MetricProbabilitySpace:
                     edges.append([i,j])
                     entries.append(min(k_births[i],k_births[j]))
         matrix_entries = np.array(entries)
-        matrix_entries = k_start - np.minimum(k_start, matrix_entries)
+        print("original matrix entries ", matrix_entries)
+        matrix_entries = k_start - np.maximum(k_end, np.minimum(k_start, matrix_entries))
+        print("matrix entries ", matrix_entries)
         edges = np.array(edges,dtype=int)
         graph = csr_matrix( (matrix_entries, (edges[:,0], edges[:,1])),  (self._size, self._size))
 
@@ -570,12 +572,15 @@ class _MetricProbabilitySpace:
         merges_heights = vals
         hc_start = 0
         hc_end = k_start - k_end
-        merges_heights = np.minimum(hc_end, merges_heights)
-        merges_heights = np.maximum(hc_start, merges_heights)
-        core_distances = k_start - np.minimum(k_start, k_births)
+        #merges_heights = np.minimum(hc_end, merges_heights)
+        #merges_heights = np.maximum(hc_start, merges_heights)
+        core_scales = k_start - np.maximum(k_end, np.minimum(k_start, k_births))
+        print("original k births ", k_births)
+        print("births ", core_scales)
+
 
         return _HierarchicalClustering(
-            core_distances, merges, merges_heights, hc_start, hc_end
+            core_scales, merges, merges_heights, hc_start, hc_end
         )
 
     def _lambda_linkage_skew(self, start, end):
@@ -696,36 +701,50 @@ class _MetricProbabilitySpace:
     def rank_invariant(self, ks, ss, n_jobs):
         n_s = len(ss)
         n_k = len(ks)
-        #ks = ks[::-1]
         startends_horizontal = [ [[ss[0], k], [ss[-1], k]] for k in ks ]
         startends_vertical = [ [[s, ks[-1]], [s, ks[0]]] for s in ss ]
         startends = startends_horizontal + startends_vertical
         hcs = self._lambda_linkage_parallel(startends, n_jobs=n_jobs)
         hcs_horizontal = hcs[:n_k]
+        for hc in hcs_horizontal:
+            hc.snap_to_grid(ss)
         hcs_vertical = hcs[n_k:]
+        ks = np.array(ks)
+        for hc in hcs_vertical:
+            hc.snap_to_grid(ks[-1] - ks)
 
         def _splice_hcs(s_index,k_index):
             # the horizontal hierarchical clustering
-            hor_hc = hcs_horizontal[s_index]
-            # keep only things that happened before or at ss[s_index]
-            hor_heights = hor_hc._heights[hor_hc._heights <= ss[s_index]]
-            hor_merges = hor_hc._merges[hor_hc._merges_heights <= ss[s_index]]
-            hor_merges_heights = hor_hc._merges_heights[hor_hc._merges_heights <= ss[s_index]]
-
-            hor_end = ss[s_index]
+            hor_hc = hcs_horizontal[k_index]
+            # keep only things that happened before s_index
+            hor_heights = hor_hc._heights[hor_hc._heights < s_index]
+            hor_merges = hor_hc._merges[hor_hc._merges_heights < s_index]
+            hor_merges_heights = hor_hc._merges_heights[hor_hc._merges_heights < s_index]
+            hor_end = s_index - 1
             hor_start = hor_hc._start
 
-            # the vertical hierarchical clustering
-            ver_hc = hcs_vertical[k_index]
-            # push all things that happened before ks[-1] - ks[k_index] there, and index starting from ss[s_index]
-            ver_heights = ss[s_index] + np.maximum(ks[-1] - ks[k_index], ver_hc._heights)
-            ver_merges_heights = ss[s_index] + np.maximum(ks[-1] - ks[k_index], ver_hc._merges_heights)
+            print("original hor heights ", hor_hc._heights)
+            print("original hor merges heights ", hor_hc._merges_heights)
+            print("hor heights ", hor_heights)
+            print("hor merges heights ", hor_merges_heights)
 
+            # the vertical hierarchical clustering
+            ver_hc = hcs_vertical[s_index]
+            # push all things that happened before k_index there, and index starting from s_index
+            ver_heights = s_index + np.maximum(k_index, ver_hc._heights) - k_index
+            ver_merges_heights = s_index + np.maximum(k_index, ver_hc._merges_heights) - k_index
             # same merges in same order
             ver_merges = ver_hc._merges
 
-            ver_start = ss[s_index]
-            ver_end = ss[s_index] + ver_hc._end
+            print("original ver heights ", ver_hc._heights)
+            print("original ver merges heights ", ver_hc._merges_heights)
+            print("ver heights ", ver_heights)
+            print("ver merges heights ", ver_merges_heights)
+
+
+
+            ver_start = s_index
+            ver_end = s_index + ver_hc._end - k_index
 
             heights = np.concatenate((hor_heights,ver_heights))
             merges = np.concatenate((hor_merges,ver_merges))
@@ -733,21 +752,35 @@ class _MetricProbabilitySpace:
             start = hor_start
             end = ver_end
 
+            print("merges heights ", merges_heights)
+
             return _HierarchicalClustering(heights, merges, merges_heights, start, end)
 
-        ri = np.zeros((n_k, n_s, n_k, n_s))
-        for i in range(n_s):
-            for j in range(n_k):
-                hc = _splice_hcs(i,j)
-                print(hc._start, hc._end)
+        ri = np.zeros((n_s, n_k, n_s, n_k))
+        for s_index in range(n_s):
+            for k_index in range(n_k):
+                print("--------------------------")
+                print("s and k index ", s_index, k_index)
+                hc = _splice_hcs(s_index,k_index)
+                print("start end of hierarchical clustering ", hc._start, hc._end)
                 pd = hc.persistence_diagram()
-                #print(i,j,pd)
-                if pd.shape[0] > 0:
-                    for i_ in range(i+1):
-                        for j_ in range(j,n_k):
-                            bars_passing = (pd[:,0] <= ss[i_]) & (pd[:,1] >= ss[i] + (ks[-1] - ks[j_]))
-                            rk = np.count_nonzero(bars_passing)
-                            ri[i,j,i_,j_] = rk
+                print("persistence diagram ", pd)
+                for bar in pd:
+                    b, d = bar
+                    # this if may be unnecessary 
+                    if b <= s_index and d >= s_index:
+                        for i in range(b,s_index):
+                            for j in range(s_index,d):
+                                ri[i, k_index, s_index, j-s_index+k_index] += 1
+
+
+                ##print(i,j,pd)
+                #if pd.shape[0] > 0:
+                #    for i_ in range(i+1):
+                #        for j_ in range(j,n_k):
+                #            bars_passing = (pd[:,0] <= ss[i_]) & (pd[:,1] >= ss[i] + (ks[-1] - ks[j_]))
+                #            rk = np.count_nonzero(bars_passing)
+                #            ri[i,j,i_,j_] = rk
         
         #print(ri[])
         #0.04, 0.04
@@ -848,6 +881,20 @@ class _HierarchicalClustering:
         self._heights = heights
         self._start = start
         self._end = end
+
+    def snap_to_grid(self, grid):
+        def _snap_array(grid, arr):
+            res = np.zeros(arr.shape[0],dtype=int)
+            # assumes grid and arr are ordered smallest to largest
+            res[arr<=grid[0]] = 0
+            for i in range(len(grid)-1):
+                res[(arr<=grid[i+1]) & (arr>grid[i])] = i+1
+            res[arr>grid[-1]] = len(grid)
+            return res
+        
+        self._merges_heights = _snap_array(grid,self._merges_heights)
+        self._heights = _snap_array(grid,self._heights)
+        self._start, self._end = _snap_array(grid, np.array([self._start, self._end]))
 
     def persistence_based_flattening(self, threshold):
         end = self._end
