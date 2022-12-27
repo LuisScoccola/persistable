@@ -256,7 +256,7 @@ class Persistable:
             threshold = (spers[-n_clusters] + spers[-(n_clusters + 1)]) / 2
         cl = hc.persistence_based_flattening(threshold)
         if propagate_labels:
-            cl = self._mpspace.propagate_labels(
+            cl = self._mpspace._propagate_labels(
                 cl, n_iterations_propagate_labels, n_neighbors_propagate_labels
             )
         return cl
@@ -268,7 +268,7 @@ class Persistable:
         else:
             return self._mpspace.find_end()
 
-    def _compute_vineyard(self, start_end1, start_end2, n_parameters=50, n_jobs=4):
+    def _compute_vineyard(self, start_end1, start_end2, n_parameters, n_jobs=4):
         start1, end1 = start_end1
         start2, end2 = start_end2
         if (
@@ -324,12 +324,8 @@ class Persistable:
 
         # how many more ss than ks (note that getting more ss is very cheap)
         more_s_than_k = 1
-        ss = np.linspace(
-            min_s,
-            max_s + (max_s - min_s) / (granularity * more_s_than_k),
-            granularity * more_s_than_k + 1,
-        )
-        ks = np.linspace(min_k, max_k + (max_k - min_k) / granularity, granularity + 1)
+        ss = np.linspace(min_s, max_s, granularity * more_s_than_k)
+        ks = np.linspace(min_k, max_k, granularity)
         hf = self._mpspace.hilbert_function(ks, ss, n_jobs=n_jobs)
         return ss, ks, hf
 
@@ -697,6 +693,94 @@ class _MetricProbabilitySpace:
                     delayed(run_in_parallel)(startend) for startend in startends
                 )
 
+    def rank_invariant(self, ks, ss, n_jobs):
+        n_s = len(ss)
+        n_k = len(ks)
+        #ks = ks[::-1]
+        startends_horizontal = [ [[ss[0], k], [ss[-1], k]] for k in ks ]
+        startends_vertical = [ [[s, ks[-1]], [s, ks[0]]] for s in ss ]
+        startends = startends_horizontal + startends_vertical
+        hcs = self._lambda_linkage_parallel(startends, n_jobs=n_jobs)
+        hcs_horizontal = hcs[:n_k]
+        hcs_vertical = hcs[n_k:]
+
+        def _splice_hcs(s_index,k_index):
+            # the horizontal hierarchical clustering
+            hor_hc = hcs_horizontal[s_index]
+            # keep only things that happened before or at ss[s_index]
+            hor_heights = hor_hc._heights[hor_hc._heights <= ss[s_index]]
+            hor_merges = hor_hc._merges[hor_hc._merges_heights <= ss[s_index]]
+            hor_merges_heights = hor_hc._merges_heights[hor_hc._merges_heights <= ss[s_index]]
+
+            hor_end = ss[s_index]
+            hor_start = hor_hc._start
+
+            # the vertical hierarchical clustering
+            ver_hc = hcs_vertical[k_index]
+            # push all things that happened before ks[-1] - ks[k_index] there, and index starting from ss[s_index]
+            ver_heights = ss[s_index] + np.maximum(ks[-1] - ks[k_index], ver_hc._heights)
+            ver_merges_heights = ss[s_index] + np.maximum(ks[-1] - ks[k_index], ver_hc._merges_heights)
+
+            # same merges in same order
+            ver_merges = ver_hc._merges
+
+            ver_start = ss[s_index]
+            ver_end = ss[s_index] + ver_hc._end
+
+            heights = np.concatenate((hor_heights,ver_heights))
+            merges = np.concatenate((hor_merges,ver_merges))
+            merges_heights = np.concatenate((hor_merges_heights,ver_merges_heights))
+            start = hor_start
+            end = ver_end
+
+            return _HierarchicalClustering(heights, merges, merges_heights, start, end)
+
+        ri = np.zeros((n_k, n_s, n_k, n_s))
+        for i in range(n_s):
+            for j in range(n_k):
+                hc = _splice_hcs(i,j)
+                print(hc._start, hc._end)
+                pd = hc.persistence_diagram()
+                #print(i,j,pd)
+                if pd.shape[0] > 0:
+                    for i_ in range(i+1):
+                        for j_ in range(j,n_k):
+                            bars_passing = (pd[:,0] <= ss[i_]) & (pd[:,1] >= ss[i] + (ks[-1] - ks[j_]))
+                            rk = np.count_nonzero(bars_passing)
+                            ri[i,j,i_,j_] = rk
+        
+        #print(ri[])
+        #0.04, 0.04
+        #0.05, 0.03
+        
+        print(ri)
+ 
+
+        #for i, pd in enumerate(pds):
+        #    for bar in pd:
+        #        b, d = bar
+        #        start = np.searchsorted(ss[:-1], b)
+        #        end = np.searchsorted(ss[:-1], d)
+        #        hf[i, start:end] += 1
+        #return hf
+
+    def hilbert_function(self, ks, ss, n_jobs):
+        n_s = len(ss)
+        n_k = len(ks)
+        # go on one more step to compute the Hilbert function at the last point
+        ss = list(ss)
+        ss.append(ss[-1] + _TOL)
+        startends = [[[ss[0], k], [ss[-1], k]] for k in ks]
+        pds = self.lambda_linkage_vineyard(startends, n_jobs=n_jobs)
+        hf = np.zeros((n_k, n_s))
+        for i, pd in enumerate(pds):
+            for bar in pd:
+                b, d = bar
+                start = np.searchsorted(ss[:-1], b)
+                end = np.searchsorted(ss[:-1], d)
+                hf[i, start:end] += 1
+        return hf
+
     #def rank_invariant_slow(self, ks, ss):
     #    n_s = len(ss)
     #    n_k = len(ks)
@@ -730,90 +814,12 @@ class _MetricProbabilitySpace:
     #    #return hf
 
 
-    ##def rank_invariant(self, ks, ss, n_jobs):
-    ##    n_s = len(ss)
-    ##    n_k = len(ks)
-    ##    #tol = ss[1] - ss[0]
-    ##    startends_horizontal = [ [[ss[0], k], [ss[-1], k]] for k in ks[:-1] ]
-    ##    startends_vertical = [ [[s, ks[0]], [s, ks[-1]]] for s in ss[:-1] ]
-    ##    startends = startends_horizontal + startends_vertical
-    ##    hcs = self._lambda_linkage_parallel(startends, n_jobs=n_jobs)
-    ##    hcs_horizontal = hcs[:n_k]
-    ##    hcs_vertical = hcs[n_k+1:]
-
-
-    ##    def _splice_hcs(s_index,k_index):
-    ##        # the vertical hierarchical clustering
-    ##        ver_hc = hcs_vertical[k_index]
-    ##        n_ver_merges = ver_merges.shape[0]
-    ##        ## push all things that happened before ks[k_index] there, and index starting from ss[s_index]
-    ##        #ver_heights = ss[s_index] + np.minimum(ks[k_index], ver_hc._heights)
-    ##        ver_heights = ss[s_index] + ver_hc._heights[ver_hc._heights < ks[k_index]]
-    ##        ## push all things that happened before ks[k_index] there, and index starting from ss[s_index]
-    ##        #ver_merges_heights = ss[s_index] + np.minimum(ks[k_index], ver_hc._merges_heights)
-    ##        ver_merges_heights = ss[s_index] + ver_hc._merges_heights[ver_hc._merges_heights < ks[k_index]]
-    ##        ## same merges in same order
-    ##        #ver_merges = ver_hc._merges
-    ##        ver_merges = ver_hc._merges[ver_hc._merges_heights < ks[k_index]]
-    ##        new_n_ver_merges = ver_merges.shape[0]
-    ##        # index starting from ss[s_index]
-    ##        ver_start = ss[s_index]
-    ##        ver_end = ss[s_index] + ver_hc._end
-
-    ##        # the horizontal hierarchical clustering
-    ##        hor_hc = hcs_horizontal[s_index]
-    ##        n_hor_merges = hor_merges.shape[0]
-    ##        # keep only things that happened before or at ss[s_index]
-    ##        hor_heights = hor_hc._heights[hor_hc._heights <= ss[s_index]]
-    ##        hor_merges = hor_hc._merges[hor_hc._merges_heights <= ss[s_index]]
-    ##        new_n_hor_merges = hor_merges.shape[0]
-    ##        hor_merges_heights = hor_hc._merges_heights[hor_hc._merges_heights <= ss[s_index]]
-    ##        hor_end = ss[s_index]
-    ##        # same start
-    ##        hor_start = hor_hc._start
-    ##        # have new clusters be numbered starting from
-    ##        # all clusters formed in horizontal slice + all clusters formed in vertical slice
-    ##        hor_merges[hor_merges[:,0] >= n_hor_merges] += (-n_hor_merges) + n_hor_merges + new_n_ver_merges
-
-    ##        ver_merges[hor_merges[:,0] >= n_ver_merges] += (-n_ver_merges) + new_n_ver_merges + new_n_ver_merges
-
-    ##        heights = np.concatenate((hor_heights,ver_heights))
-    ##        merges = np.concatenate((hor_merges,ver_merges))
-    ##        merges_heights = np.concatenate((hor_merges_heights,ver_merges_heights))
-    ##        start = hor_start
-    ##        end = hor_end
-
-    ##        #np.zeros(new)
-
-    ##    ri = np.zeros((n_k - 1, n_s - 1, n_k - 1, n_s - 1))
-    ##    #for i, pd in enumerate(pds):
-    ##    #    for bar in pd:
-    ##    #        b, d = bar
-    ##    #        start = np.searchsorted(ss[:-1], b)
-    ##    #        end = np.searchsorted(ss[:-1], d)
-    ##    #        hf[i, start:end] += 1
-    ##    #return hf
-
-    def hilbert_function(self, ks, ss, n_jobs):
-        n_s = len(ss)
-        n_k = len(ks)
-        #tol = ss[1] - ss[0]
-        startends = [[[ss[0], k], [ss[-1], k]] for k in ks[:-1]]
-        pds = self.lambda_linkage_vineyard(startends, n_jobs=n_jobs)
-        hf = np.zeros((n_k - 1, n_s - 1))
-        for i, pd in enumerate(pds):
-            for bar in pd:
-                b, d = bar
-                start = np.searchsorted(ss[:-1], b)
-                end = np.searchsorted(ss[:-1], d)
-                hf[i, start:end] += 1
-        return hf
 
     def connection_radius(self, percentiles=1):
         hc = self.lambda_linkage([0, 0], [np.infty, 0])
         return np.quantile(hc._merges_heights, percentiles)
 
-    def propagate_labels(self, labels, n_iterations, n_neighbors):
+    def _propagate_labels(self, labels, n_iterations, n_neighbors):
         old_labels = labels
         for _ in range(n_iterations):
             new_labels = []
@@ -964,7 +970,7 @@ class _HierarchicalClustering:
             current_cluster += 1
         return res
 
-    def persistence_diagram(self, tol=_TOL):
+    def persistence_diagram(self, tol=0):
         end = self._end
         heights = self._heights
         merges = self._merges.copy()
@@ -1037,4 +1043,4 @@ class _HierarchicalClustering:
         if pd.shape[0] == 0:
             return np.array([])
         else:
-            return pd[np.abs(pd[:, 0] - pd[:, 1]) > tol] # - self._start
+            return pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]
