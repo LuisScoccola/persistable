@@ -534,6 +534,8 @@ class _MetricProbabilitySpace:
 
         indices = np.arange(self._size)
         k_births = self._density_estimate(indices, s_intercept, max_density=k_start)
+        # must add 1 otherwise the edges (below) are treated as not there by mst routine
+        k_births = k_start - np.maximum(k_end, np.minimum(k_start, k_births)) + 1
 
         # metric tree case
         if self._metric in KDTree.valid_metrics + BallTree.valid_metrics:
@@ -550,13 +552,11 @@ class _MetricProbabilitySpace:
             for j in s_neighbors[i]:
                 if j>i:
                     edges.append([i,j])
-                    entries.append(min(k_births[i],k_births[j]))
+                    entries.append(max(k_births[i],k_births[j]))
         matrix_entries = np.array(entries)
-        print("original matrix entries ", matrix_entries)
-        print("matrix pairs", edges)
-        # must add 1 otherwise edge is treated as not there by mst routine!
-        matrix_entries = k_start - np.maximum(k_end, np.minimum(k_start, matrix_entries)) + 1
-        print("matrix entries ", matrix_entries)
+        #print("original matrix entries ", matrix_entries)
+        #print("matrix pairs", edges)
+        #print("matrix entries ", matrix_entries)
         edges = np.array(edges,dtype=int)
         graph = csr_matrix( (matrix_entries, (edges[:,0], edges[:,1])),  (self._size, self._size))
 
@@ -569,21 +569,19 @@ class _MetricProbabilitySpace:
         Js = Js[sort_indices]
         vals = vals[sort_indices]
         merges = np.zeros((vals.shape[0], 2), dtype = int)
-        #label(merges,self._size, vals.shape[0])
         merges[:,0] = Is
         merges[:,1] = Js
         merges_heights = vals
         hc_start = 0
         hc_end = k_start - k_end
-        #merges_heights = np.minimum(hc_end, merges_heights)
-        #merges_heights = np.maximum(hc_start, merges_heights)
-        core_scales = k_start - np.maximum(k_end, np.minimum(k_start, k_births))
-        print("original k births ", k_births)
-        print("births ", core_scales)
+        # we now undo the adding 1
+        core_scales = k_births - 1
+        #print("original k births ", k_births)
+        #print("births ", core_scales)
 
-        print("core scales", core_scales)
-        print("merges ", merges)
-        print("merges_heights ", merges_heights)
+        #print("core scales", core_scales)
+        #print("merges ", merges)
+        #print("merges_heights ", merges_heights)
 
 
         return _HierarchicalClustering(
@@ -724,7 +722,8 @@ class _MetricProbabilitySpace:
             # the horizontal hierarchical clustering
             hor_hc = hcs_horizontal[k_index]
             # keep only things that happened before s_index
-            hor_heights = hor_hc._heights[hor_hc._heights < s_index]
+            hor_heights = hor_hc._heights.copy()
+            hor_heights[hor_heights >= s_index] = s_index + len(ks) - k_index + 1
             hor_merges = hor_hc._merges[hor_hc._merges_heights < s_index]
             hor_merges_heights = hor_hc._merges_heights[hor_hc._merges_heights < s_index]
             hor_end = s_index - 1
@@ -748,22 +747,21 @@ class _MetricProbabilitySpace:
             print("ver heights ", ver_heights)
             print("ver merges heights ", ver_merges_heights)
 
-
-
             ver_start = s_index
             ver_end = s_index + ver_hc._end - k_index
 
-            heights = np.concatenate((hor_heights,ver_heights))
+            heights = np.minimum(hor_heights,ver_heights)
             merges = np.concatenate((hor_merges,ver_merges))
             merges_heights = np.concatenate((hor_merges_heights,ver_merges_heights))
             start = hor_start
             end = ver_end
 
+            print("heights ", heights)
             print("merges heights ", merges_heights)
 
             return _HierarchicalClustering(heights, merges, merges_heights, start, end)
 
-        ri = np.zeros((n_s, n_k, n_s, n_k))
+        ri = np.zeros((n_s, n_k, n_s, n_k), dtype=int)
         for s_index in range(n_s):
             for k_index in range(n_k):
                 print("--------------------------")
@@ -775,9 +773,13 @@ class _MetricProbabilitySpace:
                 for bar in pd:
                     b, d = bar
                     # this if may be unnecessary 
+                    print("enter bar")
                     if b <= s_index and d >= s_index:
-                        for i in range(b,s_index):
+                        print("enter bar 2")
+                        for i in range(b,s_index+1):
+                            print("enter bar 3")
                             for j in range(s_index,d):
+                                print("enter bar 4")
                                 ri[i, k_index, s_index, j-s_index+k_index] += 1
 
 
@@ -793,7 +795,7 @@ class _MetricProbabilitySpace:
         #0.04, 0.04
         #0.05, 0.03
         
-        print(ri)
+        return ri
  
 
         #for i, pd in enumerate(pds):
@@ -1024,14 +1026,15 @@ class _HierarchicalClustering:
             current_cluster += 1
         return res
 
-    def persistence_diagram(self, tol=0):
+
+    def persistence_diagram(self, tol=_TOL):
         end = self._end
         heights = self._heights
         merges = self._merges.copy()
+        merges_copy = merges.copy()
         # TODO: use the fast union find directly here, instead of relabeling
         label(merges, heights.shape[0], merges.shape[0])
         merges_heights = self._merges_heights
-
         n_points = heights.shape[0]
         n_merges = merges.shape[0]
         # this orders the point by appearance
@@ -1055,6 +1058,7 @@ class _HierarchicalClustering:
             ):
                 # add all points that are born as new clusters
                 cluster_reps[appearances[hind]] = appearances[hind]
+                print("is born: ", appearances[hind], " at ", current_appearence_height)
                 hind += 1
                 if hind == n_points:
                     current_appearence_height = end
@@ -1066,7 +1070,9 @@ class _HierarchicalClustering:
                 and merges_heights[mind] < current_appearence_height
                 and merges_heights[mind] < end
             ):
+                print("merging height: ", merges_heights[mind])
                 xy = merges[mind]
+                print("is merged: ", merges_copy[mind])
                 x, y = xy
                 rx = cluster_reps[x]
                 ry = cluster_reps[y]
@@ -1098,3 +1104,79 @@ class _HierarchicalClustering:
             return np.array([])
         else:
             return pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]
+
+
+
+#    def persistence_diagram(self, tol=_TOL):
+#        end = self._end
+#        heights = self._heights
+#        merges = self._merges.copy()
+#        # TODO: use the fast union find directly here, instead of relabeling
+#        label(merges, heights.shape[0], merges.shape[0])
+#        merges_heights = self._merges_heights
+#        n_points = heights.shape[0]
+#        n_merges = merges.shape[0]
+#        # this orders the point by appearance
+#        appearances = np.argsort(heights)
+#        # contains representative points for the clusters that are alive
+#        cluster_reps = np.full(heights.shape[0] + merges.shape[0], -1)
+#        # contains the persistence diagram
+#        pd = []
+#        # height index
+#        hind = 0
+#        # merge index
+#        mind = 0
+#        current_appearence_height = heights[appearances[0]]
+#        current_merge_height = merges_heights[0]
+#        while True:
+#            # while there is no merge
+#            while (
+#                hind < n_points
+#                and heights[appearances[hind]] <= current_merge_height
+#                and heights[appearances[hind]] < end
+#            ):
+#                # add all points that are born as new clusters
+#                cluster_reps[appearances[hind]] = appearances[hind]
+#                hind += 1
+#                if hind == n_points:
+#                    current_appearence_height = end
+#                else:
+#                    current_appearence_height = heights[appearances[hind]]
+#            # while there is no cluster being born
+#            while (
+#                mind < n_merges
+#                and merges_heights[mind] < current_appearence_height
+#                and merges_heights[mind] < end
+#            ):
+#                xy = merges[mind]
+#                x, y = xy
+#                rx = cluster_reps[x]
+#                ry = cluster_reps[y]
+#                bx = heights[rx]
+#                by = heights[ry]
+#                # assume x was born before y
+#                if bx > by:
+#                    x, y = y, x
+#                    bx, by = by, bx
+#                    rx, ry = ry, rx
+#                pd.append([by, merges_heights[mind]])
+#                cluster_reps[mind + n_points] = rx
+#                cluster_reps[ry] = -1
+#                mind += 1
+#                if mind == n_merges:
+#                    current_merge_height = end
+#                else:
+#                    current_merge_height = merges_heights[mind]
+#            if (hind == n_points or heights[appearances[hind]] >= end) and (
+#                mind == n_merges or merges_heights[mind] >= end
+#            ):
+#                break
+#        # go through all clusters that are still alive
+#        for i in range(heights.shape[0]):
+#            if cluster_reps[i] == i:
+#                pd.append([heights[i], end])
+#        pd = np.array(pd)
+#        if pd.shape[0] == 0:
+#            return np.array([])
+#        else:
+#            return pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]

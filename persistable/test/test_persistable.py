@@ -156,19 +156,89 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         np.testing.assert_almost_equal(mps.hilbert_function(ks, ss, n_jobs=4), res)
 
     def test_vertical_slice(self):
-        res = np.array([0.72727273, 0.72727273, 0.72727273, 0.72727273, 0.8181818, 0.8181818,0.8181818,0.8181818,0.8181818,0.8181818])
-
-        X = np.array([ [0,0], [1,1], [1,0], [1,-1], [2,0], [3,0], [4,0], [5,1], [5,0], [5,-1], [6,0] ])
+        X = np.array(
+            [
+                [0, 0],
+                [1, 1],
+                [1, 0],
+                [1, -1],
+                [2, 0],
+                [3, 0],
+                [4, 0],
+                [5, 1],
+                [5, 0],
+                [5, -1],
+                [6, 0],
+            ]
+        )
         p = Persistable(X, debug=True)
         mps = p._mpspace
         hc = mps._lambda_linkage_vertical(1, 1, 0)
-        np.testing.assert_almost_equal(res,hc._merges_heights)
+        res = np.array(
+            [
+                0.72727273,
+                0.72727273,
+                0.72727273,
+                0.72727273,
+                0.8181818,
+                0.8181818,
+                0.8181818,
+                0.8181818,
+                0.8181818,
+                0.8181818,
+            ]
+        )
 
-        dist_mat = distance_matrix(X,X)
+
+        np.testing.assert_almost_equal(res, hc._merges_heights)
+
+        dist_mat = distance_matrix(X, X)
         p = Persistable(dist_mat, debug=True, metric="precomputed")
         mps = p._mpspace
         hc = mps._lambda_linkage_vertical(1, 1, 0)
-        np.testing.assert_almost_equal(res,hc._merges_heights)
+        np.testing.assert_almost_equal(res, hc._merges_heights)
+
+        np.testing.assert_almost_equal(
+            np.array([[0.0, 0.1010101], [0.0, 0.1010101]]),
+            mps.lambda_linkage(
+                [1.777777777777778, 0.393939393939394],
+                [1.777777777777778, 0.29292929292929293],
+            ).persistence_diagram(),
+        )
+        np.testing.assert_almost_equal(
+            np.array([[0.0, 0.1], [0.0, 0.1]]),
+            mps.lambda_linkage([1.3, 0.4], [1.3, 0.3]).persistence_diagram(),
+        )
+        np.testing.assert_almost_equal(
+            np.array([[0.0, 0.1], [0.0, 0.1]]),
+            mps.lambda_linkage([1.7, 0.4], [1.7, 0.3]).persistence_diagram(),
+        )
+
+    def test_rank_invariant(self):
+        X = np.array(
+            [
+                [0, 0],
+                [1, 1],
+                [1, 0],
+                [1, -1],
+                [2, 0],
+                [3, 0],
+                [4, 0],
+                [5, 1],
+                [5, 0],
+                [5, -1],
+                [6, 0],
+            ]
+        )
+        p = Persistable(X, debug=True)
+        ks = [0.3, 0.4]
+        ss = [1.3, 1.5]
+
+        ri = p._mpspace.rank_invariant(ks, ss, 2)
+        np.testing.assert_almost_equal(
+            ri,
+            [[[[2, 2], [2, 2]], [[0, 2], [0, 2]]],
+             [[[0, 0], [2, 2]], [[0, 0], [0, 2]]]])
 
 
 
@@ -304,9 +374,27 @@ class TestPersistable(unittest.TestCase):
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
         p = Persistable(X)
 
-        #res_ss = [0.0, 0.5625, 1.125, 1.6875, 2.25, 2.8125, 3.375, 3.9375, 4.5]
-        res_ss = [0.0, 0.5714286, 1.1428571, 1.7142857, 2.2857143, 2.8571429, 3.4285714, 4.]
-        res_ks = [ 0.0, 0.1428571, 0.2857143, 0.4285714, 0.5714286, 0.7142857, 0.8571429, 1 ]
+        # res_ss = [0.0, 0.5625, 1.125, 1.6875, 2.25, 2.8125, 3.375, 3.9375, 4.5]
+        res_ss = [
+            0.0,
+            0.5714286,
+            1.1428571,
+            1.7142857,
+            2.2857143,
+            2.8571429,
+            3.4285714,
+            4.0,
+        ]
+        res_ks = [
+            0.0,
+            0.1428571,
+            0.2857143,
+            0.4285714,
+            0.5714286,
+            0.7142857,
+            0.8571429,
+            1,
+        ]
 
         res = np.array(
             [
@@ -356,6 +444,7 @@ class TestPersistable(unittest.TestCase):
             np.testing.assert_almost_equal(v, res_v)
             np.testing.assert_almost_equal(vineyard._vine_parts(v), res_vp)
 
+
 class TestBettiNumbers(unittest.TestCase):
     # only tests Hilbert functions of dimensions (shape) 1, 2, 3, 4
     def test_signed_betti(self):
@@ -365,63 +454,63 @@ class TestBettiNumbers(unittest.TestCase):
 
         # test 1D
         for _ in range(N):
-            a = np.random.randint(10,30)
+            a = np.random.randint(10, 30)
 
-            f = np.random.randint(0,40,size=(a))
+            f = np.random.randint(0, 40, size=(a))
             sb = signed_betti(f)
 
             check = np.zeros(f.shape)
             for i in range(f.shape[0]):
-                for i_ in range(0,i+1):
+                for i_ in range(0, i + 1):
                     check[i] += sb[i_]
 
-            np.testing.assert_equal(check,f)
+            np.testing.assert_equal(check, f)
 
         # test 2D
         for _ in range(N):
-            a = np.random.randint(10,30)
-            b = np.random.randint(10,30)
+            a = np.random.randint(10, 30)
+            b = np.random.randint(10, 30)
 
-            f = np.random.randint(0,40,size=(a,b))
+            f = np.random.randint(0, 40, size=(a, b))
             sb = signed_betti(f)
 
             check = np.zeros(f.shape)
             for i in range(f.shape[0]):
                 for j in range(f.shape[1]):
-                    for i_ in range(0,i+1):
-                        for j_ in range(0,j+1):
-                            check[i,j] += sb[i_,j_]
+                    for i_ in range(0, i + 1):
+                        for j_ in range(0, j + 1):
+                            check[i, j] += sb[i_, j_]
 
-            np.testing.assert_equal(check,f)
+            np.testing.assert_equal(check, f)
 
         # test 3D
         for _ in range(N):
-            a = np.random.randint(5,10)
-            b = np.random.randint(5,10)
-            c = np.random.randint(5,10)
+            a = np.random.randint(5, 10)
+            b = np.random.randint(5, 10)
+            c = np.random.randint(5, 10)
 
-            f = np.random.randint(0,40,size=(a,b,c))
+            f = np.random.randint(0, 40, size=(a, b, c))
             sb = signed_betti(f)
 
             check = np.zeros(f.shape)
             for i in range(f.shape[0]):
                 for j in range(f.shape[1]):
                     for k in range(f.shape[2]):
-                        for i_ in range(0,i+1):
-                            for j_ in range(0,j+1):
-                                for k_ in range(0,k+1):
-                                    check[i,j,k] += sb[i_,j_,k_]
+                        for i_ in range(0, i + 1):
+                            for j_ in range(0, j + 1):
+                                for k_ in range(0, k + 1):
+                                    check[i, j, k] += sb[i_, j_, k_]
 
-            np.testing.assert_equal(check,f)
+            np.testing.assert_equal(check, f)
 
         # test 4D
         for _ in range(N):
-            a = np.random.randint(5,10)
-            b = np.random.randint(5,10)
-            c = np.random.randint(5,10)
-            d = np.random.randint(5,10)
+            a = np.random.randint(5, 10)
+            b = np.random.randint(5, 10)
+            c = np.random.randint(5, 10)
+            d = np.random.randint(5, 10)
 
-            f = np.random.randint(0,40,size=(a,b,c,d))
+            f = np.random.randint(0, 40, size=(a, b, c, d))
             sb = signed_betti(f)
 
             check = np.zeros(f.shape)
@@ -429,14 +518,14 @@ class TestBettiNumbers(unittest.TestCase):
                 for j in range(f.shape[1]):
                     for k in range(f.shape[2]):
                         for l in range(f.shape[3]):
-                            for i_ in range(0,i+1):
-                                for j_ in range(0,j+1):
-                                    for k_ in range(0,k+1):
-                                        for l_ in range(0,l+1):
-                                            check[i,j,k,l] += sb[i_,j_,k_,l_]
+                            for i_ in range(0, i + 1):
+                                for j_ in range(0, j + 1):
+                                    for k_ in range(0, k + 1):
+                                        for l_ in range(0, l + 1):
+                                            check[i, j, k, l] += sb[i_, j_, k_, l_]
 
-            np.testing.assert_equal(check,f)
-    
+            np.testing.assert_equal(check, f)
+
 
 if __name__ == "__main__":
     unittest.main()
