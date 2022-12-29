@@ -142,17 +142,17 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         mps = p._mpspace
 
         ss = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]
-        ks = [0, 1 / 4 + 0.01, 1 / 2, 3 / 4, 1]
+        ks = [1, 3 / 4, 1 / 2, 1 / 4 + 0.01, 0]
 
         res = np.array(
             [
-                [4, 4, 2, 2, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
                 [0, 0, 0, 0, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [4, 4, 2, 2, 1, 1, 1, 1],
             ]
-        )
+        ).T
         np.testing.assert_almost_equal(mps.hilbert_function(ss, ks, n_jobs=4), res)
 
     def test_vertical_slice(self):
@@ -430,7 +430,7 @@ class TestPersistable(unittest.TestCase):
                 [4, 4, 2, 2, 1, 1, 1, 1],
                 [4, 4, 2, 2, 1, 1, 1, 1],
             ]
-        )
+        ).T
         ss, ks, hs, _ = p._compute_hilbert_function(0, 4, 1, 0, granularity=8)
 
         np.testing.assert_almost_equal(ss, np.array(res_ss))

@@ -325,8 +325,6 @@ class Persistable:
         ss = np.linspace(min_s, max_s, granularity)
         ks = np.linspace(min_k, max_k, granularity)[::-1]
         hf = self._mpspace.hilbert_function(ss, ks, n_jobs=n_jobs)
-        # the hilbert function has as x axis the ks and as y axis the ss.
-        # the ks are indexed covariantly
         return ss, ks, hf, signed_betti(hf)
 
     def _compute_rank_invariant(
@@ -849,13 +847,13 @@ class _MetricProbabilitySpace:
         ss.append(ss[-1] + _TOL)
         startends = [[[ss[0], k], [ss[-1], k]] for k in ks]
         pds = self.lambda_linkage_vineyard(startends, n_jobs=n_jobs)
-        hf = np.zeros((n_k, n_s), dtype=int)
+        hf = np.zeros((n_s, n_k), dtype=int)
         for i, pd in enumerate(pds):
             for bar in pd:
                 b, d = bar
                 start = np.searchsorted(ss[:-1], b)
                 end = np.searchsorted(ss[:-1], d)
-                hf[i, start:end] += 1
+                hf[start:end, i] += 1
         return hf
 
     def connection_radius(self, percentiles=1):

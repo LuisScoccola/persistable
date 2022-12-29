@@ -48,6 +48,8 @@ CCF_PLOT = "ccf-plot-"
 DISPLAY_LINES_SELECTION = "display-lines-selection-"
 ENDPOINT_SELECTION = "endpoint-selection-"
 STORED_CCF = "stored-ccf-"
+STORED_X_TICKS = "stored-x-ticks-"
+STORED_Y_TICKS = "stored-y-ticks-"
 STORED_CCF_DRAWING = "stored-ccf-drawing-"
 STORED_BETTI = "stored-betti-"
 STORED_SIGNED_BARCODE = "stored-signed-barcode-"
@@ -105,7 +107,6 @@ N_INTERVALS = "n_intervals"
 
 IN = "input"
 ST = "state"
-
 
 def empty_figure():
     fig = go.Figure(
@@ -285,6 +286,8 @@ class PersistableInteractive:
             children=[
                 # contains the component counting function as a dictionary of lists
                 dcc.Store(id=STORED_CCF),
+                dcc.Store(id=STORED_X_TICKS),
+                dcc.Store(id=STORED_Y_TICKS),
                 # contains the basic component counting function plot as a plotly figure
                 dcc.Store(id=STORED_CCF_DRAWING),
                 # contains the signed betti numbers as a list of lists
@@ -1029,15 +1032,17 @@ class PersistableInteractive:
         @dash_callback(
             [
                 [STORED_CCF, DATA, IN],
+                [STORED_X_TICKS, DATA, ST],
+                [STORED_Y_TICKS, DATA, ST],
                 [INPUT_MAX_COMPONENTS, VALUE, IN],
             ],
             [[STORED_CCF_DRAWING, DATA]],
             False,
         )
         def draw_ccf(d):
-            ccf = d[STORED_CCF + DATA]
-
-            ccf = json.loads(ccf)
+            ccf = np.array(json.loads(d[STORED_CCF + DATA]))
+            x_ticks = json.loads(d[STORED_X_TICKS + DATA])
+            y_ticks = json.loads(d[STORED_Y_TICKS + DATA])
 
             max_components = d[INPUT_MAX_COMPONENTS + VALUE]
 
@@ -1052,12 +1057,15 @@ class PersistableInteractive:
 
             fig.add_trace(
                go.Heatmap(
-                   **ccf,
-                   hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
-                   zmin=0,
-                   zmax=max_components,
-                   showscale=False,
-                   name="",
+                    transpose=True,
+                    z=ccf,
+                    x=x_ticks,
+                    y=y_ticks,
+                    hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
+                    zmin=0,
+                    zmax=max_components,
+                    showscale=False,
+                    name="",
                )
             )
 
@@ -1093,7 +1101,8 @@ class PersistableInteractive:
                 [INPUT_GAP, VALUE, ST],
                 [INPUT_SIGNED_BETTI_NUMBERS, VALUE, IN],
                 [STORED_BETTI, DATA, ST],
-                [STORED_CCF, DATA, ST],
+                [STORED_X_TICKS, DATA, ST],
+                [STORED_Y_TICKS, DATA, ST],
                 [INPUT_MAX_COMPONENTS, VALUE, IN],
                 [STORED_SIGNED_BARCODE, DATA, ST],
             ],
@@ -1103,15 +1112,19 @@ class PersistableInteractive:
         def draw_ccf_extras(d):
             fig = plotly.io.from_json(d[STORED_CCF_DRAWING + DATA])
 
+            x_ticks = json.loads(d[STORED_X_TICKS + DATA])
+            y_ticks = json.loads(d[STORED_Y_TICKS + DATA])
+
+            if False:
+                # need to reset the limits
+                fig.update_yaxes(autorange="reversed")
+
             if d[INPUT_SIGNED_BETTI_NUMBERS + VALUE] == "On":
-                ccf = d[STORED_CCF + DATA]
-                ccf = json.loads(ccf)
                 max_components = d[INPUT_MAX_COMPONENTS + VALUE]
 
                 bn = np.array(json.loads(d[STORED_BETTI + DATA]))
-                bn = bn.T
-                xs = ccf["x"]
-                ys = ccf["y"]
+                xs = x_ticks
+                ys = y_ticks
                 delta_x = (xs[1] - xs[0])/2
                 delta_y = (ys[1] - ys[0])/2
                 positive_bn = np.array([ [xs[i]-delta_x,ys[j]-delta_y,bn[i,j]] for i in range(len(xs)) for j in range(len(ys)) if bn[i,j] > 0 ])
@@ -1347,6 +1360,8 @@ class PersistableInteractive:
             ],
             [
                 [STORED_CCF, DATA],
+                [STORED_X_TICKS, DATA],
+                [STORED_Y_TICKS, DATA],
                 [STORED_CCF_COMPUTATION_WARNINGS, DATA],
                 [STORED_BETTI, DATA],
                 [STORED_SIGNED_BARCODE, DATA],
@@ -1401,9 +1416,9 @@ class PersistableInteractive:
                     a.message, a.category, a.filename, a.lineno
                 )
 
-            d[STORED_CCF + DATA] = json.dumps(
-                {"x": ss.tolist(), "y": ks.tolist(), "z": hf.tolist()}
-            )
+            d[STORED_CCF + DATA] = json.dumps(hf.tolist())
+            d[STORED_X_TICKS + DATA] = json.dumps(ss.tolist())
+            d[STORED_Y_TICKS + DATA] = json.dumps(ks.tolist())
 
             d[STORED_BETTI + DATA] = json.dumps(bn.tolist())
 
