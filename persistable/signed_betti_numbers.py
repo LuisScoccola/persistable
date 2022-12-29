@@ -8,8 +8,8 @@ def signed_betti(hilbert_function):
     # pad with zeros at the end so np.roll does not roll over
     hf_padded = np.pad(hilbert_function,[[0,1]]*n)
     # all relevant shifts (e.g., if n=2, (0,0), (0,1), (1,0), (1,1))
-    shifts = np.array(list(itertools.product([0,1],repeat=n)))
-    bn = np.zeros(hf_padded.shape)
+    shifts = np.array(list(itertools.product([0,1],repeat=n)), dtype=int)
+    bn = np.zeros(hf_padded.shape, dtype=int)
     for shift in shifts:
         bn += ((-1)**np.sum(shift)) * np.roll(hf_padded,shift,axis=range(n))
     # remove the padding

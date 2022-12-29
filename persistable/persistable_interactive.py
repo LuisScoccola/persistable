@@ -17,7 +17,6 @@ from jupyter_dash import JupyterDash
 import click
 import socket
 from ._vineyard import Vineyard
-from .signed_betti_numbers import signed_betti
 
 import threading
 
@@ -51,6 +50,7 @@ ENDPOINT_SELECTION = "endpoint-selection-"
 STORED_CCF = "stored-ccf-"
 STORED_CCF_DRAWING = "stored-ccf-drawing-"
 STORED_BETTI = "stored-betti-"
+STORED_SIGNED_BARCODE = "stored-signed-barcode-"
 MIN_DIST_SCALE = "min-dist-scale-"
 MAX_DIST_SCALE = "max-dist-scale-"
 MIN_DENSITY_THRESHOLD = "min-density-threshold-"
@@ -289,6 +289,8 @@ class PersistableInteractive:
                 dcc.Store(id=STORED_CCF_DRAWING),
                 # contains the signed betti numbers as a list of lists
                 dcc.Store(id=STORED_BETTI),
+                # contains the signed barcode a list of lists of ...
+                dcc.Store(id=STORED_SIGNED_BARCODE),
                 # contains the vineyard as a vineyard object
                 dcc.Store(id=STORED_PV),
                 # contains the basic prominence vineyard plot as a plotly figure
@@ -1028,8 +1030,6 @@ class PersistableInteractive:
             [
                 [STORED_CCF, DATA, IN],
                 [INPUT_MAX_COMPONENTS, VALUE, IN],
-                [INPUT_SIGNED_BETTI_NUMBERS, VALUE, IN],
-                [STORED_BETTI, DATA, ST],
             ],
             [[STORED_CCF_DRAWING, DATA]],
             False,
@@ -1067,7 +1067,47 @@ class PersistableInteractive:
             fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
             fig.update_layout(clickmode="event+select")
 
+            d[STORED_CCF_DRAWING + DATA] = plotly.io.to_json(fig)
+            return d
+
+        @dash_callback(
+            [
+                [STORED_CCF_DRAWING, DATA, IN],
+                [MIN_DIST_SCALE, VALUE, IN],
+                [MAX_DIST_SCALE, VALUE, IN],
+                [MIN_DENSITY_THRESHOLD, VALUE, IN],
+                [MAX_DENSITY_THRESHOLD, VALUE, IN],
+                [DISPLAY_LINES_SELECTION, VALUE, IN],
+                [X_START_FIRST_LINE, VALUE, IN],
+                [Y_START_FIRST_LINE, VALUE, IN],
+                [X_END_FIRST_LINE, VALUE, IN],
+                [Y_END_FIRST_LINE, VALUE, IN],
+                [X_START_SECOND_LINE, VALUE, IN],
+                [Y_START_SECOND_LINE, VALUE, IN],
+                [X_END_SECOND_LINE, VALUE, IN],
+                [Y_END_SECOND_LINE, VALUE, IN],
+                [ENDPOINT_SELECTION, VALUE, IN],
+                [DISPLAY_PARAMETER_SELECTION, VALUE, IN],
+                [FIXED_PARAMETERS, DATA, IN],
+                [STORED_PD, DATA, ST],
+                [INPUT_GAP, VALUE, ST],
+                [INPUT_SIGNED_BETTI_NUMBERS, VALUE, IN],
+                [STORED_BETTI, DATA, ST],
+                [STORED_CCF, DATA, ST],
+                [INPUT_MAX_COMPONENTS, VALUE, IN],
+                [STORED_SIGNED_BARCODE, DATA, ST],
+            ],
+            [[CCF_PLOT, FIGURE]],
+            False,
+        )
+        def draw_ccf_extras(d):
+            fig = plotly.io.from_json(d[STORED_CCF_DRAWING + DATA])
+
             if d[INPUT_SIGNED_BETTI_NUMBERS + VALUE] == "On":
+                ccf = d[STORED_CCF + DATA]
+                ccf = json.loads(ccf)
+                max_components = d[INPUT_MAX_COMPONENTS + VALUE]
+
                 bn = np.array(json.loads(d[STORED_BETTI + DATA]))
                 bn = bn.T
                 xs = ccf["x"]
@@ -1105,36 +1145,9 @@ class PersistableInteractive:
                     )
                 )
 
-            d[STORED_CCF_DRAWING + DATA] = plotly.io.to_json(fig)
-            return d
+            if True:
+                print("A")
 
-        @dash_callback(
-            [
-                [STORED_CCF_DRAWING, DATA, IN],
-                [MIN_DIST_SCALE, VALUE, IN],
-                [MAX_DIST_SCALE, VALUE, IN],
-                [MIN_DENSITY_THRESHOLD, VALUE, IN],
-                [MAX_DENSITY_THRESHOLD, VALUE, IN],
-                [DISPLAY_LINES_SELECTION, VALUE, IN],
-                [X_START_FIRST_LINE, VALUE, IN],
-                [Y_START_FIRST_LINE, VALUE, IN],
-                [X_END_FIRST_LINE, VALUE, IN],
-                [Y_END_FIRST_LINE, VALUE, IN],
-                [X_START_SECOND_LINE, VALUE, IN],
-                [Y_START_SECOND_LINE, VALUE, IN],
-                [X_END_SECOND_LINE, VALUE, IN],
-                [Y_END_SECOND_LINE, VALUE, IN],
-                [ENDPOINT_SELECTION, VALUE, IN],
-                [DISPLAY_PARAMETER_SELECTION, VALUE, IN],
-                [FIXED_PARAMETERS, DATA, IN],
-                [STORED_PD, DATA, ST],
-                [INPUT_GAP, VALUE, ST],
-            ],
-            [[CCF_PLOT, FIGURE]],
-            False,
-        )
-        def draw_ccf_extras(d):
-            fig = plotly.io.from_json(d[STORED_CCF_DRAWING + DATA])
 
             def generate_line(
                 xs, ys, text, color="mediumslateblue", different_marker=None
@@ -1336,6 +1349,7 @@ class PersistableInteractive:
                 [STORED_CCF, DATA],
                 [STORED_CCF_COMPUTATION_WARNINGS, DATA],
                 [STORED_BETTI, DATA],
+                [STORED_SIGNED_BARCODE, DATA],
                 [CCF_PLOT_CONTROLS_DIV, HIDDEN],
             ],
             prevent_initial_call=True,
@@ -1357,15 +1371,23 @@ class PersistableInteractive:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 try:
-                    ss, ks, hf = persistable._compute_hilbert_function(
-                        d[MIN_DENSITY_THRESHOLD + VALUE],
-                        d[MAX_DENSITY_THRESHOLD + VALUE],
+                    ss, ks, hf, bn = persistable._compute_hilbert_function(
                         d[MIN_DIST_SCALE + VALUE],
                         d[MAX_DIST_SCALE + VALUE],
+                        d[MAX_DENSITY_THRESHOLD + VALUE],
+                        d[MIN_DENSITY_THRESHOLD + VALUE],
                         granularity,
                         n_jobs=num_jobs,
                     )
-                    bn = signed_betti(hf)
+
+                    ss, ks, ri, sb = persistable._compute_rank_invariant(
+                        d[MIN_DIST_SCALE + VALUE],
+                        d[MAX_DIST_SCALE + VALUE],
+                        d[MAX_DENSITY_THRESHOLD + VALUE],
+                        d[MIN_DENSITY_THRESHOLD + VALUE],
+                        granularity,
+                        n_jobs=num_jobs,
+                    )
 
                 except ValueError:
                     out += traceback.format_exc()
@@ -1380,10 +1402,12 @@ class PersistableInteractive:
                 )
 
             d[STORED_CCF + DATA] = json.dumps(
-                {"y": ks[:-1].tolist(), "x": ss[:-1].tolist(), "z": hf.tolist()}
+                {"x": ss.tolist(), "y": ks.tolist(), "z": hf.tolist()}
             )
 
             d[STORED_BETTI + DATA] = json.dumps(bn.tolist())
+
+            d[STORED_SIGNED_BARCODE + DATA] = json.dumps(sb.tolist())
 
             d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = False

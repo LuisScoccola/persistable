@@ -153,7 +153,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                 [0, 0, 0, 0, 1, 1, 1, 1],
             ]
         )
-        np.testing.assert_almost_equal(mps.hilbert_function(ks, ss, n_jobs=4), res)
+        np.testing.assert_almost_equal(mps.hilbert_function(ss, ks, n_jobs=4), res)
 
     def test_vertical_slice(self):
         X = np.array(
@@ -231,9 +231,9 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         )
         p = Persistable(X, debug=True)
 
-        ks = [0.3, 0.4]
+        ks = [0.4, 0.3]
         ss = [1.3, 1.5]
-        ri = p._mpspace.rank_invariant(ks, ss, 1)
+        ri = p._mpspace.rank_invariant(ss, ks, 1)
         np.testing.assert_almost_equal(
             ri,
             [
@@ -242,9 +242,9 @@ class TestMetricProbabilitySpace(unittest.TestCase):
             ],
         )
 
-        ks = [0.2, 0.3]
+        ks = [0.3, 0.2]
         ss = [1.5, 2.5]
-        ri = p._mpspace.rank_invariant(ks, ss, 1)
+        ri = p._mpspace.rank_invariant(ss, ks, 1)
         np.testing.assert_almost_equal(
             ri,
             [
@@ -253,9 +253,9 @@ class TestMetricProbabilitySpace(unittest.TestCase):
             ],
         )
 
-        ks = [0.2, 0.3, 0.4]
+        ks = [0.4, 0.3, 0.2]
         ss = [1.3, 1.5, 2.5]
-        ri = p._mpspace.rank_invariant(ks, ss, 1)
+        ri = p._mpspace.rank_invariant(ss, ks, 1)
         res = np.zeros((3, 3, 3, 3))
         for i in range(3):
             for j in range(3):
@@ -409,29 +409,29 @@ class TestPersistable(unittest.TestCase):
             4.0,
         ]
         res_ks = [
-            0.0,
-            0.1428571,
-            0.2857143,
-            0.4285714,
-            0.5714286,
-            0.7142857,
-            0.8571429,
             1,
+            0.8571429,
+            0.7142857,
+            0.5714286,
+            0.4285714,
+            0.2857143,
+            0.1428571,
+            0.0,
         ]
 
         res = np.array(
             [
-                [4, 4, 2, 2, 1, 1, 1, 1],
-                [4, 4, 2, 2, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
                 [0, 0, 0, 0, 1, 1, 1, 1],
                 [0, 0, 0, 0, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [4, 4, 2, 2, 1, 1, 1, 1],
+                [4, 4, 2, 2, 1, 1, 1, 1],
             ]
         )
-        ss, ks, hs = p._compute_hilbert_function(0, 1, 0, 4, granularity=8)
+        ss, ks, hs, _ = p._compute_hilbert_function(0, 4, 1, 0, granularity=8)
 
         np.testing.assert_almost_equal(ss, np.array(res_ss))
         np.testing.assert_almost_equal(ks, np.array(res_ks))
