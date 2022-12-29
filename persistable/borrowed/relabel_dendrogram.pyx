@@ -18,10 +18,11 @@ cdef class LinkageUnionFind:
     cdef int[:] size
     cdef int next_label
 
-    def __init__(self, int n):
-        self.parent = np.arange(2 * n - 1, dtype=np.intc)
-        self.next_label = n
-        self.size = np.ones(2 * n - 1, dtype=np.intc)
+    def __init__(self, int num_points, int num_merges):
+        n = num_points + num_merges
+        self.parent = np.arange(n, dtype=np.intc)
+        self.next_label = num_points
+        self.size = np.ones(n, dtype=np.intc)
 
     cdef int merge(self, int x, int y):
         self.parent[x] = self.next_label
@@ -44,7 +45,7 @@ cdef class LinkageUnionFind:
 
 def label(long[:, :] Z, int num_points, int num_merges):
     """Correctly label clusters in unsorted dendrogram."""
-    cdef LinkageUnionFind uf = LinkageUnionFind(num_points)
+    cdef LinkageUnionFind uf = LinkageUnionFind(num_points, num_merges)
     cdef int i, x, y, x_root, y_root
     for i in range(num_merges):
         x, y = int(Z[i, 0]), int(Z[i, 1])

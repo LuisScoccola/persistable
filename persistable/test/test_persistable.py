@@ -241,9 +241,6 @@ class TestMetricProbabilitySpace(unittest.TestCase):
              [[[0, 0], [2, 2]], [[0, 0], [0, 2]]]])
 
 
-
-
-
 class TestHierarchicalClustering(unittest.TestCase):
     def clustering_matrix(self, c):
         mat = np.full((c.shape[0], c.shape[0]), -1)
@@ -255,7 +252,7 @@ class TestHierarchicalClustering(unittest.TestCase):
 
     def test_persistence_diagram(self):
         heights = np.array([0, 1, 3, 2])
-        merges = np.array([[0, 1], [2, 4]])
+        merges = np.array([[0, 1], [2, 0]])
         merges_heights = np.array([2, 6])
         end = 10
         hc = _HierarchicalClustering(heights, merges, merges_heights, 0, end)
@@ -266,7 +263,7 @@ class TestHierarchicalClustering(unittest.TestCase):
         )
 
         heights = np.array([0, 1, 3, 2, 4])
-        merges = np.array([[0, 1], [3, 5], [2, 6]])
+        merges = np.array([[0, 1], [3, 0], [2, 3]])
         merges_heights = np.array([2, 4, 6])
         end = 10
         hc = _HierarchicalClustering(heights, merges, merges_heights, 0, end)
@@ -277,7 +274,7 @@ class TestHierarchicalClustering(unittest.TestCase):
         )
 
         heights = np.array([0.5, 1, 2, 0])
-        merges = np.array([[0, 1], [2, 4], [3, 5]])
+        merges = np.array([[0, 1], [2, 0], [3, 0]])
         merges_heights = np.array([2, 4, 6])
         end = 10
         hc = _HierarchicalClustering(heights, merges, merges_heights, 0, end)

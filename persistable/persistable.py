@@ -706,17 +706,25 @@ class _MetricProbabilitySpace:
     def rank_invariant(self, ks, ss, n_jobs):
         n_s = len(ss)
         n_k = len(ks)
+        ks = np.array(ks)[::-1]
         startends_horizontal = [ [[ss[0], k], [ss[-1], k]] for k in ks ]
-        startends_vertical = [ [[s, ks[-1]], [s, ks[0]]] for s in ss ]
+        startends_vertical = [ [[s, ks[0]], [s, ks[-1]]] for s in ss ]
         startends = startends_horizontal + startends_vertical
         hcs = self._lambda_linkage_parallel(startends, n_jobs=n_jobs)
         hcs_horizontal = hcs[:n_k]
+        i = 0
         for hc in hcs_horizontal:
+            print("snapping horizontal slice at ", ks[i], "births before snapping ", hc._heights)
+            i+=1
             hc.snap_to_grid(ss)
+            print("births after snapping to ", ss, " are: ", hc._heights)
         hcs_vertical = hcs[n_k:]
-        ks = np.array(ks)
+        i = 0
         for hc in hcs_vertical:
-            hc.snap_to_grid(ks[-1] - ks)
+            print("snapping vertical slice at ", ss[i], "births before snapping ", hc._heights)
+            i+=1
+            hc.snap_to_grid(ks[0] - ks[::-1])
+            print("births after snapping to ", ks[0] - ks[::-1], " are: ", hc._heights)
 
         def _splice_hcs(s_index,k_index):
             # the horizontal hierarchical clustering
@@ -748,7 +756,7 @@ class _MetricProbabilitySpace:
             print("ver merges heights ", ver_merges_heights)
 
             ver_start = s_index
-            ver_end = s_index + ver_hc._end - k_index
+            ver_end = s_index + ver_hc._end - k_index + 1
 
             heights = np.minimum(hor_heights,ver_heights)
             merges = np.concatenate((hor_merges,ver_merges))
@@ -778,33 +786,27 @@ class _MetricProbabilitySpace:
                         print("enter bar 2")
                         for i in range(b,s_index+1):
                             print("enter bar 3")
-                            for j in range(s_index,d):
+                            #for j in range(s_index,min(d,s_index + n_k - k_index)):
+                            for j in range(s_index,min(d,s_index + n_k - k_index)):
                                 print("enter bar 4")
+                                print("i ", i, "k_index", k_index, "s_index", s_index, "last", j-s_index+k_index)
                                 ri[i, k_index, s_index, j-s_index+k_index] += 1
 
-
-                ##print(i,j,pd)
-                #if pd.shape[0] > 0:
-                #    for i_ in range(i+1):
-                #        for j_ in range(j,n_k):
-                #            bars_passing = (pd[:,0] <= ss[i_]) & (pd[:,1] >= ss[i] + (ks[-1] - ks[j_]))
-                #            rk = np.count_nonzero(bars_passing)
-                #            ri[i,j,i_,j_] = rk
-        
-        #print(ri[])
-        #0.04, 0.04
-        #0.05, 0.03
-        
         return ri
  
+    ## TODO: use numpy vectorization to speed this up
+    #def kernel_invariant(self, ks, ss, n_jobs):
+    #    ri = self.rank_invariant(ks, ss, n_jobs)
 
-        #for i, pd in enumerate(pds):
-        #    for bar in pd:
-        #        b, d = bar
-        #        start = np.searchsorted(ss[:-1], b)
-        #        end = np.searchsorted(ss[:-1], d)
-        #        hf[i, start:end] += 1
-        #return hf
+    #    ki = np.zeros(ri.shape, dtype=int)
+    #    for i in range(ri.shape[0]):
+    #        for i_ in range(i,ri.shape[0]):
+    #            for j in range(ri.shape[1]):
+    #                for j_ in range(j,ri.shape[1]):
+    #                    ki[i,j,i_,j_] = ri[i,j,i,j] - ri[i,j,i_,j_]
+
+    #    return ki
+
 
     def hilbert_function(self, ks, ss, n_jobs):
         n_s = len(ss)
@@ -1026,21 +1028,20 @@ class _HierarchicalClustering:
             current_cluster += 1
         return res
 
-
     def persistence_diagram(self, tol=_TOL):
         end = self._end
         heights = self._heights
-        merges = self._merges.copy()
-        merges_copy = merges.copy()
-        # TODO: use the fast union find directly here, instead of relabeling
-        label(merges, heights.shape[0], merges.shape[0])
+        merges = self._merges
         merges_heights = self._merges_heights
         n_points = heights.shape[0]
         n_merges = merges.shape[0]
         # this orders the point by appearance
         appearances = np.argsort(heights)
-        # contains representative points for the clusters that are alive
-        cluster_reps = np.full(heights.shape[0] + merges.shape[0], -1)
+        # contains the current clusters
+        uf = DisjointSet()
+        # contains the birth time of clusters that are alive
+        clusters_birth = {}
+        clusters_died = {}
         # contains the persistence diagram
         pd = []
         # height index
@@ -1057,8 +1058,8 @@ class _HierarchicalClustering:
                 and heights[appearances[hind]] < end
             ):
                 # add all points that are born as new clusters
-                cluster_reps[appearances[hind]] = appearances[hind]
-                print("is born: ", appearances[hind], " at ", current_appearence_height)
+                uf.add(appearances[hind])
+                clusters_birth[appearances[hind]] = heights[appearances[hind]]
                 hind += 1
                 if hind == n_points:
                     current_appearence_height = end
@@ -1070,22 +1071,38 @@ class _HierarchicalClustering:
                 and merges_heights[mind] < current_appearence_height
                 and merges_heights[mind] < end
             ):
-                print("merging height: ", merges_heights[mind])
                 xy = merges[mind]
-                print("is merged: ", merges_copy[mind])
                 x, y = xy
-                rx = cluster_reps[x]
-                ry = cluster_reps[y]
-                bx = heights[rx]
-                by = heights[ry]
-                # assume x was born before y
-                if bx > by:
-                    x, y = y, x
-                    bx, by = by, bx
-                    rx, ry = ry, rx
-                pd.append([by, merges_heights[mind]])
-                cluster_reps[mind + n_points] = rx
-                cluster_reps[ry] = -1
+                rx = uf.__getitem__(x)
+                ry = uf.__getitem__(y)
+                # if they were not already merged
+                if rx != ry:
+                    # if both clusters are alive, merge them and add a bar to the pd
+                    if rx not in clusters_died and ry not in clusters_died:
+                        bx = clusters_birth[rx]
+                        by = clusters_birth[ry]
+                        elder_birth, younger_birth = min(bx, by), max(bx, by)
+                        pd.append([younger_birth, merges_heights[mind]])
+                        del clusters_birth[rx]
+                        del clusters_birth[ry]
+                        uf.merge(x, y)
+                        rxy = uf.__getitem__(x)
+                        clusters_birth[rxy] = elder_birth
+                    # if both clusters are already dead, just merge them into a dead cluster
+                    elif rx in clusters_died and ry in clusters_died:
+                        uf.merge(x, y)
+                        rxy = uf.__getitem__(x)
+                        clusters_died[rxy] = True
+                    # if only one of them is dead
+                    else:
+                        # we make it so that ry already died and rx just died
+                        if rx in clusters_died:
+                            x, y = y, x
+                            rx, ry = ry, rx
+                        # merge the clusters into a dead cluster
+                        uf.merge(x, y)
+                        rxy = uf.__getitem__(x)
+                        clusters_died[rxy] = True
                 mind += 1
                 if mind == n_merges:
                     current_merge_height = end
@@ -1095,15 +1112,106 @@ class _HierarchicalClustering:
                 mind == n_merges or merges_heights[mind] >= end
             ):
                 break
-        # go through all clusters that are still alive
-        for i in range(heights.shape[0]):
-            if cluster_reps[i] == i:
-                pd.append([heights[i], end])
+        # go through all clusters that have been born but haven't died 
+        for x in range(n_points):
+            if x in uf._indices:
+                rx = uf.__getitem__(x)
+                if rx not in clusters_died:
+                    pd.append([clusters_birth[rx], end])
+                    clusters_died[rx] = True
         pd = np.array(pd)
         if pd.shape[0] == 0:
             return np.array([])
         else:
             return pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]
+
+
+
+#    def persistence_diagram(self, tol=_TOL):
+#        end = self._end
+#        heights = self._heights
+#        merges = self._merges.copy()
+#        merges_copy = merges.copy()
+#        print("A")
+#        # TODO: use the fast union find directly here, instead of relabeling
+#        label(merges, heights.shape[0], merges.shape[0])
+#        print("B")
+#        merges_heights = self._merges_heights
+#        n_points = heights.shape[0]
+#        n_merges = merges.shape[0]
+#        # this orders the point by appearance
+#        appearances = np.argsort(heights)
+#        # contains representative points for the clusters that are alive
+#        cluster_reps = np.full(heights.shape[0] + merges.shape[0], -1)
+#        # contains the persistence diagram
+#        pd = []
+#        # height index
+#        hind = 0
+#        # merge index
+#        mind = 0
+#        current_appearence_height = heights[appearances[0]]
+#        current_merge_height = merges_heights[0]
+#        print("C")
+#        while True:
+#            # while there is no merge
+#            while (
+#                hind < n_points
+#                and heights[appearances[hind]] <= current_merge_height
+#                and heights[appearances[hind]] < end
+#            ):
+#                # add all points that are born as new clusters
+#                cluster_reps[appearances[hind]] = appearances[hind]
+#                print("is born: ", appearances[hind], " at ", current_appearence_height)
+#                hind += 1
+#                if hind == n_points:
+#                    current_appearence_height = end
+#                else:
+#                    current_appearence_height = heights[appearances[hind]]
+#            # while there is no cluster being born
+#            while (
+#                mind < n_merges
+#                and merges_heights[mind] < current_appearence_height
+#                and merges_heights[mind] < end
+#            ):
+#                print("merging height: ", merges_heights[mind])
+#                xy = merges[mind]
+#                print("is merged: ", merges_copy[mind])
+#                x, y = xy
+#                rx = cluster_reps[x]
+#                ry = cluster_reps[y]
+#                # in case the stepwise dendrogram merges the same clusters more than once
+#                #if rx == ry:
+#                if rx == -1 or ry == -1:
+#                    mind += 1
+#                    continue
+#                bx = heights[rx]
+#                by = heights[ry]
+#                # assume x was born before y
+#                if bx > by:
+#                    x, y = y, x
+#                    bx, by = by, bx
+#                    rx, ry = ry, rx
+#                pd.append([by, merges_heights[mind]])
+#                cluster_reps[mind + n_points] = rx
+#                cluster_reps[ry] = -1
+#                mind += 1
+#                if mind == n_merges:
+#                    current_merge_height = end
+#                else:
+#                    current_merge_height = merges_heights[mind]
+#            if (hind == n_points or heights[appearances[hind]] >= end) and (
+#                mind == n_merges or merges_heights[mind] >= end
+#            ):
+#                break
+#        # go through all clusters that are still alive
+#        for i in range(heights.shape[0]):
+#            if cluster_reps[i] == i:
+#                pd.append([heights[i], end])
+#        pd = np.array(pd)
+#        if pd.shape[0] == 0:
+#            return np.array([])
+#        else:
+#            return pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]
 
 
 
