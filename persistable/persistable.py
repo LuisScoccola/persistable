@@ -723,8 +723,8 @@ class _MetricProbabilitySpace:
         for hc in hcs_vertical:
             print("snapping vertical slice at ", ss[i], "births before snapping ", hc._heights)
             i+=1
-            hc.snap_to_grid(ks[0] - ks[::-1])
-            print("births after snapping to ", ks[0] - ks[::-1], " are: ", hc._heights)
+            hc.snap_to_grid(ks[0] - ks)
+            print("births after snapping to ", ks[0] - ks, " are: ", hc._heights)
 
         def _splice_hcs(s_index,k_index):
             # the horizontal hierarchical clustering

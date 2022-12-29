@@ -189,7 +189,6 @@ class TestMetricProbabilitySpace(unittest.TestCase):
             ]
         )
 
-
         np.testing.assert_almost_equal(res, hc._merges_heights)
 
         dist_mat = distance_matrix(X, X)
@@ -231,14 +230,28 @@ class TestMetricProbabilitySpace(unittest.TestCase):
             ]
         )
         p = Persistable(X, debug=True)
+
         ks = [0.3, 0.4]
         ss = [1.3, 1.5]
-
-        ri = p._mpspace.rank_invariant(ks, ss, 2)
+        ri = p._mpspace.rank_invariant(ks, ss, 1)
         np.testing.assert_almost_equal(
             ri,
-            [[[[2, 2], [2, 2]], [[0, 2], [0, 2]]],
-             [[[0, 0], [2, 2]], [[0, 0], [0, 2]]]])
+            [
+                [[[2, 2], [2, 2]], [[0, 2], [0, 2]]],
+                [[[0, 0], [2, 2]], [[0, 0], [0, 2]]],
+            ],
+        )
+
+        ks = [0.2, 0.3]
+        ss = [1.5, 2.5]
+        ri = p._mpspace.rank_invariant(ks, ss, 1)
+        np.testing.assert_almost_equal(
+            ri,
+            [
+                [[[2, 1], [1, 1]], [[0, 1], [0, 1]]],
+                [[[0, 0], [1, 1]], [[0, 0], [0, 1]]],
+            ],
+        )
 
 
 class TestHierarchicalClustering(unittest.TestCase):
