@@ -253,6 +253,19 @@ class TestMetricProbabilitySpace(unittest.TestCase):
             ],
         )
 
+        ks = [0.2, 0.3, 0.4]
+        ss = [1.3, 1.5, 2.5]
+        ri = p._mpspace.rank_invariant(ks, ss, 1)
+        res = np.zeros((3, 3, 3, 3))
+        for i in range(3):
+            for j in range(3):
+                for i_ in range(i, 3):
+                    for j_ in range(j, 3):
+                        res[i, j, i_, j_] = (
+                            2 if i < 2 and j < 2 and i_ < 2 and j_ < 2 else 1
+                        )
+        np.testing.assert_almost_equal(ri, res)
+
 
 class TestHierarchicalClustering(unittest.TestCase):
     def clustering_matrix(self, c):
