@@ -108,6 +108,7 @@ N_INTERVALS = "n_intervals"
 IN = "input"
 ST = "state"
 
+
 def empty_figure():
     fig = go.Figure(
         layout=go.Layout(
@@ -1056,7 +1057,7 @@ class PersistableInteractive:
             )
 
             fig.add_trace(
-               go.Heatmap(
+                go.Heatmap(
                     transpose=True,
                     z=ccf,
                     x=x_ticks,
@@ -1066,7 +1067,7 @@ class PersistableInteractive:
                     zmax=max_components,
                     showscale=False,
                     name="",
-               )
+                )
             )
 
             fig.update_traces(colorscale="greys")
@@ -1114,53 +1115,138 @@ class PersistableInteractive:
 
             x_ticks = json.loads(d[STORED_X_TICKS + DATA])
             y_ticks = json.loads(d[STORED_Y_TICKS + DATA])
+            delta_x = (x_ticks[1] - x_ticks[0]) / 2
+            delta_y = (y_ticks[1] - y_ticks[0]) / 2
+
+            max_components = d[INPUT_MAX_COMPONENTS + VALUE]
 
             if False:
                 # need to reset the limits
                 fig.update_yaxes(autorange="reversed")
 
+            def _rgba(color,opacity):
+                if color == "red":
+                    red, green, blue = "255", "0", "0"
+                if color == "green":
+                    red, green, blue = "0", "255", "0"
+                if color == "blue":
+                    red, green, blue = "0", "0", "255"
+                return "rgba(" + red + "," + green + "," + blue + "," + str(opacity) + ")"
+
+            def _draw_bar(xs, ys, color, width=6):
+                return go.Scatter(
+                    x=xs,
+                    y=ys,
+                    marker=dict(color=color),
+                    hoverinfo="skip",
+                    showlegend=False,
+                    mode="lines",
+                    line=dict(width=width),
+                )
+
+            # draw signed barcode
+            if True:
+                sb = np.array(json.loads(d[STORED_SIGNED_BARCODE + DATA]))
+                lx = len(x_ticks)
+                ly = len(y_ticks)
+                traces = []
+                total_width = np.sqrt(lx**2 + ly**2)
+                for i in range(lx):
+                    for j in range(ly):
+                        for i_ in range(i, lx):
+                            for j_ in range(j, ly):
+                                x_coords = np.array(
+                                    [x_ticks[i] - delta_x, x_ticks[i_] - delta_x]
+                                )
+                                y_coords = np.array(
+                                    [y_ticks[j] - delta_y, y_ticks[j_] - delta_y]
+                                )
+                                width = 10 * (
+                                    np.sqrt((i_ - i + 1) ** 2 + (j_ - j + 1) ** 2)
+                                    / total_width
+                                )
+                                min_opacity = 0.3
+                                opacity = min_opacity + (
+                                    np.minimum(np.abs(sb[i, j, i_, j_]), max_components)
+                                    / max_components
+                                ) * (1 - min_opacity)
+                                if sb[i, j, i_, j_] < 0:
+                                    #print(i,j,i_,j_,sb[i, j, i_, j_])
+                                    color = _rgba("red", opacity)
+                                    traces.append(
+                                        _draw_bar(
+                                            x_coords, y_coords, color, width
+                                        )
+                                    )
+                                if sb[i, j, i_, j_] > 0:
+                                    #print(i,j,i_,j_,sb[i, j, i_, j_])
+                                    color = _rgba("blue", opacity)
+                                    traces.append(
+                                        _draw_bar(
+                                            x_coords, y_coords, color, width
+                                        )
+                                    )
+                fig.add_traces(traces)
+
+            # draw Betti numbers
             if d[INPUT_SIGNED_BETTI_NUMBERS + VALUE] == "On":
-                max_components = d[INPUT_MAX_COMPONENTS + VALUE]
 
                 bn = np.array(json.loads(d[STORED_BETTI + DATA]))
                 xs = x_ticks
                 ys = y_ticks
-                delta_x = (xs[1] - xs[0])/2
-                delta_y = (ys[1] - ys[0])/2
-                positive_bn = np.array([ [xs[i]-delta_x,ys[j]-delta_y,bn[i,j]] for i in range(len(xs)) for j in range(len(ys)) if bn[i,j] > 0 ])
-                negative_bn = np.array([ [xs[i]-delta_x,ys[j]-delta_y,-bn[i,j]] for i in range(len(xs)) for j in range(len(ys)) if bn[i,j] < 0 ])
+
+                positive_bn = np.array(
+                    [
+                        [xs[i] - delta_x, ys[j] - delta_y, bn[i, j]]
+                        for i in range(len(xs))
+                        for j in range(len(ys))
+                        if bn[i, j] > 0
+                    ]
+                )
+                negative_bn = np.array(
+                    [
+                        [xs[i] - delta_x, ys[j] - delta_y, -bn[i, j]]
+                        for i in range(len(xs))
+                        for j in range(len(ys))
+                        if bn[i, j] < 0
+                    ]
+                )
                 marker_size = 5
                 min_opacity = 0.3
-                positive_opacity = min_opacity + ((np.minimum(positive_bn[:,2],max_components))/max_components) * (1-min_opacity)
-                negative_opacity = min_opacity + ((np.minimum(negative_bn[:,2],max_components))/max_components) * (1-min_opacity)
+                positive_opacity = min_opacity + (
+                    (np.minimum(positive_bn[:, 2], max_components)) / max_components
+                ) * (1 - min_opacity)
+                negative_opacity = min_opacity + (
+                    (np.minimum(negative_bn[:, 2], max_components)) / max_components
+                ) * (1 - min_opacity)
 
                 # draw positive
                 fig.add_trace(
                     go.Scatter(
-                        x=positive_bn[:,0],
-                        y=positive_bn[:,1],
+                        x=positive_bn[:, 0],
+                        y=positive_bn[:, 1],
                         name="",
-                        marker=dict(color="green", size=marker_size, opacity=positive_opacity),
+                        marker=dict(
+                            color="blue", size=marker_size, opacity=positive_opacity
+                        ),
                         hoverinfo="skip",
-                        mode="markers"
+                        mode="markers",
                     )
                 )
                 # draw negative
                 fig.add_trace(
                     go.Scatter(
-                        x=negative_bn[:,0],
-                        y=negative_bn[:,1],
+                        x=negative_bn[:, 0],
+                        y=negative_bn[:, 1],
                         name="",
-                        marker=dict(color="red", size=marker_size, opacity=negative_opacity),
-                        #color="green",
+                        marker=dict(
+                            color="red", size=marker_size, opacity=negative_opacity
+                        ),
+                        # color="green",
                         hoverinfo="skip",
-                        mode="markers"
+                        mode="markers",
                     )
                 )
-
-            if True:
-                print("A")
-
 
             def generate_line(
                 xs, ys, text, color="mediumslateblue", different_marker=None
@@ -1248,17 +1334,6 @@ class PersistableInteractive:
                 pd = json.loads(d[STORED_PD + DATA])
                 if len(pd) != 0:
 
-                    def generate_bar(xs, ys, color):
-                        return go.Scatter(
-                            x=xs,
-                            y=ys,
-                            marker=dict(color=color),
-                            hoverinfo="skip",
-                            showlegend=False,
-                            mode="lines",
-                            line=dict(width=6),
-                        )
-
                     st_x = params["start"][0]
                     st_y = params["start"][1]
                     end_x = params["end"][0]
@@ -1311,9 +1386,7 @@ class PersistableInteractive:
                             else "rgba(34, 139, 34, 0.3)"
                         )
                         fig.add_trace(
-                            generate_bar(
-                                [r_st[0], r_end[0]], [r_st[1], r_end[1]], color
-                            )
+                            _draw_bar([r_st[0], r_end[0]], [r_st[1], r_end[1]], color)
                         )
                 fig.add_trace(
                     generate_line(
@@ -1324,16 +1397,12 @@ class PersistableInteractive:
                     )
                 )
 
+            Y_COVARIANT = True
+            yaxis = [y_ticks[0], y_ticks[-1]] if Y_COVARIANT else [y_ticks[-1], y_ticks[0]]
+ 
             fig.update_layout(
-                xaxis=dict(
-                    range=[d[MIN_DIST_SCALE + VALUE], d[MAX_DIST_SCALE + VALUE]]
-                ),
-                yaxis=dict(
-                    range=[
-                        d[MIN_DENSITY_THRESHOLD + VALUE],
-                        d[MAX_DENSITY_THRESHOLD + VALUE],
-                    ]
-                ),
+                xaxis=dict(range=[x_ticks[0], x_ticks[-1]]),
+                yaxis=dict(range=yaxis),
             )
 
             d[CCF_PLOT + FIGURE] = fig

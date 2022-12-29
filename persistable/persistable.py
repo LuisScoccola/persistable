@@ -10,7 +10,7 @@ from .borrowed.prim_mst import mst_linkage_core_vector
 from .borrowed.dense_mst import stepwise_dendrogram_with_core_distances
 from .borrowed.dist_metrics import DistanceMetric
 from .auxiliary import lazy_intersection
-from .signed_betti_numbers import signed_betti
+from .signed_betti_numbers import signed_betti, rank_decomposition_hooks_2d, rank_decomposition_rectangles_2d
 import numpy as np
 import warnings
 from sklearn.neighbors import KDTree, BallTree
@@ -356,7 +356,7 @@ class Persistable:
         ss = np.linspace(min_s, max_s, granularity)
         ks = np.linspace(min_k, max_k, granularity)[::-1]
         ri = self._mpspace.rank_invariant(ss, ks, n_jobs=n_jobs)
-        return ss, ks, ri, np.flip(signed_betti(np.flip(ri,(2,3))),(2,3))
+        return ss, ks, ri, rank_decomposition_hooks_2d(ri)
 
 
 class _MetricProbabilitySpace:
@@ -698,7 +698,7 @@ class _MetricProbabilitySpace:
     def lambda_linkage_vineyard(self, startends, n_jobs, tol=_TOL):
         run_in_parallel = lambda startend: self.lambda_linkage(
             startend[0], startend[1]
-        ).persistence_diagram(tol=tol)
+        ).persistence_diagram(tol=tol, reduced=True)
         if n_jobs == 1:
             return [run_in_parallel(startend) for startend in startends]
         else:
@@ -814,14 +814,14 @@ class _MetricProbabilitySpace:
 
             return _HierarchicalClustering(heights, merges, merges_heights, start, end)
 
-        ri = np.zeros((n_s, n_k, n_s, n_k), dtype=int)
+        ri = np.zeros((n_s+1, n_k+1, n_s+1, n_k+1), dtype=int)
         for s_index in range(n_s):
             for k_index in range(n_k):
                 #DEBUG print("--------------------------")
                 #DEBUG print("s and k index ", s_index, k_index)
                 hc = _splice_hcs(s_index,k_index)
                 #DEBUG print("start end of hierarchical clustering ", hc._start, hc._end)
-                pd = hc.persistence_diagram()
+                pd = hc.persistence_diagram(reduced=True)
                 #DEBUG print("persistence diagram ", pd)
                 for bar in pd:
                     b, d = bar
@@ -832,10 +832,10 @@ class _MetricProbabilitySpace:
                         for i in range(b,s_index+1):
                             #DEBUG print("enter bar 3")
                             #for j in range(s_index,min(d,s_index + n_k - k_index)):
-                            for j in range(s_index,min(d,s_index + n_k - k_index)):
+                            for j in range(s_index,d):
                                 #DEBUG print("enter bar 4")
                                 #DEBUG print("i ", i, "k_index", k_index, "s_index", s_index, "last", j-s_index+k_index)
-                                ri[i, k_index, s_index, j-s_index+k_index] += 1
+                                ri[i, k_index, s_index+1, j-s_index+k_index+1] += 1
 
         return ri
 
@@ -1025,7 +1025,7 @@ class _HierarchicalClustering:
             current_cluster += 1
         return res
 
-    def persistence_diagram(self, tol=_TOL):
+    def persistence_diagram(self, reduced=False, tol=_TOL):
         end = self._end
         heights = self._heights
         merges = self._merges
@@ -1125,4 +1125,8 @@ class _HierarchicalClustering:
         if pd.shape[0] == 0:
             return np.array([])
         else:
-            return pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]
+            pd = pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]
+            if reduced:
+                to_delete = np.argmax(pd[:,1] - pd[:,0])
+                return np.delete(pd,to_delete, axis=0)
+            return pd
