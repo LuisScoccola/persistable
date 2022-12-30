@@ -233,7 +233,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
 
         ks = [0.4, 0.3]
         ss = [1.3, 1.5]
-        ri = p._mpspace.rank_invariant(ss, ks, 1)
+        ri = p._mpspace.rank_invariant(ss, ks, 1, reduced=False)
         np.testing.assert_almost_equal(
             ri,
             [
@@ -244,7 +244,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
 
         ks = [0.3, 0.2]
         ss = [1.5, 2.5]
-        ri = p._mpspace.rank_invariant(ss, ks, 1)
+        ri = p._mpspace.rank_invariant(ss, ks, 1, reduced=False)
         np.testing.assert_almost_equal(
             ri,
             [
@@ -255,7 +255,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
 
         ks = [0.4, 0.3, 0.2]
         ss = [1.3, 1.5, 2.5]
-        ri = p._mpspace.rank_invariant(ss, ks, 1)
+        ri = p._mpspace.rank_invariant(ss, ks, 1, reduced=False)
         res = np.zeros((3, 3, 3, 3))
         for i in range(3):
             for j in range(3):

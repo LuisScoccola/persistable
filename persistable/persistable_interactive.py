@@ -1138,63 +1138,83 @@ class PersistableInteractive:
                     red, green, blue = "0", "0", "255"
                 return "rgba(" + red + "," + green + "," + blue + "," + str(opacity) + ")"
 
-            def _draw_bar(xs, ys, color, width=6):
+            def _draw_bar(xs, ys, color, width=6, endpoints=False):
+                mode = "markers+lines" if endpoints else "lines"
                 return go.Scatter(
                     x=xs,
                     y=ys,
-                    marker=dict(color=color),
+                    marker=dict(color=color, symbol="diamond", size=5),
                     hoverinfo="skip",
                     showlegend=False,
-                    mode="lines",
+                    mode=mode,
                     line=dict(width=width),
                 )
 
             # draw signed barcode
             if True:
                 USE_RECTANGLES = True
-                if USE_RECTANGLES:
+                using_rectangles = USE_RECTANGLES
+                if using_rectangles:
                     sb = np.array(json.loads(d[STORED_SIGNED_BARCODE_RECTANGLES + DATA]))
                 else:
                     sb = np.array(json.loads(d[STORED_SIGNED_BARCODE_HOOKS + DATA]))
                 lx = len(x_ticks)
                 ly = len(y_ticks)
                 traces = []
-                total_width = np.sqrt(lx**2 + ly**2)
+                if using_rectangles:
+                    total_width = min(lx,ly)
+                else:
+                    total_width = np.sqrt(lx**2 + ly**2)
                 for i in range(lx):
                     for j in range(ly):
                         for i_ in range(i, lx):
                             for j_ in range(j, ly):
-                                x_coords = np.array(
-                                    [x_ticks[i] - delta_x, x_ticks[i_] - delta_x]
-                                )
-                                y_coords = np.array(
-                                    [y_ticks[j] - delta_y, y_ticks[j_] - delta_y]
-                                )
-                                width = 10 * (
-                                    np.sqrt((i_ - i + 1) ** 2 + (j_ - j + 1) ** 2)
-                                    / total_width
-                                )
-                                min_opacity = 0.3
-                                opacity = min_opacity + (
-                                    np.minimum(np.abs(sb[i, j, i_, j_]), max_components)
-                                    / max_components
-                                ) * (1 - min_opacity)
-                                if sb[i, j, i_, j_] < 0:
-                                    #print(i,j,i_,j_,sb[i, j, i_, j_])
-                                    color = _rgba("red", opacity)
-                                    traces.append(
-                                        _draw_bar(
-                                            x_coords, y_coords, color, width
-                                        )
+                                mult = sb[i, j, i_, j_]
+                                if mult != 0:
+                                    #if using_rectangles:
+                                    #    i_ += 1
+                                    #    j_ += 1
+                                    #else:
+                                    #    if i_ == i and j_ == j:
+                                    #        i_ += 1
+                                    #        j_ += 1
+                                    #    if i_ > i and j_ == j:
+                                    #        i_ += 1
+                                    #        j_ += 1
+                                    x_coords = np.array(
+                                        [x_ticks[i] - delta_x, x_ticks[i_] - delta_x]
                                     )
-                                if sb[i, j, i_, j_] > 0:
-                                    #print(i,j,i_,j_,sb[i, j, i_, j_])
-                                    color = _rgba("blue", opacity)
-                                    traces.append(
-                                        _draw_bar(
-                                            x_coords, y_coords, color, width
-                                        )
+                                    y_coords = np.array(
+                                        [y_ticks[j] - delta_y, y_ticks[j_] - delta_y]
                                     )
+                                    if using_rectangles:
+                                        width = 10 * (
+                                            min((i_ - i + 1),(j_ - j + 1)) / total_width
+                                        )
+                                    else:
+                                        width = 10 * (
+                                            np.sqrt((i_ - i + 1) ** 2 + (j_ - j + 1) ** 2)
+                                            / total_width
+                                        )
+                                    min_opacity = 0.3
+                                    opacity = min_opacity + (
+                                        np.minimum(np.abs(mult), max_components)
+                                        / max_components
+                                    ) * (1 - min_opacity)
+                                    if mult < 0:
+                                        color = _rgba("red", opacity)
+                                        traces.append(
+                                            _draw_bar(
+                                                x_coords, y_coords, color, width, endpoints=True
+                                            )
+                                        )
+                                    if mult > 0:
+                                        color = _rgba("blue", opacity)
+                                        traces.append(
+                                            _draw_bar(
+                                                x_coords, y_coords, color, width, endpoints=True
+                                            )
+                                        )
                 fig.add_traces(traces)
 
             # draw Betti numbers
