@@ -1138,12 +1138,14 @@ class PersistableInteractive:
                     red, green, blue = "0", "0", "255"
                 return "rgba(" + red + "," + green + "," + blue + "," + str(opacity) + ")"
 
-            def _draw_bar(xs, ys, color, width=6, endpoints=False):
+            def _draw_bar(xs, ys, color, width=6, endpoints=False, size=5):
                 mode = "markers+lines" if endpoints else "lines"
+                marker_styles = ["arrow-right", "arrow-left"]
                 return go.Scatter(
                     x=xs,
                     y=ys,
-                    marker=dict(color=color, symbol="diamond", size=5),
+                    marker=dict(color=color, size=size),
+                    marker_symbol=marker_styles,
                     hoverinfo="skip",
                     showlegend=False,
                     mode=mode,
@@ -1151,7 +1153,8 @@ class PersistableInteractive:
                 )
 
             # draw signed barcode
-            if True:
+            drawing_rank_decomposition = True
+            if drawing_rank_decomposition:
                 USE_RECTANGLES = True
                 using_rectangles = USE_RECTANGLES
                 if using_rectangles:
@@ -1187,12 +1190,20 @@ class PersistableInteractive:
                                     y_coords = np.array(
                                         [y_ticks[j] - delta_y, y_ticks[j_] - delta_y]
                                     )
+                                    min_size = 3
                                     if using_rectangles:
                                         width = 10 * (
                                             min((i_ - i + 1),(j_ - j + 1)) / total_width
                                         )
+                                        size = min_size + 5 * (
+                                            min((i_ - i + 1),(j_ - j + 1)) / total_width
+                                        )
                                     else:
                                         width = 10 * (
+                                            np.sqrt((i_ - i + 1) ** 2 + (j_ - j + 1) ** 2)
+                                            / total_width
+                                        )
+                                        size = min_size + 5 * (
                                             np.sqrt((i_ - i + 1) ** 2 + (j_ - j + 1) ** 2)
                                             / total_width
                                         )
@@ -1205,14 +1216,14 @@ class PersistableInteractive:
                                         color = _rgba("red", opacity)
                                         traces.append(
                                             _draw_bar(
-                                                x_coords, y_coords, color, width, endpoints=True
+                                                x_coords, y_coords, color, width, endpoints=True, size=size
                                             )
                                         )
                                     if mult > 0:
                                         color = _rgba("blue", opacity)
                                         traces.append(
                                             _draw_bar(
-                                                x_coords, y_coords, color, width, endpoints=True
+                                                x_coords, y_coords, color, width, endpoints=True, size=size
                                             )
                                         )
                 fig.add_traces(traces)
