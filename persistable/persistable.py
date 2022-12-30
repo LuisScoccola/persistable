@@ -9,8 +9,6 @@ from .borrowed._hdbscan_boruvka import (
 from .borrowed.prim_mst import mst_linkage_core_vector
 from .borrowed.dense_mst import stepwise_dendrogram_with_core_distances
 from .borrowed.dist_metrics import DistanceMetric
-from .borrowed.relabel_dendrogram import LinkageUnionFind
-from .borrowed._hdbscan_boruvka import BoruvkaUnionFind
 from .auxiliary import lazy_intersection
 from .persistence_diagram_h0 import persistence_diagram_h0
 from .signed_betti_numbers import signed_betti, rank_decomposition_2d_rectangles, rank_decomposition_2d_rectangles_to_hooks
