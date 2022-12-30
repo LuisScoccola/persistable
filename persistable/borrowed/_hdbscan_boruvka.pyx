@@ -72,8 +72,6 @@ cimport dist_metrics as dist_metrics
 
 from joblib import Parallel, delayed
 
-from .relabel_dendrogram import label
-
 
 cdef np.double_t INF = np.inf
 
@@ -152,12 +150,6 @@ cdef class BoruvkaUnionFind (object):
         set is the root node, or identifier for
         a component.
     """
-
-    cdef np.ndarray _parent_arr
-    cdef np.intp_t[::1] _parent
-    cdef np.ndarray _rank_arr
-    cdef np.uint8_t[::1] _rank
-    cdef np.ndarray is_component
 
     def __init__(self, size):
         self._parent_arr = np.arange(size, dtype=np.intp)

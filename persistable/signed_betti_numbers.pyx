@@ -1,4 +1,8 @@
-# cython: boundscheck=False, wraparound=False, cdivision=True
+# cython: boundscheck=False
+# cython: nonecheck=False
+# cython: wraparound=False
+# cython: initializedcheck=False
+
 import numpy as np
 import itertools
 

@@ -12,6 +12,7 @@ from .borrowed.dist_metrics import DistanceMetric
 from .borrowed.relabel_dendrogram import LinkageUnionFind
 from .borrowed._hdbscan_boruvka import BoruvkaUnionFind
 from .auxiliary import lazy_intersection
+from .persistence_diagram_h0 import persistence_diagram_h0
 from .signed_betti_numbers import signed_betti, rank_decomposition_hooks_2d, rank_decomposition_rectangles_2d
 import numpy as np
 import warnings
@@ -825,6 +826,7 @@ class _MetricProbabilitySpace:
                 #DEBUG print("persistence diagram ", pd)
                 for bar in pd:
                     b, d = bar
+                    b, d = int(b), int(d)
                     # this if may be unnecessary 
                     #DEBUG print("enter bar")
                     if b <= s_index and d >= s_index:
@@ -884,11 +886,15 @@ class _MetricProbabilitySpace:
 class _HierarchicalClustering:
     def __init__(self, heights, merges, merges_heights, start, end):
         # assumes heights and merges_heights are between start and end
-        self._merges = merges
-        self._merges_heights = merges_heights
-        self._heights = heights
+        self._merges = np.array(merges, dtype=int)
+        self._merges_heights = np.array(merges_heights, dtype=float)
+        self._heights = np.array(heights, dtype=float)
         self._start = start
         self._end = end
+        if self._merges.shape[0] == 0:
+            self._merges = np.array([[0,0]], dtype=int)
+            self._merges_heights = np.array([self._end], dtype=float)
+
 
     def snap_to_grid(self, grid):
         def _snap_array(grid, arr):
@@ -1026,103 +1032,7 @@ class _HierarchicalClustering:
         return res
 
     def persistence_diagram(self, reduced=False, tol=_TOL):
-        end = self._end
-        heights = self._heights
-        merges = self._merges
-        merges_heights = self._merges_heights
-        n_points = heights.shape[0]
-        n_merges = merges.shape[0]
-        # this orders the point by appearance
-        appearances = np.argsort(heights)
-        # contains the current clusters
-        ##uf = DisjointSet()
-        uf = BoruvkaUnionFind(len(heights))
-        # contains the birth time of clusters that are alive
-        clusters_birth = {}
-        clusters_died = {}
-        # contains the persistence diagram
-        pd = []
-        # height index
-        hind = 0
-        # merge index
-        mind = 0
-        if len(appearances) == 0:
-            return np.array([])
-        current_appearence_height = heights[appearances[0]]
-        if len(merges_heights) == 0:
-            current_merge_height = end
-        else:
-            current_merge_height = merges_heights[0]
-        while True:
-            # while there is no merge
-            while (
-                hind < n_points
-                and heights[appearances[hind]] <= current_merge_height
-                and heights[appearances[hind]] < end
-            ):
-                # add all points that are born as new clusters
-                ##uf.add(appearances[hind])
-                ##clusters_birth[appearances[hind]] = heights[appearances[hind]]
-                clusters_birth[uf.find(appearances[hind])] = heights[appearances[hind]]
-                hind += 1
-                if hind == n_points:
-                    current_appearence_height = end
-                else:
-                    current_appearence_height = heights[appearances[hind]]
-            # while there is no cluster being born
-            while (
-                mind < n_merges
-                and merges_heights[mind] < current_appearence_height
-                and merges_heights[mind] < end
-            ):
-                xy = merges[mind]
-                x, y = xy
-                rx = uf.find(x)
-                ry = uf.find(y)
-                # if they were not already merged
-                if rx != ry:
-                    # if both clusters are alive, merge them and add a bar to the pd
-                    if rx not in clusters_died and ry not in clusters_died:
-                        bx = clusters_birth[rx]
-                        by = clusters_birth[ry]
-                        elder_birth, younger_birth = min(bx, by), max(bx, by)
-                        pd.append([younger_birth, merges_heights[mind]])
-                        del clusters_birth[rx]
-                        del clusters_birth[ry]
-                        uf.union_(x, y)
-                        rxy = uf.find(x)
-                        clusters_birth[rxy] = elder_birth
-                    # if both clusters are already dead, just merge them into a dead cluster
-                    elif rx in clusters_died and ry in clusters_died:
-                        uf.union_(x, y)
-                        rxy = uf.find(x)
-                        clusters_died[rxy] = True
-                    # if only one of them is dead
-                    else:
-                        # we make it so that ry already died and rx just died
-                        if rx in clusters_died:
-                            x, y = y, x
-                            rx, ry = ry, rx
-                        # merge the clusters into a dead cluster
-                        uf.union_(x, y)
-                        rxy = uf.find(x)
-                        clusters_died[rxy] = True
-                mind += 1
-                if mind == n_merges:
-                    current_merge_height = end
-                else:
-                    current_merge_height = merges_heights[mind]
-            if (hind == n_points or heights[appearances[hind]] >= end) and (
-                mind == n_merges or merges_heights[mind] >= end
-            ):
-                break
-        # go through all clusters that have been born but haven't died 
-        for x in range(n_points):
-            ##if x in uf._indices:
-            rx = uf.find(x)
-            if (rx in clusters_birth) and (rx not in clusters_died):
-                pd.append([clusters_birth[rx], end])
-                clusters_died[rx] = True
+        pd = persistence_diagram_h0(self._end, self._heights, self._merges, self._merges_heights)
         pd = np.array(pd)
         if pd.shape[0] == 0:
             return np.array([])
@@ -1132,3 +1042,110 @@ class _HierarchicalClustering:
                 to_delete = np.argmax(pd[:,1] - pd[:,0])
                 return np.delete(pd,to_delete, axis=0)
             return pd
+
+#        end = self._end
+#        heights = self._heights
+#        merges = self._merges
+#        merges_heights = self._merges_heights
+#        n_points = heights.shape[0]
+#        n_merges = merges.shape[0]
+#        # this orders the point by appearance
+#        appearances = np.argsort(heights)
+#        # contains the current clusters
+#        ##uf = DisjointSet()
+#        uf = BoruvkaUnionFind(len(heights))
+#        # contains the birth time of clusters that are alive
+#        clusters_birth = {}
+#        clusters_died = {}
+#        # contains the persistence diagram
+#        pd = []
+#        # height index
+#        hind = 0
+#        # merge index
+#        mind = 0
+#        if len(appearances) == 0:
+#            return np.array([])
+#        current_appearence_height = heights[appearances[0]]
+#        if len(merges_heights) == 0:
+#            current_merge_height = end
+#        else:
+#            current_merge_height = merges_heights[0]
+#        while True:
+#            # while there is no merge
+#            while (
+#                hind < n_points
+#                and heights[appearances[hind]] <= current_merge_height
+#                and heights[appearances[hind]] < end
+#            ):
+#                # add all points that are born as new clusters
+#                ##uf.add(appearances[hind])
+#                ##clusters_birth[appearances[hind]] = heights[appearances[hind]]
+#                clusters_birth[uf.find(appearances[hind])] = heights[appearances[hind]]
+#                hind += 1
+#                if hind == n_points:
+#                    current_appearence_height = end
+#                else:
+#                    current_appearence_height = heights[appearances[hind]]
+#            # while there is no cluster being born
+#            while (
+#                mind < n_merges
+#                and merges_heights[mind] < current_appearence_height
+#                and merges_heights[mind] < end
+#            ):
+#                xy = merges[mind]
+#                x, y = xy
+#                rx = uf.find(x)
+#                ry = uf.find(y)
+#                # if they were not already merged
+#                if rx != ry:
+#                    # if both clusters are alive, merge them and add a bar to the pd
+#                    if rx not in clusters_died and ry not in clusters_died:
+#                        bx = clusters_birth[rx]
+#                        by = clusters_birth[ry]
+#                        elder_birth, younger_birth = min(bx, by), max(bx, by)
+#                        pd.append([younger_birth, merges_heights[mind]])
+#                        del clusters_birth[rx]
+#                        del clusters_birth[ry]
+#                        uf.union_(x, y)
+#                        rxy = uf.find(x)
+#                        clusters_birth[rxy] = elder_birth
+#                    # if both clusters are already dead, just merge them into a dead cluster
+#                    elif rx in clusters_died and ry in clusters_died:
+#                        uf.union_(x, y)
+#                        rxy = uf.find(x)
+#                        clusters_died[rxy] = True
+#                    # if only one of them is dead
+#                    else:
+#                        # we make it so that ry already died and rx just died
+#                        if rx in clusters_died:
+#                            x, y = y, x
+#                            rx, ry = ry, rx
+#                        # merge the clusters into a dead cluster
+#                        uf.union_(x, y)
+#                        rxy = uf.find(x)
+#                        clusters_died[rxy] = True
+#                mind += 1
+#                if mind == n_merges:
+#                    current_merge_height = end
+#                else:
+#                    current_merge_height = merges_heights[mind]
+#            if (hind == n_points or heights[appearances[hind]] >= end) and (
+#                mind == n_merges or merges_heights[mind] >= end
+#            ):
+#                break
+#        # go through all clusters that have been born but haven't died 
+#        for x in range(n_points):
+#            ##if x in uf._indices:
+#            rx = uf.find(x)
+#            if (rx in clusters_birth) and (rx not in clusters_died):
+#                pd.append([clusters_birth[rx], end])
+#                clusters_died[rx] = True
+#        pd = np.array(pd)
+#        if pd.shape[0] == 0:
+#            return np.array([])
+#        else:
+#            pd = pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]
+#            if reduced:
+#                to_delete = np.argmax(pd[:,1] - pd[:,0])
+#                return np.delete(pd,to_delete, axis=0)
+#            return pd
