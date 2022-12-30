@@ -1473,6 +1473,14 @@ class PersistableInteractive:
                         n_jobs=num_jobs,
                     )
 
+                    print("parameters",
+                        d[MIN_DIST_SCALE + VALUE],
+                        d[MAX_DIST_SCALE + VALUE],
+                        d[MAX_DENSITY_THRESHOLD + VALUE],
+                        d[MIN_DENSITY_THRESHOLD + VALUE],
+                        granularity
+                    )
+
                 except ValueError:
                     out += traceback.format_exc()
                     d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
@@ -1500,6 +1508,72 @@ class PersistableInteractive:
                 print("Compute ccf in background finished.")
 
             return d
+
+        #@dash_callback(
+        #    [
+        #        [COMPUTE_RANK_INVARIANT_BUTTON, N_CLICKS, IN],
+        #        [MIN_DENSITY_THRESHOLD, VALUE, ST],
+        #        [MAX_DENSITY_THRESHOLD, VALUE, ST],
+        #        [MIN_DIST_SCALE, VALUE, ST],
+        #        [MAX_DIST_SCALE, VALUE, ST],
+        #        [INPUT_GRANULARITY_RANK_INVARIANT, VALUE, ST],
+        #        [INPUT_NUM_JOBS_CCF, VALUE, ST],
+        #    ],
+        #    [
+        #        [STORED_X_TICKS, DATA],
+        #        [STORED_Y_TICKS, DATA],
+        #        [STORED_RANK_INVARIANT_COMPUTATION_WARNINGS, DATA],
+        #        [STORED_SIGNED_BARCODE, DATA],
+        #    ],
+        #    prevent_initial_call=True,
+        #    background=True,
+        #    running=[
+        #        [COMPUTE_RANK_INVARIANT_BUTTON, DISABLED, True, False],
+        #        [STOP_COMPUTE_RANK_INVARIANT_BUTTON, DISABLED, False, True],
+        #    ],
+        #    cancel=[[STOP_COMPUTE_RANK_INVARIANT_BUTTON, N_CLICKS]],
+        #)
+        #def compute_rank_invariant(d):
+        #    if debug:
+        #        print("Compute rank invariant in background started.")
+
+        #    granularity = d[INPUT_GRANULARITY_CCF + VALUE]
+        #    num_jobs = int(d[INPUT_NUM_JOBS_CCF + VALUE])
+
+        #    out = ""
+        #    with warnings.catch_warnings(record=True) as w:
+        #        warnings.simplefilter("always")
+        #        try:
+        #            ss, ks, ri, sb = persistable._compute_rank_invariant(
+        #                d[MIN_DIST_SCALE + VALUE],
+        #                d[MAX_DIST_SCALE + VALUE],
+        #                d[MAX_DENSITY_THRESHOLD + VALUE],
+        #                d[MIN_DENSITY_THRESHOLD + VALUE],
+        #                granularity,
+        #                n_jobs=num_jobs,
+        #            )
+
+        #        except ValueError:
+        #            out += traceback.format_exc()
+        #            d[STORED_RANK_INVARIANT_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
+        #            d[STORED_RANK_INVARIANT + DATA] = None
+        #            return d
+
+        #    for a in w:
+        #        out += warnings.formatwarning(
+        #            a.message, a.category, a.filename, a.lineno
+        #        )
+
+        #    d[STORED_SIGNED_BARCODE + DATA] = json.dumps(sb.tolist())
+
+        #    d[STORED_RANK_INVARIANT_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
+
+        #    if debug:
+        #        print("Compute rank invariant in background finished.")
+
+        #    return d
+
+
 
         @dash_callback(
             [

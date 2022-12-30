@@ -24,7 +24,7 @@ cdef class LinkageUnionFind:
         self.next_label = num_points
         self.size = np.ones(n, dtype=np.intc)
 
-    cdef int merge(self, int x, int y):
+    def merge(self, int x, int y):
         self.parent[x] = self.next_label
         self.parent[y] = self.next_label
         cdef int size = self.size[x] + self.size[y]
@@ -32,7 +32,7 @@ cdef class LinkageUnionFind:
         self.next_label += 1
         return size
 
-    cdef find(self, int x):
+    def find(self, int x):
         cdef int p = x
 
         while self.parent[x] != x:

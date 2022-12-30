@@ -9,6 +9,8 @@ from .borrowed._hdbscan_boruvka import (
 from .borrowed.prim_mst import mst_linkage_core_vector
 from .borrowed.dense_mst import stepwise_dendrogram_with_core_distances
 from .borrowed.dist_metrics import DistanceMetric
+from .borrowed.relabel_dendrogram import LinkageUnionFind
+from .borrowed._hdbscan_boruvka import BoruvkaUnionFind
 from .auxiliary import lazy_intersection
 from .signed_betti_numbers import signed_betti, rank_decomposition_hooks_2d, rank_decomposition_rectangles_2d
 import numpy as np
@@ -544,11 +546,9 @@ class _MetricProbabilitySpace:
         density_estimates = []
         out_of_range = False
         for p in point_index:
+            if self._kernel_estimate[p,-1] < max_density:
+                out_of_range = True
             neighbor_idx = np.searchsorted(self._nn_distance[p], radius, side="right")
-            if neighbor_idx == self._nn_distance[p].shape[0]:
-                neighbor_idx -= 1
-                if self._nn_distance[p,neighbor_idx] < max_density:
-                    out_of_range = True
             density_estimates.append(self._kernel_estimate[p,neighbor_idx-1])
         if out_of_range:
             warnings.warn(
@@ -695,10 +695,10 @@ class _MetricProbabilitySpace:
         else:
             return self._lambda_linkage_skew(start,end)
 
-    def lambda_linkage_vineyard(self, startends, n_jobs, tol=_TOL):
+    def lambda_linkage_vineyard(self, startends, n_jobs, reduced=False, tol=_TOL):
         run_in_parallel = lambda startend: self.lambda_linkage(
             startend[0], startend[1]
-        ).persistence_diagram(tol=tol, reduced=True)
+        ).persistence_diagram(tol=tol, reduced=reduced)
         if n_jobs == 1:
             return [run_in_parallel(startend) for startend in startends]
         else:
@@ -735,7 +735,7 @@ class _MetricProbabilitySpace:
                     delayed(run_in_parallel)(startend) for startend in startends
                 )
 
-    def rank_invariant(self, ss, ks, n_jobs):
+    def rank_invariant(self, ss, ks, n_jobs, reduced = False):
         n_s = len(ss)
         n_k = len(ks)
         ks = np.array(ks)
@@ -814,14 +814,14 @@ class _MetricProbabilitySpace:
 
             return _HierarchicalClustering(heights, merges, merges_heights, start, end)
 
-        ri = np.zeros((n_s+1, n_k+1, n_s+1, n_k+1), dtype=int)
+        ri = np.zeros((n_s, n_k, n_s, n_k), dtype=int)
         for s_index in range(n_s):
             for k_index in range(n_k):
                 #DEBUG print("--------------------------")
                 #DEBUG print("s and k index ", s_index, k_index)
                 hc = _splice_hcs(s_index,k_index)
                 #DEBUG print("start end of hierarchical clustering ", hc._start, hc._end)
-                pd = hc.persistence_diagram(reduced=True)
+                pd = hc.persistence_diagram(reduced=reduced)
                 #DEBUG print("persistence diagram ", pd)
                 for bar in pd:
                     b, d = bar
@@ -835,7 +835,7 @@ class _MetricProbabilitySpace:
                             for j in range(s_index,d):
                                 #DEBUG print("enter bar 4")
                                 #DEBUG print("i ", i, "k_index", k_index, "s_index", s_index, "last", j-s_index+k_index)
-                                ri[i, k_index, s_index+1, j-s_index+k_index+1] += 1
+                                ri[i, k_index, s_index, j-s_index+k_index] += 1
 
         return ri
 
@@ -1035,7 +1035,8 @@ class _HierarchicalClustering:
         # this orders the point by appearance
         appearances = np.argsort(heights)
         # contains the current clusters
-        uf = DisjointSet()
+        ##uf = DisjointSet()
+        uf = BoruvkaUnionFind(len(heights))
         # contains the birth time of clusters that are alive
         clusters_birth = {}
         clusters_died = {}
@@ -1060,8 +1061,9 @@ class _HierarchicalClustering:
                 and heights[appearances[hind]] < end
             ):
                 # add all points that are born as new clusters
-                uf.add(appearances[hind])
-                clusters_birth[appearances[hind]] = heights[appearances[hind]]
+                ##uf.add(appearances[hind])
+                ##clusters_birth[appearances[hind]] = heights[appearances[hind]]
+                clusters_birth[uf.find(appearances[hind])] = heights[appearances[hind]]
                 hind += 1
                 if hind == n_points:
                     current_appearence_height = end
@@ -1075,8 +1077,8 @@ class _HierarchicalClustering:
             ):
                 xy = merges[mind]
                 x, y = xy
-                rx = uf.__getitem__(x)
-                ry = uf.__getitem__(y)
+                rx = uf.find(x)
+                ry = uf.find(y)
                 # if they were not already merged
                 if rx != ry:
                     # if both clusters are alive, merge them and add a bar to the pd
@@ -1087,13 +1089,13 @@ class _HierarchicalClustering:
                         pd.append([younger_birth, merges_heights[mind]])
                         del clusters_birth[rx]
                         del clusters_birth[ry]
-                        uf.merge(x, y)
-                        rxy = uf.__getitem__(x)
+                        uf.union_(x, y)
+                        rxy = uf.find(x)
                         clusters_birth[rxy] = elder_birth
                     # if both clusters are already dead, just merge them into a dead cluster
                     elif rx in clusters_died and ry in clusters_died:
-                        uf.merge(x, y)
-                        rxy = uf.__getitem__(x)
+                        uf.union_(x, y)
+                        rxy = uf.find(x)
                         clusters_died[rxy] = True
                     # if only one of them is dead
                     else:
@@ -1102,8 +1104,8 @@ class _HierarchicalClustering:
                             x, y = y, x
                             rx, ry = ry, rx
                         # merge the clusters into a dead cluster
-                        uf.merge(x, y)
-                        rxy = uf.__getitem__(x)
+                        uf.union_(x, y)
+                        rxy = uf.find(x)
                         clusters_died[rxy] = True
                 mind += 1
                 if mind == n_merges:
@@ -1116,11 +1118,11 @@ class _HierarchicalClustering:
                 break
         # go through all clusters that have been born but haven't died 
         for x in range(n_points):
-            if x in uf._indices:
-                rx = uf.__getitem__(x)
-                if rx not in clusters_died:
-                    pd.append([clusters_birth[rx], end])
-                    clusters_died[rx] = True
+            ##if x in uf._indices:
+            rx = uf.find(x)
+            if (rx in clusters_birth) and (rx not in clusters_died):
+                pd.append([clusters_birth[rx], end])
+                clusters_died[rx] = True
         pd = np.array(pd)
         if pd.shape[0] == 0:
             return np.array([])
