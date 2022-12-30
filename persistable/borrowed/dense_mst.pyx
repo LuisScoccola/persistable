@@ -10,8 +10,6 @@
 import numpy as np
 cimport numpy as np
 
-from .relabel_dendrogram import label
-
 
 cdef extern from "numpy/npy_math.h":
     cdef enum:

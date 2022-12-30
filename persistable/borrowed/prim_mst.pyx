@@ -13,8 +13,6 @@ from libc.float cimport DBL_MAX
 
 from dist_metrics cimport DistanceMetric
 
-from .relabel_dendrogram import label
-
 
 cpdef np.ndarray[np.double_t, ndim=2] mst_linkage_core_vector(
         np.ndarray[np.double_t, ndim=2, mode='c'] raw_data,
