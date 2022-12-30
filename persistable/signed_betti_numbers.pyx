@@ -21,19 +21,18 @@ cpdef signed_betti(hilbert_function):
     slices = np.ix_( *[range(0,hilbert_function.shape[i]) for i in range(n)] )
     return bn[slices]
 
-cpdef long[:,:,:,:] rank_decomposition_rectangles_2d(long[:,:,:,:] rank_invariant):
+cpdef rank_decomposition_2d_rectangles(long[:,:,:,:] rank_invariant):
     return np.flip(signed_betti(np.flip(rank_invariant,(2,3))),(2,3))
 
-cpdef rank_decomposition_hooks_2d(long[:,:,:,:] rank_invariant):
-    cdef long[:,:,:,:] rdr = rank_decomposition_rectangles_2d(rank_invariant)
-    cdef long[:,:,:,:] rdh = np.zeros_like(rdr, dtype=long)
+cpdef rank_decomposition_2d_rectangles_to_hooks(long[:,:,:,:] rdr):
+    cdef long[:,:,:,:] rdr_view = rdr
+    rdh = np.zeros_like(rdr, dtype=long)
+    cdef long[:,:,:,:] rdh_view = rdh
     for i in range(rdr.shape[0]):
         for j in range(rdr.shape[1]):
             for i_ in range(i, rdr.shape[2]):
                 for j_ in range(j, rdr.shape[3]):
-                    rdh[i,j,i_,j_] -= rdr[i,j,i_,j_]
-                    rdh[i,j,i_,j] += rdr[i,j,i_,j_]
-                    rdh[i,j,i,j_] += rdr[i,j,i_,j_]
+                    rdh_view[i,j,i_,j_] -= rdr_view[i,j,i_,j_]
+                    rdh_view[i,j,i_,j] += rdr_view[i,j,i_,j_]
+                    rdh_view[i,j,i,j_] += rdr_view[i,j,i_,j_]
     return rdh
-
-

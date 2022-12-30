@@ -13,7 +13,7 @@ from .borrowed.relabel_dendrogram import LinkageUnionFind
 from .borrowed._hdbscan_boruvka import BoruvkaUnionFind
 from .auxiliary import lazy_intersection
 from .persistence_diagram_h0 import persistence_diagram_h0
-from .signed_betti_numbers import signed_betti, rank_decomposition_hooks_2d, rank_decomposition_rectangles_2d
+from .signed_betti_numbers import signed_betti, rank_decomposition_2d_rectangles, rank_decomposition_2d_rectangles_to_hooks
 import numpy as np
 import warnings
 from sklearn.neighbors import KDTree, BallTree
@@ -359,7 +359,8 @@ class Persistable:
         ss = np.linspace(min_s, max_s, granularity)
         ks = np.linspace(min_k, max_k, granularity)[::-1]
         ri = self._mpspace.rank_invariant(ss, ks, n_jobs=n_jobs)
-        return ss, ks, ri, rank_decomposition_hooks_2d(ri)
+        rdr = rank_decomposition_2d_rectangles(ri)
+        return ss, ks, ri, rdr, rank_decomposition_2d_rectangles_to_hooks(rdr)
 
 
 class _MetricProbabilitySpace:
@@ -736,7 +737,7 @@ class _MetricProbabilitySpace:
                     delayed(run_in_parallel)(startend) for startend in startends
                 )
 
-    def rank_invariant(self, ss, ks, n_jobs, reduced = False):
+    def rank_invariant(self, ss, ks, n_jobs, reduced = True):
         n_s = len(ss)
         n_k = len(ks)
         ks = np.array(ks)
@@ -1036,12 +1037,11 @@ class _HierarchicalClustering:
         pd = np.array(pd)
         if pd.shape[0] == 0:
             return np.array([])
-        else:
-            pd = pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]
-            if reduced:
-                to_delete = np.argmax(pd[:,1] - pd[:,0])
-                return np.delete(pd,to_delete, axis=0)
-            return pd
+        pd = pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]
+        if reduced:
+            to_delete = np.argmax(pd[:,1] - pd[:,0])
+            return np.delete(pd,to_delete, axis=0)
+        return pd
 
 #        end = self._end
 #        heights = self._heights

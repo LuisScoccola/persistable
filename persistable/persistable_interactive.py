@@ -52,7 +52,8 @@ STORED_X_TICKS = "stored-x-ticks-"
 STORED_Y_TICKS = "stored-y-ticks-"
 STORED_CCF_DRAWING = "stored-ccf-drawing-"
 STORED_BETTI = "stored-betti-"
-STORED_SIGNED_BARCODE = "stored-signed-barcode-"
+STORED_SIGNED_BARCODE_RECTANGLES = "stored-signed-barcode-rectangles-"
+STORED_SIGNED_BARCODE_HOOKS = "stored-signed-barcode-hooks-"
 MIN_DIST_SCALE = "min-dist-scale-"
 MAX_DIST_SCALE = "max-dist-scale-"
 MIN_DENSITY_THRESHOLD = "min-density-threshold-"
@@ -66,6 +67,7 @@ INPUT_GRANULARITY_CCF = "input-granularity-ccf-"
 INPUT_NUM_JOBS_CCF = "input-num-jobs-ccf-"
 INPUT_MAX_COMPONENTS = "input-max-components-"
 INPUT_SIGNED_BETTI_NUMBERS = "input-signed-betti-numbers-"
+INPUT_Y_COVARIANT = "input-y-covariant-"
 CCF_PLOT_CONTROLS_DIV = "ccf-plot-controls-div-"
 CCF_DETAILS = "ccf-details-"
 PV_DETAILS = "pv-details-"
@@ -294,7 +296,8 @@ class PersistableInteractive:
                 # contains the signed betti numbers as a list of lists
                 dcc.Store(id=STORED_BETTI),
                 # contains the signed barcode a list of lists of ...
-                dcc.Store(id=STORED_SIGNED_BARCODE),
+                dcc.Store(id=STORED_SIGNED_BARCODE_RECTANGLES),
+                dcc.Store(id=STORED_SIGNED_BARCODE_HOOKS),
                 # contains the vineyard as a vineyard object
                 dcc.Store(id=STORED_PV),
                 # contains the basic prominence vineyard plot as a plotly figure
@@ -430,12 +433,12 @@ class PersistableInteractive:
                                                                 ),
                                                                 html.Span(
                                                                     className="name",
-                                                                    children="Signed Betti numbers",
+                                                                    children="y axis",
                                                                 ),
                                                                 dcc.RadioItems(
-                                                                    ["On", "Off"],
-                                                                    "Off",
-                                                                    id=INPUT_SIGNED_BETTI_NUMBERS,
+                                                                    ["Covariant", "Contravariant"],
+                                                                    "Covariant",
+                                                                    id=INPUT_Y_COVARIANT,
                                                                     className="small-value",
                                                                 ),
                                                             ],
@@ -1100,12 +1103,14 @@ class PersistableInteractive:
                 [FIXED_PARAMETERS, DATA, IN],
                 [STORED_PD, DATA, ST],
                 [INPUT_GAP, VALUE, ST],
-                [INPUT_SIGNED_BETTI_NUMBERS, VALUE, IN],
+                #[INPUT_SIGNED_BETTI_NUMBERS, VALUE, IN],
+                [INPUT_Y_COVARIANT, VALUE, IN],
                 [STORED_BETTI, DATA, ST],
                 [STORED_X_TICKS, DATA, ST],
                 [STORED_Y_TICKS, DATA, ST],
                 [INPUT_MAX_COMPONENTS, VALUE, IN],
-                [STORED_SIGNED_BARCODE, DATA, ST],
+                [STORED_SIGNED_BARCODE_RECTANGLES, DATA, ST],
+                [STORED_SIGNED_BARCODE_HOOKS, DATA, ST],
             ],
             [[CCF_PLOT, FIGURE]],
             False,
@@ -1146,7 +1151,11 @@ class PersistableInteractive:
 
             # draw signed barcode
             if True:
-                sb = np.array(json.loads(d[STORED_SIGNED_BARCODE + DATA]))
+                USE_RECTANGLES = True
+                if USE_RECTANGLES:
+                    sb = np.array(json.loads(d[STORED_SIGNED_BARCODE_RECTANGLES + DATA]))
+                else:
+                    sb = np.array(json.loads(d[STORED_SIGNED_BARCODE_HOOKS + DATA]))
                 lx = len(x_ticks)
                 ly = len(y_ticks)
                 traces = []
@@ -1189,7 +1198,7 @@ class PersistableInteractive:
                 fig.add_traces(traces)
 
             # draw Betti numbers
-            if d[INPUT_SIGNED_BETTI_NUMBERS + VALUE] == "On":
+            if False:
 
                 bn = np.array(json.loads(d[STORED_BETTI + DATA]))
                 xs = x_ticks
@@ -1397,8 +1406,7 @@ class PersistableInteractive:
                     )
                 )
 
-            Y_COVARIANT = True
-            yaxis = [y_ticks[0], y_ticks[-1]] if Y_COVARIANT else [y_ticks[-1], y_ticks[0]]
+            yaxis = [y_ticks[0], y_ticks[-1]] if d[INPUT_Y_COVARIANT + VALUE] == "Covariant" else [y_ticks[-1], y_ticks[0]]
  
             fig.update_layout(
                 xaxis=dict(range=[x_ticks[0], x_ticks[-1]]),
@@ -1433,7 +1441,8 @@ class PersistableInteractive:
                 [STORED_Y_TICKS, DATA],
                 [STORED_CCF_COMPUTATION_WARNINGS, DATA],
                 [STORED_BETTI, DATA],
-                [STORED_SIGNED_BARCODE, DATA],
+                [STORED_SIGNED_BARCODE_RECTANGLES, DATA],
+                [STORED_SIGNED_BARCODE_HOOKS, DATA],
                 [CCF_PLOT_CONTROLS_DIV, HIDDEN],
             ],
             prevent_initial_call=True,
@@ -1464,7 +1473,7 @@ class PersistableInteractive:
                         n_jobs=num_jobs,
                     )
 
-                    ss, ks, ri, sb = persistable._compute_rank_invariant(
+                    ss, ks, ri, sbr, sbh = persistable._compute_rank_invariant(
                         d[MIN_DIST_SCALE + VALUE],
                         d[MAX_DIST_SCALE + VALUE],
                         d[MAX_DENSITY_THRESHOLD + VALUE],
@@ -1499,7 +1508,8 @@ class PersistableInteractive:
 
             d[STORED_BETTI + DATA] = json.dumps(bn.tolist())
 
-            d[STORED_SIGNED_BARCODE + DATA] = json.dumps(sb.tolist())
+            d[STORED_SIGNED_BARCODE_RECTANGLES + DATA] = json.dumps(sbr.tolist())
+            d[STORED_SIGNED_BARCODE_HOOKS + DATA] = json.dumps(sbh.tolist())
 
             d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = False

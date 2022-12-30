@@ -5,7 +5,10 @@
 
 
 
+cimport cython
 import numpy as np
+cimport numpy as np
+ctypedef np.uint8_t uint8
 
 from .borrowed._hdbscan_boruvka cimport BoruvkaUnionFind
 
@@ -18,17 +21,17 @@ cpdef persistence_diagram_h0(double end, double[:] heights, long[:,:] merges, do
     # contains the current clusters
     cdef BoruvkaUnionFind uf = BoruvkaUnionFind(len(heights))
     # contains the birth time of clusters that are alive
-    cdef dict clusters_birth = {}
-    cdef dict clusters_died = {}
+    cdef double[:] clusters_birth = np.full(n_points, -1, dtype=float)
+    cdef uint8[:] clusters_died = np.zeros(n_points, dtype=np.uint8)
     # contains the persistence diagram
     cdef list pd = []
-    cdef double[:,:] pd_array
     # height index
     cdef long hind = 0
     # merge index
     cdef long mind = 0
     if len(appearances) == 0:
-        return np.array([])
+        return []
+
     cdef double current_appearence_height = heights[appearances[0]]
     cdef double current_merge_height
     cdef long[:] xy
@@ -41,6 +44,7 @@ cpdef persistence_diagram_h0(double end, double[:] heights, long[:,:] merges, do
     cdef double elder_birth
     cdef double younger_birth
     cdef long to_delete
+
     if len(merges_heights) == 0:
         current_merge_height = end
     else:
@@ -53,8 +57,6 @@ cpdef persistence_diagram_h0(double end, double[:] heights, long[:,:] merges, do
             and heights[appearances[hind]] < end
         ):
             # add all points that are born as new clusters
-            ##uf.add(appearances[hind])
-            ##clusters_birth[appearances[hind]] = heights[appearances[hind]]
             clusters_birth[uf.find(appearances[hind])] = heights[appearances[hind]]
             hind += 1
             if hind == n_points:
@@ -74,25 +76,23 @@ cpdef persistence_diagram_h0(double end, double[:] heights, long[:,:] merges, do
             # if they were not already merged
             if rx != ry:
                 # if both clusters are alive, merge them and add a bar to the pd
-                if rx not in clusters_died and ry not in clusters_died:
+                if not clusters_died[rx] and not clusters_died[ry]:
                     bx = clusters_birth[rx]
                     by = clusters_birth[ry]
                     elder_birth, younger_birth = min(bx, by), max(bx, by)
                     pd.append([younger_birth, merges_heights[mind]])
-                    #del clusters_birth[rx]
-                    #del clusters_birth[ry]
                     uf.union_(x, y)
                     rxy = uf.find(x)
                     clusters_birth[rxy] = elder_birth
                 # if both clusters are already dead, just merge them into a dead cluster
-                elif rx in clusters_died and ry in clusters_died:
+                elif clusters_died[rx] and clusters_died[ry]:
                     uf.union_(x, y)
                     rxy = uf.find(x)
                     clusters_died[rxy] = True
                 # if only one of them is dead
                 else:
                     # we make it so that ry already died and rx just died
-                    if rx in clusters_died:
+                    if clusters_died[rx]:
                         x, y = y, x
                         rx, ry = ry, rx
                     # merge the clusters into a dead cluster
@@ -110,9 +110,8 @@ cpdef persistence_diagram_h0(double end, double[:] heights, long[:,:] merges, do
             break
     # go through all clusters that have been born but haven't died 
     for x in range(n_points):
-        ##if x in uf._indices:
         rx = uf.find(x)
-        if (rx in clusters_birth) and (rx not in clusters_died):
+        if (clusters_birth[rx] != -1) and (not clusters_died[rx]):
             pd.append([clusters_birth[rx], end])
             clusters_died[rx] = True
     return pd
