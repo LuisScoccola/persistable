@@ -436,7 +436,10 @@ class PersistableInteractive:
                                                                     children="y axis",
                                                                 ),
                                                                 dcc.RadioItems(
-                                                                    ["Covariant", "Contravariant"],
+                                                                    [
+                                                                        "Covariant",
+                                                                        "Contravariant",
+                                                                    ],
                                                                     "Covariant",
                                                                     id=INPUT_Y_COVARIANT,
                                                                     className="small-value",
@@ -1103,7 +1106,7 @@ class PersistableInteractive:
                 [FIXED_PARAMETERS, DATA, IN],
                 [STORED_PD, DATA, ST],
                 [INPUT_GAP, VALUE, ST],
-                #[INPUT_SIGNED_BETTI_NUMBERS, VALUE, IN],
+                # [INPUT_SIGNED_BETTI_NUMBERS, VALUE, IN],
                 [INPUT_Y_COVARIANT, VALUE, IN],
                 [STORED_BETTI, DATA, ST],
                 [STORED_X_TICKS, DATA, ST],
@@ -1122,6 +1125,8 @@ class PersistableInteractive:
             y_ticks = json.loads(d[STORED_Y_TICKS + DATA])
             delta_x = (x_ticks[1] - x_ticks[0]) / 2
             delta_y = (y_ticks[1] - y_ticks[0]) / 2
+            x_ticks.append(np.array(x_ticks[-1]) + 2 * delta_x)
+            y_ticks.append(np.array(y_ticks[-1]) + 2 * delta_y)
 
             max_components = d[INPUT_MAX_COMPONENTS + VALUE]
 
@@ -1129,18 +1134,20 @@ class PersistableInteractive:
                 # need to reset the limits
                 fig.update_yaxes(autorange="reversed")
 
-            def _rgba(color,opacity):
+            def _rgba(color, opacity):
                 if color == "red":
                     red, green, blue = "255", "0", "0"
                 if color == "green":
                     red, green, blue = "0", "255", "0"
                 if color == "blue":
                     red, green, blue = "0", "0", "255"
-                return "rgba(" + red + "," + green + "," + blue + "," + str(opacity) + ")"
+                return (
+                    "rgba(" + red + "," + green + "," + blue + "," + str(opacity) + ")"
+                )
 
             def _draw_bar(xs, ys, color, width=6, endpoints=False, size=5):
                 mode = "markers+lines" if endpoints else "lines"
-                marker_styles = ["arrow-right", "arrow-left"]
+                marker_styles = ["diamond", "diamond"]
                 return go.Scatter(
                     x=xs,
                     y=ys,
@@ -1158,74 +1165,83 @@ class PersistableInteractive:
                 USE_RECTANGLES = True
                 using_rectangles = USE_RECTANGLES
                 if using_rectangles:
-                    sb = np.array(json.loads(d[STORED_SIGNED_BARCODE_RECTANGLES + DATA]))
+                    sb = np.array(
+                        json.loads(d[STORED_SIGNED_BARCODE_RECTANGLES + DATA])
+                    )
                 else:
                     sb = np.array(json.loads(d[STORED_SIGNED_BARCODE_HOOKS + DATA]))
                 lx = len(x_ticks)
                 ly = len(y_ticks)
                 traces = []
                 if using_rectangles:
-                    total_width = min(lx,ly)
+                    total_width = min(lx, ly)
                 else:
                     total_width = np.sqrt(lx**2 + ly**2)
-                for i in range(lx):
-                    for j in range(ly):
-                        for i_ in range(i, lx):
-                            for j_ in range(j, ly):
-                                mult = sb[i, j, i_, j_]
-                                if mult != 0:
-                                    #if using_rectangles:
-                                    #    i_ += 1
-                                    #    j_ += 1
-                                    #else:
-                                    #    if i_ == i and j_ == j:
-                                    #        i_ += 1
-                                    #        j_ += 1
-                                    #    if i_ > i and j_ == j:
-                                    #        i_ += 1
-                                    #        j_ += 1
-                                    x_coords = np.array(
-                                        [x_ticks[i] - delta_x, x_ticks[i_] - delta_x]
-                                    )
-                                    y_coords = np.array(
-                                        [y_ticks[j] - delta_y, y_ticks[j_] - delta_y]
-                                    )
-                                    min_size = 3
-                                    if using_rectangles:
-                                        width = 10 * (
-                                            min((i_ - i + 1),(j_ - j + 1)) / total_width
-                                        )
-                                        size = min_size + 5 * (
-                                            min((i_ - i + 1),(j_ - j + 1)) / total_width
-                                        )
-                                    else:
-                                        width = 10 * (
-                                            np.sqrt((i_ - i + 1) ** 2 + (j_ - j + 1) ** 2)
-                                            / total_width
-                                        )
-                                        size = min_size + 5 * (
-                                            np.sqrt((i_ - i + 1) ** 2 + (j_ - j + 1) ** 2)
-                                            / total_width
-                                        )
-                                    min_opacity = 0.3
-                                    opacity = min_opacity + (
-                                        np.minimum(np.abs(mult), max_components)
-                                        / max_components
-                                    ) * (1 - min_opacity)
-                                    if mult < 0:
-                                        color = _rgba("red", opacity)
-                                        traces.append(
-                                            _draw_bar(
-                                                x_coords, y_coords, color, width, endpoints=True, size=size
-                                            )
-                                        )
-                                    if mult > 0:
-                                        color = _rgba("blue", opacity)
-                                        traces.append(
-                                            _draw_bar(
-                                                x_coords, y_coords, color, width, endpoints=True, size=size
-                                            )
-                                        )
+                for i,j,i_,j_,mult in sb:
+                #for i in range(lx - 1):
+                #    for j in range(ly - 1):
+                #        for i_ in range(i, lx - 1):
+                #            for j_ in range(j, ly - 1):
+                #                mult = sb[i, j, i_, j_]
+                    if mult != 0:
+                        min_size = 3
+                        if using_rectangles:
+                            i_ += 1
+                            j_ += 1
+                            width = 10 * (
+                                min((i_ - i), (j_ - j)) / total_width
+                            )
+                            size = min_size + 5 * (
+                                min((i_ - i), (j_ - j)) / total_width
+                            )
+                        else:
+                            width = 10 * (
+                                np.sqrt(
+                                    (i_ - i + 1) ** 2 + (j_ - j + 1) ** 2
+                                )
+                                / total_width
+                            )
+                            size = min_size + 5 * (
+                                np.sqrt(
+                                    (i_ - i + 1) ** 2 + (j_ - j + 1) ** 2
+                                )
+                                / total_width
+                            )
+                        min_opacity = 0.3
+                        opacity = min_opacity + (
+                            np.minimum(np.abs(mult), max_components)
+                            / max_components
+                        ) * (1 - min_opacity)
+                        x_coords = np.array(
+                            [x_ticks[i] - delta_x, x_ticks[i_] - delta_x]
+                        )
+                        y_coords = np.array(
+                            [y_ticks[j] - delta_y, y_ticks[j_] - delta_y]
+                        )
+                        if mult < 0:
+                            color = _rgba("red", opacity)
+                            traces.append(
+                                _draw_bar(
+                                    x_coords,
+                                    y_coords,
+                                    color,
+                                    width,
+                                    endpoints=True,
+                                    size=size,
+                                )
+                            )
+                        if mult > 0:
+                            color = _rgba("blue", opacity)
+                            traces.append(
+                                _draw_bar(
+                                    x_coords,
+                                    y_coords,
+                                    color,
+                                    width,
+                                    endpoints=True,
+                                    size=size,
+                                )
+                            )
                 fig.add_traces(traces)
 
             # draw Betti numbers
@@ -1437,10 +1453,14 @@ class PersistableInteractive:
                     )
                 )
 
-            yaxis = [y_ticks[0], y_ticks[-1]] if d[INPUT_Y_COVARIANT + VALUE] == "Covariant" else [y_ticks[-1], y_ticks[0]]
- 
+            yaxis = (
+                [y_ticks[0], y_ticks[-1] - delta_y]
+                if d[INPUT_Y_COVARIANT + VALUE] == "Covariant"
+                else [y_ticks[-1] - delta_y, y_ticks[0]]
+            )
+
             fig.update_layout(
-                xaxis=dict(range=[x_ticks[0], x_ticks[-1]]),
+                xaxis=dict(range=[x_ticks[0], x_ticks[-1] - delta_x]),
                 yaxis=dict(range=yaxis),
             )
 
@@ -1513,13 +1533,32 @@ class PersistableInteractive:
                         n_jobs=num_jobs,
                     )
 
-                    print("parameters",
-                        d[MIN_DIST_SCALE + VALUE],
-                        d[MAX_DIST_SCALE + VALUE],
-                        d[MAX_DENSITY_THRESHOLD + VALUE],
-                        d[MIN_DENSITY_THRESHOLD + VALUE],
-                        granularity
-                    )
+                    lx = sbr.shape[0]
+                    ly = sbr.shape[1]
+                    sbr = [
+                        [i, j, i_, j_, int(sbr[i, j, i_, j_])]
+                        for i in range(lx)
+                        for j in range(ly)
+                        for i_ in range(i, lx)
+                        for j_ in range(j, ly)
+                        if sbr[i, j, i_, j_] != 0
+                    ]
+                    sbh = [
+                        [i, j, i_, j_,int(sbh[i, j, i_, j_])]
+                        for i in range(lx)
+                        for j in range(ly)
+                        for i_ in range(i, lx)
+                        for j_ in range(j, ly)
+                        if sbh[i, j, i_, j_] != 0
+                    ]
+
+                    ##print("parameters",
+                    ##    d[MIN_DIST_SCALE + VALUE],
+                    ##    d[MAX_DIST_SCALE + VALUE],
+                    ##    d[MAX_DENSITY_THRESHOLD + VALUE],
+                    ##    d[MIN_DENSITY_THRESHOLD + VALUE],
+                    ##    granularity
+                    ##)
 
                 except ValueError:
                     out += traceback.format_exc()
@@ -1539,8 +1578,8 @@ class PersistableInteractive:
 
             d[STORED_BETTI + DATA] = json.dumps(bn.tolist())
 
-            d[STORED_SIGNED_BARCODE_RECTANGLES + DATA] = json.dumps(sbr.tolist())
-            d[STORED_SIGNED_BARCODE_HOOKS + DATA] = json.dumps(sbh.tolist())
+            d[STORED_SIGNED_BARCODE_RECTANGLES + DATA] = json.dumps(sbr)
+            d[STORED_SIGNED_BARCODE_HOOKS + DATA] = json.dumps(sbh)
 
             d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = False
@@ -1550,7 +1589,7 @@ class PersistableInteractive:
 
             return d
 
-        #@dash_callback(
+        # @dash_callback(
         #    [
         #        [COMPUTE_RANK_INVARIANT_BUTTON, N_CLICKS, IN],
         #        [MIN_DENSITY_THRESHOLD, VALUE, ST],
@@ -1573,8 +1612,8 @@ class PersistableInteractive:
         #        [STOP_COMPUTE_RANK_INVARIANT_BUTTON, DISABLED, False, True],
         #    ],
         #    cancel=[[STOP_COMPUTE_RANK_INVARIANT_BUTTON, N_CLICKS]],
-        #)
-        #def compute_rank_invariant(d):
+        # )
+        # def compute_rank_invariant(d):
         #    if debug:
         #        print("Compute rank invariant in background started.")
 
@@ -1613,8 +1652,6 @@ class PersistableInteractive:
         #        print("Compute rank invariant in background finished.")
 
         #    return d
-
-
 
         @dash_callback(
             [
