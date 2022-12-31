@@ -357,6 +357,7 @@ class Persistable:
         max_k,
         min_k,
         granularity,
+        reduced=False,
         n_jobs=4,
     ):
         if min_k >= max_k:
@@ -378,7 +379,7 @@ class Persistable:
 
         ss = np.linspace(min_s, max_s, granularity)
         ks = np.linspace(min_k, max_k, granularity)[::-1]
-        ri = self._mpspace.rank_invariant(ss, ks, n_jobs=n_jobs)
+        ri = self._mpspace.rank_invariant(ss, ks, n_jobs=n_jobs, reduced=reduced)
         rdr = rank_decomposition_2d_rectangles(ri)
         return ss, ks, ri, rdr, rank_decomposition_2d_rectangles_to_hooks(rdr)
 
@@ -765,7 +766,7 @@ class _MetricProbabilitySpace:
     #                delayed(run_in_parallel)(startend) for startend in startends
     #            )
 
-    def rank_invariant(self, ss, ks, n_jobs, reduced=True):
+    def rank_invariant(self, ss, ks, n_jobs, reduced=False):
         n_s = len(ss)
         n_k = len(ks)
         ks = np.array(ks)

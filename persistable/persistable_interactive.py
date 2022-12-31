@@ -77,6 +77,8 @@ INPUT_MIN_LENGTH_RI = "input-min-length-bars-ri-"
 INPUT_SIGNED_BETTI_NUMBERS = "input-signed-betti-numbers-"
 INPUT_Y_COVARIANT = "input-y-covariant-"
 INPUT_DISPLAY_RI = "input-display-ri-"
+INPUT_DECOMPOSE_BY_RI = "input-decompose-by-ri-"
+INPUT_REDUCED_HOMOLOGY_RI = "input-reduced-homology-ri-"
 CCF_PLOT_CONTROLS_DIV = "ccf-plot-controls-div-"
 CCF_DETAILS = "ccf-details-"
 CCF_EXTRAS = "ccf-extras-"
@@ -562,6 +564,37 @@ class PersistableInteractive:
                                             ),
                                             html.Span(
                                                 className="name",
+                                                children="Decompose by",
+                                            ),
+                                            dcc.RadioItems(
+                                                [
+                                                    "Rectangles",
+                                                    "Hooks",
+                                                ],
+                                                "Rectangles",
+                                                id=INPUT_DECOMPOSE_BY_RI,
+                                                className="small-value",
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="parameter-single",
+                                        children=[
+                                            html.Span(
+                                                className="name",
+                                                children="Rank decomposition reduced homology",
+                                            ),
+                                            dcc.RadioItems(
+                                                [
+                                                    "Yes",
+                                                    "No",
+                                                ],
+                                                "Yes",
+                                                id=INPUT_REDUCED_HOMOLOGY_RI,
+                                                className="small-value",
+                                            ),
+                                            html.Span(
+                                                className="name",
                                                 children="Display rank decomposition",
                                             ),
                                             dcc.RadioItems(
@@ -575,6 +608,7 @@ class PersistableInteractive:
                                             ),
                                         ],
                                     ),
+
                                     html.Div(
                                         className="parameter-single",
                                         children=[
@@ -1275,6 +1309,7 @@ class PersistableInteractive:
                 [STORED_X_TICKS_RI, DATA, ST],
                 [STORED_Y_TICKS_RI, DATA, ST],
                 [INPUT_MIN_LENGTH_RI, VALUE, IN],
+                [INPUT_DECOMPOSE_BY_RI, VALUE, IN],
             ],
             [[CCF_PLOT, FIGURE]],
             False,
@@ -1318,8 +1353,7 @@ class PersistableInteractive:
 
             # draw signed barcode
             if d[INPUT_DISPLAY_RI + VALUE] == "Yes":
-                USE_RECTANGLES = True
-                using_rectangles = USE_RECTANGLES
+                using_rectangles = True if d[INPUT_DECOMPOSE_BY_RI + VALUE] == "Rectangles" else False
                 if using_rectangles:
                     sb = np.array(
                         json.loads(d[STORED_SIGNED_BARCODE_RECTANGLES + DATA])
@@ -1353,6 +1387,16 @@ class PersistableInteractive:
                                 width = 10 * (length / total_width)
                                 size = min_size + 5 * (length / total_width)
                             else:
+                                #if i == i_ and j == j_:
+                                #    i_ += 1
+                                #    j_ += 1
+                                #elif i == i_ and j != j_:
+                                #    j_ += 1
+                                #elif i != i_ and j == j_:
+                                #    i_ += 1
+                                #else:
+                                #    i_ += 1
+                                #    j_ += 1
                                 length = max((i_ - i), (j_ - j))
                                 width = 10 * (length / total_width)
                                 size = min_size + 5 * (length / total_width)
@@ -1717,6 +1761,7 @@ class PersistableInteractive:
                 [MAX_DIST_SCALE, VALUE, ST],
                 [INPUT_GRANULARITY_RI, VALUE, ST],
                 [INPUT_NUM_JOBS_RI, VALUE, ST],
+                [INPUT_REDUCED_HOMOLOGY_RI, VALUE, ST],
             ],
             [
                 [STORED_X_TICKS_RI, DATA],
@@ -1744,12 +1789,14 @@ class PersistableInteractive:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 try:
+                    reduced = True if d[INPUT_REDUCED_HOMOLOGY_RI + VALUE] == "Yes" else False
                     ss, ks, ri, sbr, sbh = persistable._compute_rank_invariant(
                         d[MIN_DIST_SCALE + VALUE],
                         d[MAX_DIST_SCALE + VALUE],
                         d[MAX_DENSITY_THRESHOLD + VALUE],
                         d[MIN_DENSITY_THRESHOLD + VALUE],
                         granularity,
+                        reduced=reduced,
                         n_jobs=num_jobs,
                     )
 
