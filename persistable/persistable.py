@@ -11,19 +11,41 @@ from .borrowed.dense_mst import stepwise_dendrogram_with_core_distances
 from .borrowed.dist_metrics import DistanceMetric
 from .auxiliary import lazy_intersection
 from .persistence_diagram_h0 import persistence_diagram_h0
-from .signed_betti_numbers import signed_betti, rank_decomposition_2d_rectangles, rank_decomposition_2d_rectangles_to_hooks
+from .signed_betti_numbers import (
+    signed_betti,
+    rank_decomposition_2d_rectangles,
+    rank_decomposition_2d_rectangles_to_hooks,
+)
 import numpy as np
 import warnings
 from sklearn.neighbors import KDTree, BallTree
 from scipy.cluster.hierarchy import DisjointSet
 from scipy.sparse import csr_matrix
-from scipy.sparse.csgraph import minimum_spanning_tree as sparse_matrix_minimum_spanning_tree
+from scipy.sparse.csgraph import (
+    minimum_spanning_tree as sparse_matrix_minimum_spanning_tree,
+)
 from scipy.stats import mode
 from joblib import Parallel, delayed
 from joblib.parallel import cpu_count
 
 
 _TOL = 1e-08
+
+
+def parallel_computation(function, inputs, n_jobs, debug=False, threading=False):
+    if n_jobs == 1:
+        return [function(inp) for inp in inputs]
+    else:
+        verbose = 11 if debug else 0
+        n_jobs = min(cpu_count(), n_jobs)
+        if threading:
+            return Parallel(n_jobs=n_jobs, backend="threading", verbose=verbose)(
+                delayed(function)(inp) for inp in inputs
+            )
+        else:
+            return Parallel(n_jobs=n_jobs, verbose=verbose)(
+                delayed(function)(inp) for inp in inputs
+            )
 
 
 class Persistable:
@@ -390,7 +412,7 @@ class _MetricProbabilitySpace:
         self._kernel_estimate = None
         self._n_neighbors = None
         self._maxs = None
-        #self._tol = _TOL
+        # self._tol = _TOL
         if metric in KDTree.valid_metrics:
             self._tree = KDTree(X, metric=metric, leaf_size=leaf_size, **kwargs)
         elif metric in BallTree.valid_metrics:
@@ -542,18 +564,16 @@ class _MetricProbabilitySpace:
 
     # given a list of point indices and a radius, return the (unnormalized)
     # kernel density estimate at those points and at that radius
-    def _density_estimate(self, point_index, radius, max_density = 1):
+    def _density_estimate(self, point_index, radius, max_density=1):
         density_estimates = []
         out_of_range = False
         for p in point_index:
-            if self._kernel_estimate[p,-1] < max_density:
+            if self._kernel_estimate[p, -1] < max_density:
                 out_of_range = True
             neighbor_idx = np.searchsorted(self._nn_distance[p], radius, side="right")
-            density_estimates.append(self._kernel_estimate[p,neighbor_idx-1])
+            density_estimates.append(self._kernel_estimate[p, neighbor_idx - 1])
         if out_of_range:
-            warnings.warn(
-                "Don't have enough neighbors to properly compute core scale."
-            )
+            warnings.warn("Don't have enough neighbors to properly compute core scale.")
         return np.array(density_estimates)
 
     def _lambda_linkage_vertical(self, s_intercept, k_start, k_end):
@@ -567,39 +587,41 @@ class _MetricProbabilitySpace:
 
         # metric tree case
         if self._metric in KDTree.valid_metrics + BallTree.valid_metrics:
-            s_neighbors = self._tree.query_radius(self._points,s_intercept)
+            s_neighbors = self._tree.query_radius(self._points, s_intercept)
         # dense distance matrix case
         else:
             s_neighbors = []
             for i in range(self._size):
-                s_neighbors.append(np.argwhere(self._dist_mat[i] <= s_intercept)[:,0])
+                s_neighbors.append(np.argwhere(self._dist_mat[i] <= s_intercept)[:, 0])
 
         edges = []
         entries = []
         for i in range(self._size):
             for j in s_neighbors[i]:
-                if j>i:
-                    edges.append([i,j])
-                    entries.append(max(k_births[i],k_births[j]))
+                if j > i:
+                    edges.append([i, j])
+                    entries.append(max(k_births[i], k_births[j]))
         matrix_entries = np.array(entries)
-        #print("original matrix entries ", matrix_entries)
-        #print("matrix pairs", edges)
-        #print("matrix entries ", matrix_entries)
-        edges = np.array(edges,dtype=int)
+        # print("original matrix entries ", matrix_entries)
+        # print("matrix pairs", edges)
+        # print("matrix entries ", matrix_entries)
+        edges = np.array(edges, dtype=int)
         if len(edges) > 0:
-            graph = csr_matrix( (matrix_entries, (edges[:,0], edges[:,1])),  (self._size, self._size))
+            graph = csr_matrix(
+                (matrix_entries, (edges[:, 0], edges[:, 1])), (self._size, self._size)
+            )
 
             mst = sparse_matrix_minimum_spanning_tree(graph)
             Is, Js = mst.nonzero()
             # we now undo the adding 1
-            vals = np.array(mst[Is,Js])[0] - 1
+            vals = np.array(mst[Is, Js])[0] - 1
             sort_indices = np.argsort(vals)
             Is = Is[sort_indices]
             Js = Js[sort_indices]
             vals = vals[sort_indices]
-            merges = np.zeros((vals.shape[0], 2), dtype = int)
-            merges[:,0] = Is
-            merges[:,1] = Js
+            merges = np.zeros((vals.shape[0], 2), dtype=int)
+            merges[:, 0] = Is
+            merges[:, 1] = Js
             merges_heights = vals
         else:
             merges = np.array([], dtype=int)
@@ -608,13 +630,12 @@ class _MetricProbabilitySpace:
         hc_end = k_start - k_end
         # we now undo the adding 1
         core_scales = k_births - 1
-        #print("original k births ", k_births)
-        #print("births ", core_scales)
+        # print("original k births ", k_births)
+        # print("births ", core_scales)
 
-        #print("core scales", core_scales)
-        #print("merges ", merges)
-        #print("merges_heights ", merges_heights)
-
+        # print("core scales", core_scales)
+        # print("merges ", merges)
+        # print("merges_heights ", merges_heights)
 
         return _HierarchicalClustering(
             core_scales, merges, merges_heights, hc_start, hc_end
@@ -676,7 +697,7 @@ class _MetricProbabilitySpace:
                 self._size, self._dist_mat, core_distances
             )
         merges = sl[:, 0:2].astype(int)
-        #label(merges, self._size, merges.shape[0])
+        # label(merges, self._size, merges.shape[0])
         merges_heights = np.minimum(hc_end, sl[:, 2])
         merges_heights = np.maximum(hc_start, sl[:, 2])
         return _HierarchicalClustering(
@@ -693,152 +714,196 @@ class _MetricProbabilitySpace:
             k_end = end[1]
             return self._lambda_linkage_vertical(s_intercept, k_start, k_end)
         else:
-            return self._lambda_linkage_skew(start,end)
+            return self._lambda_linkage_skew(start, end)
 
     def lambda_linkage_vineyard(self, startends, n_jobs, reduced=False, tol=_TOL):
         run_in_parallel = lambda startend: self.lambda_linkage(
             startend[0], startend[1]
         ).persistence_diagram(tol=tol, reduced=reduced)
-        if n_jobs == 1:
-            return [run_in_parallel(startend) for startend in startends]
-        else:
-            verbose = 11 if self._debug else 0
-            n_jobs = min(cpu_count(), n_jobs)
-            # x = Parallel(n_jobs=n_jobs, backend="multiprocessing", verbose=verbose)(
-            #    delayed(self.lambda_linkage)(startend[0], startend[1]) for startend in startends
-            # )
-            # return [hc.persistence_diagram(tol=tol) for hc in x]
-            if self._threading:
-                return Parallel(n_jobs=n_jobs, backend="threading", verbose=verbose)(
-                    delayed(run_in_parallel)(startend) for startend in startends
-                )
-            else:
-                return Parallel(n_jobs=n_jobs, verbose=verbose)(
-                    delayed(run_in_parallel)(startend) for startend in startends
-                )
 
-    def _lambda_linkage_parallel(self, startends, n_jobs):
-        run_in_parallel = lambda startend: self.lambda_linkage(
-            startend[0], startend[1]
+        return parallel_computation(
+            run_in_parallel,
+            startends,
+            n_jobs,
+            debug=self._debug,
+            threading=self._threading,
         )
-        if n_jobs == 1:
-            return [run_in_parallel(startend) for startend in startends]
-        else:
-            verbose = 11 if self._debug else 0
-            n_jobs = min(cpu_count(), n_jobs)
-            if self._threading:
-                return Parallel(n_jobs=n_jobs, backend="threading", verbose=verbose)(
-                    delayed(run_in_parallel)(startend) for startend in startends
-                )
-            else:
-                return Parallel(n_jobs=n_jobs, verbose=verbose)(
-                    delayed(run_in_parallel)(startend) for startend in startends
-                )
 
-    def rank_invariant(self, ss, ks, n_jobs, reduced = True):
+        ##if n_jobs == 1:
+        ##    return [run_in_parallel(startend) for startend in startends]
+        ##else:
+        ##    verbose = 11 if self._debug else 0
+        ##    n_jobs = min(cpu_count(), n_jobs)
+        ##    # x = Parallel(n_jobs=n_jobs, backend="multiprocessing", verbose=verbose)(
+        ##    #    delayed(self.lambda_linkage)(startend[0], startend[1]) for startend in startends
+        ##    # )
+        ##    # return [hc.persistence_diagram(tol=tol) for hc in x]
+        ##    if self._threading:
+        ##        return Parallel(n_jobs=n_jobs, backend="threading", verbose=verbose)(
+        ##            delayed(run_in_parallel)(startend) for startend in startends
+        ##        )
+        ##    else:
+        ##        return Parallel(n_jobs=n_jobs, verbose=verbose)(
+        ##            delayed(run_in_parallel)(startend) for startend in startends
+        ##        )
+
+    # def _lambda_linkage_parallel(self, startends, n_jobs):
+    #    run_in_parallel = lambda startend: self.lambda_linkage(
+    #        startend[0], startend[1]
+    #    )
+    #    if n_jobs == 1:
+    #        return [run_in_parallel(startend) for startend in startends]
+    #    else:
+    #        verbose = 11 if self._debug else 0
+    #        n_jobs = min(cpu_count(), n_jobs)
+    #        if self._threading:
+    #            return Parallel(n_jobs=n_jobs, backend="threading", verbose=verbose)(
+    #                delayed(run_in_parallel)(startend) for startend in startends
+    #            )
+    #        else:
+    #            return Parallel(n_jobs=n_jobs, verbose=verbose)(
+    #                delayed(run_in_parallel)(startend) for startend in startends
+    #            )
+
+    def rank_invariant(self, ss, ks, n_jobs, reduced=True):
         n_s = len(ss)
         n_k = len(ks)
         ks = np.array(ks)
-        startends_horizontal = [ [[ss[0], k], [ss[-1], k]] for k in ks ]
-        startends_vertical = [ [[s, ks[0]], [s, ks[-1]]] for s in ss ]
+        startends_horizontal = [[[ss[0], k], [ss[-1], k]] for k in ks]
+        startends_vertical = [[[s, ks[0]], [s, ks[-1]]] for s in ss]
         startends = startends_horizontal + startends_vertical
-        hcs = self._lambda_linkage_parallel(startends, n_jobs=n_jobs)
+        run_in_parallel = lambda startend: self.lambda_linkage(startend[0], startend[1])
+        hcs = parallel_computation(
+            run_in_parallel,
+            startends,
+            n_jobs,
+            debug=self._debug,
+            threading=self._threading,
+        )
         hcs_horizontal = hcs[:n_k]
-        #DEBUG i = 0
+        # DEBUG i = 0
         for hc in hcs_horizontal:
-            #DEBUG print("snapping horizontal slice at ", ks[i], "births before snapping ", hc._heights)
-            #DEBUG i+=1
+            # DEBUG print("snapping horizontal slice at ", ks[i], "births before snapping ", hc._heights)
+            # DEBUG i+=1
             hc.snap_to_grid(ss)
-            #DEBUG print("births after snapping to ", ss, " are: ", hc._heights)
+            # DEBUG print("births after snapping to ", ss, " are: ", hc._heights)
         hcs_vertical = hcs[n_k:]
-        #DEBUG i = 0
+        # DEBUG i = 0
         for hc in hcs_vertical:
-            #DEBUG print("snapping vertical slice at ", ss[i], "births before snapping ", hc._heights)
-            #DEBUG i+=1
+            # DEBUG print("snapping vertical slice at ", ss[i], "births before snapping ", hc._heights)
+            # DEBUG i+=1
             hc.snap_to_grid(ks[0] - ks)
-            #DEBUG print("births after snapping to ", ks[0] - ks, " are: ", hc._heights)
+            # DEBUG print("births after snapping to ", ks[0] - ks, " are: ", hc._heights)
 
-        def _splice_hcs(s_index,k_index):
+        def _splice_hcs(s_index, k_index):
             # the horizontal hierarchical clustering
             hor_hc = hcs_horizontal[k_index]
             # keep only things that happened before s_index
             hor_heights = hor_hc._heights.copy()
             hor_heights[hor_heights >= s_index] = s_index + len(ks) - k_index + 1
             hor_merges = hor_hc._merges[hor_hc._merges_heights < s_index]
-            hor_merges_heights = hor_hc._merges_heights[hor_hc._merges_heights < s_index]
+            hor_merges_heights = hor_hc._merges_heights[
+                hor_hc._merges_heights < s_index
+            ]
             hor_end = s_index - 1
             hor_start = hor_hc._start
 
-            #DEBUG print("original hor heights ", hor_hc._heights)
-            #DEBUG print("original hor merges heights ", hor_hc._merges_heights)
-            #DEBUG print("hor heights ", hor_heights)
-            #DEBUG print("hor merges heights ", hor_merges_heights)
+            # DEBUG print("original hor heights ", hor_hc._heights)
+            # DEBUG print("original hor merges heights ", hor_hc._merges_heights)
+            # DEBUG print("hor heights ", hor_heights)
+            # DEBUG print("hor merges heights ", hor_merges_heights)
 
             # the vertical hierarchical clustering
             ver_hc = hcs_vertical[s_index]
             # push all things that happened before k_index there, and index starting from s_index
             ver_heights = s_index + np.maximum(k_index, ver_hc._heights) - k_index
-            ver_merges_heights = s_index + np.maximum(k_index, ver_hc._merges_heights) - k_index
+            ver_merges_heights = (
+                s_index + np.maximum(k_index, ver_hc._merges_heights) - k_index
+            )
             # same merges in same order
             ver_merges = ver_hc._merges
 
-            #DEBUG print("original ver heights ", ver_hc._heights)
-            #DEBUG print("original ver merges heights ", ver_hc._merges_heights)
-            #DEBUG print("ver heights ", ver_heights)
-            #DEBUG print("ver merges heights ", ver_merges_heights)
+            # DEBUG print("original ver heights ", ver_hc._heights)
+            # DEBUG print("original ver merges heights ", ver_hc._merges_heights)
+            # DEBUG print("ver heights ", ver_heights)
+            # DEBUG print("ver merges heights ", ver_merges_heights)
 
             ver_start = s_index
-            #DEBUG print("a")
+            # DEBUG print("a")
             ver_end = s_index + ver_hc._end - k_index + 1
-            #DEBUG print("b")
+            # DEBUG print("b")
 
-            heights = np.minimum(hor_heights,ver_heights)
-            #DEBUG print("c")
+            heights = np.minimum(hor_heights, ver_heights)
+            # DEBUG print("c")
             if len(hor_merges) == 0 and len(ver_merges) == 0:
                 merges = np.array([], dtype=int)
             else:
                 if len(hor_merges) == 0:
-                    hor_merges.reshape([0,2])
+                    hor_merges.reshape([0, 2])
                 if len(ver_merges) == 0:
-                    ver_merges.reshape([0,2])
-                merges = np.concatenate((hor_merges,ver_merges))
-            #DEBUG print("d")
-            merges_heights = np.concatenate((hor_merges_heights,ver_merges_heights))
-            #DEBUG print("e")
+                    ver_merges.reshape([0, 2])
+                merges = np.concatenate((hor_merges, ver_merges))
+            # DEBUG print("d")
+            merges_heights = np.concatenate((hor_merges_heights, ver_merges_heights))
+            # DEBUG print("e")
             start = hor_start
-            #DEBUG print("f")
+            # DEBUG print("f")
             end = ver_end
 
-            #DEBUG print("heights ", heights)
-            #DEBUG print("merges heights ", merges_heights)
+            # DEBUG print("heights ", heights)
+            # DEBUG print("merges heights ", merges_heights)
 
             return _HierarchicalClustering(heights, merges, merges_heights, start, end)
 
-        ri = np.zeros((n_s, n_k, n_s, n_k), dtype=int)
-        for s_index in range(n_s):
-            for k_index in range(n_k):
-                #DEBUG print("--------------------------")
-                #DEBUG print("s and k index ", s_index, k_index)
-                hc = _splice_hcs(s_index,k_index)
-                #DEBUG print("start end of hierarchical clustering ", hc._start, hc._end)
-                pd = hc.persistence_diagram(reduced=reduced)
-                #DEBUG print("persistence diagram ", pd)
-                for bar in pd:
-                    b, d = bar
-                    b, d = int(b), int(d)
-                    # this if may be unnecessary 
-                    #DEBUG print("enter bar")
-                    if b <= s_index and d >= s_index:
-                        #DEBUG print("enter bar 2")
-                        for i in range(b,s_index+1):
-                            #DEBUG print("enter bar 3")
-                            #for j in range(s_index,min(d,s_index + n_k - k_index)):
-                            for j in range(s_index,d):
-                                #DEBUG print("enter bar 4")
-                                #DEBUG print("i ", i, "k_index", k_index, "s_index", s_index, "last", j-s_index+k_index)
-                                ri[i, k_index, s_index, j-s_index+k_index] += 1
+        def _pd_spliced_hc(s_index_k_index):
+           s_index, k_index = s_index_k_index
+           return _splice_hcs(s_index,k_index).persistence_diagram(reduced=reduced)
 
+        indices = [[s_index,k_index] for s_index in range(n_s) for k_index in range(n_k) ]
+        pds = parallel_computation(_pd_spliced_hc, indices, n_jobs, debug=self._debug, threading=self._threading)
+        pds = [[indices[i][0],indices[i][1],pds[i]] for i in range(len(indices)) ]
+
+        ri = np.zeros((n_s, n_k, n_s, n_k), dtype=int)
+
+        for s_index, k_index, pd in pds:
+            for bar in pd:
+                b, d = bar
+                b, d = int(b), int(d)
+                # this if may be unnecessary
+                #DEBUG print("enter bar")
+                if b <= s_index and d >= s_index:
+                    #DEBUG print("enter bar 2")
+                    for i in range(b,s_index+1):
+                        #DEBUG print("enter bar 3")
+                        #for j in range(s_index,min(d,s_index + n_k - k_index)):
+                        for j in range(s_index,d):
+                            #DEBUG print("enter bar 4")
+                            #DEBUG print("i ", i, "k_index", k_index, "s_index", s_index, "last", j-s_index+k_index)
+                            ri[i, k_index, s_index, j-s_index+k_index] += 1
         return ri
+
+        #for s_index in range(n_s):
+        #    for k_index in range(n_k):
+        #        # DEBUG print("--------------------------")
+        #        # DEBUG print("s and k index ", s_index, k_index)
+        #        hc = _splice_hcs(s_index, k_index)
+        #        # DEBUG print("start end of hierarchical clustering ", hc._start, hc._end)
+        #        pd = hc.persistence_diagram(reduced=reduced)
+        #        # DEBUG print("persistence diagram ", pd)
+        #        for bar in pd:
+        #            b, d = bar
+        #            b, d = int(b), int(d)
+        #            # this if may be unnecessary
+        #            # DEBUG print("enter bar")
+        #            if b <= s_index and d >= s_index:
+        #                # DEBUG print("enter bar 2")
+        #                for i in range(b, s_index + 1):
+        #                    # DEBUG print("enter bar 3")
+        #                    # for j in range(s_index,min(d,s_index + n_k - k_index)):
+        #                    for j in range(s_index, d):
+        #                        # DEBUG print("enter bar 4")
+        #                        # DEBUG print("i ", i, "k_index", k_index, "s_index", s_index, "last", j-s_index+k_index)
+        #                        ri[i, k_index, s_index, j - s_index + k_index] += 1
 
     def hilbert_function(self, ss, ks, n_jobs):
         n_s = len(ss)
@@ -877,7 +942,7 @@ class _MetricProbabilitySpace:
                     new_labels.append(old_labels[x])
             new_labels = np.array(new_labels)
             old_labels = new_labels
-            if np.array_equal(new_labels,old_labels):
+            if np.array_equal(new_labels, old_labels):
                 break
         return new_labels
 
@@ -890,23 +955,23 @@ class _HierarchicalClustering:
         self._heights = np.array(heights, dtype=float)
         self._start = start
         self._end = end
+        # persistence_diagram_h0 will fail if it receives an empty array
         if self._merges.shape[0] == 0:
-            self._merges = np.array([[0,0]], dtype=int)
+            self._merges = np.array([[0, 0]], dtype=int)
             self._merges_heights = np.array([self._end], dtype=float)
-
 
     def snap_to_grid(self, grid):
         def _snap_array(grid, arr):
-            res = np.zeros(arr.shape[0],dtype=int)
+            res = np.zeros(arr.shape[0], dtype=int)
             # assumes grid and arr are ordered smallest to largest
-            res[arr<=grid[0]] = 0
-            for i in range(len(grid)-1):
-                res[(arr<=grid[i+1]) & (arr>grid[i])] = i+1
-            res[arr>grid[-1]] = len(grid)
+            res[arr <= grid[0]] = 0
+            for i in range(len(grid) - 1):
+                res[(arr <= grid[i + 1]) & (arr > grid[i])] = i + 1
+            res[arr > grid[-1]] = len(grid)
             return res
-        
-        self._merges_heights = _snap_array(grid,self._merges_heights)
-        self._heights = _snap_array(grid,self._heights)
+
+        self._merges_heights = _snap_array(grid, self._merges_heights)
+        self._heights = _snap_array(grid, self._heights)
         self._start, self._end = _snap_array(grid, np.array([self._start, self._end]))
 
     def persistence_based_flattening(self, threshold):
@@ -968,8 +1033,8 @@ class _HierarchicalClustering:
                         clusters.append(list(uf.subset(x)))
                         clusters.append(list(uf.subset(y)))
                         uf.merge(x, y)
-                        #uf.add(mind + n_points)
-                        #uf.merge(x, mind + n_points)
+                        # uf.add(mind + n_points)
+                        # uf.merge(x, mind + n_points)
                         rxy = uf.__getitem__(x)
                         clusters_died[rxy] = True
                     # otherwise, merge them
@@ -978,15 +1043,15 @@ class _HierarchicalClustering:
                         del clusters_birth[rx]
                         del clusters_birth[ry]
                         uf.merge(x, y)
-                        #uf.add(mind + n_points)
-                        #uf.merge(x, mind + n_points)
+                        # uf.add(mind + n_points)
+                        # uf.merge(x, mind + n_points)
                         rxy = uf.__getitem__(x)
                         clusters_birth[rxy] = min(bx, by)
                 # if both clusters are already dead, just merge them into a dead cluster
                 elif rx in clusters_died and ry in clusters_died:
                     uf.merge(x, y)
-                    #uf.add(mind + n_points)
-                    #uf.merge(x, mind + n_points)
+                    # uf.add(mind + n_points)
+                    # uf.merge(x, mind + n_points)
                     rxy = uf.__getitem__(x)
                     clusters_died[rxy] = True
                 # if only one of them is dead
@@ -1000,8 +1065,8 @@ class _HierarchicalClustering:
                         clusters.append(list(uf.subset(x)))
                     # then merge the clusters into a dead cluster
                     uf.merge(x, y)
-                    #uf.add(mind + n_points)
-                    #uf.merge(x, mind + n_points)
+                    # uf.add(mind + n_points)
+                    # uf.merge(x, mind + n_points)
                     rxy = uf.__getitem__(x)
                     clusters_died[rxy] = True
                 mind += 1
@@ -1031,119 +1096,14 @@ class _HierarchicalClustering:
         return res
 
     def persistence_diagram(self, reduced=False, tol=_TOL):
-        pd = persistence_diagram_h0(self._end, self._heights, self._merges, self._merges_heights)
+        pd = persistence_diagram_h0(
+            self._end, self._heights, self._merges, self._merges_heights
+        )
         pd = np.array(pd)
         if pd.shape[0] == 0:
             return np.array([])
         pd = pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]
         if reduced:
-            to_delete = np.argmax(pd[:,1] - pd[:,0])
-            return np.delete(pd,to_delete, axis=0)
+            to_delete = np.argmax(pd[:, 1] - pd[:, 0])
+            return np.delete(pd, to_delete, axis=0)
         return pd
-
-#        end = self._end
-#        heights = self._heights
-#        merges = self._merges
-#        merges_heights = self._merges_heights
-#        n_points = heights.shape[0]
-#        n_merges = merges.shape[0]
-#        # this orders the point by appearance
-#        appearances = np.argsort(heights)
-#        # contains the current clusters
-#        ##uf = DisjointSet()
-#        uf = BoruvkaUnionFind(len(heights))
-#        # contains the birth time of clusters that are alive
-#        clusters_birth = {}
-#        clusters_died = {}
-#        # contains the persistence diagram
-#        pd = []
-#        # height index
-#        hind = 0
-#        # merge index
-#        mind = 0
-#        if len(appearances) == 0:
-#            return np.array([])
-#        current_appearence_height = heights[appearances[0]]
-#        if len(merges_heights) == 0:
-#            current_merge_height = end
-#        else:
-#            current_merge_height = merges_heights[0]
-#        while True:
-#            # while there is no merge
-#            while (
-#                hind < n_points
-#                and heights[appearances[hind]] <= current_merge_height
-#                and heights[appearances[hind]] < end
-#            ):
-#                # add all points that are born as new clusters
-#                ##uf.add(appearances[hind])
-#                ##clusters_birth[appearances[hind]] = heights[appearances[hind]]
-#                clusters_birth[uf.find(appearances[hind])] = heights[appearances[hind]]
-#                hind += 1
-#                if hind == n_points:
-#                    current_appearence_height = end
-#                else:
-#                    current_appearence_height = heights[appearances[hind]]
-#            # while there is no cluster being born
-#            while (
-#                mind < n_merges
-#                and merges_heights[mind] < current_appearence_height
-#                and merges_heights[mind] < end
-#            ):
-#                xy = merges[mind]
-#                x, y = xy
-#                rx = uf.find(x)
-#                ry = uf.find(y)
-#                # if they were not already merged
-#                if rx != ry:
-#                    # if both clusters are alive, merge them and add a bar to the pd
-#                    if rx not in clusters_died and ry not in clusters_died:
-#                        bx = clusters_birth[rx]
-#                        by = clusters_birth[ry]
-#                        elder_birth, younger_birth = min(bx, by), max(bx, by)
-#                        pd.append([younger_birth, merges_heights[mind]])
-#                        del clusters_birth[rx]
-#                        del clusters_birth[ry]
-#                        uf.union_(x, y)
-#                        rxy = uf.find(x)
-#                        clusters_birth[rxy] = elder_birth
-#                    # if both clusters are already dead, just merge them into a dead cluster
-#                    elif rx in clusters_died and ry in clusters_died:
-#                        uf.union_(x, y)
-#                        rxy = uf.find(x)
-#                        clusters_died[rxy] = True
-#                    # if only one of them is dead
-#                    else:
-#                        # we make it so that ry already died and rx just died
-#                        if rx in clusters_died:
-#                            x, y = y, x
-#                            rx, ry = ry, rx
-#                        # merge the clusters into a dead cluster
-#                        uf.union_(x, y)
-#                        rxy = uf.find(x)
-#                        clusters_died[rxy] = True
-#                mind += 1
-#                if mind == n_merges:
-#                    current_merge_height = end
-#                else:
-#                    current_merge_height = merges_heights[mind]
-#            if (hind == n_points or heights[appearances[hind]] >= end) and (
-#                mind == n_merges or merges_heights[mind] >= end
-#            ):
-#                break
-#        # go through all clusters that have been born but haven't died 
-#        for x in range(n_points):
-#            ##if x in uf._indices:
-#            rx = uf.find(x)
-#            if (rx in clusters_birth) and (rx not in clusters_died):
-#                pd.append([clusters_birth[rx], end])
-#                clusters_died[rx] = True
-#        pd = np.array(pd)
-#        if pd.shape[0] == 0:
-#            return np.array([])
-#        else:
-#            pd = pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]
-#            if reduced:
-#                to_delete = np.argmax(pd[:,1] - pd[:,0])
-#                return np.delete(pd,to_delete, axis=0)
-#            return pd

@@ -70,6 +70,7 @@ INPUT_SIGNED_BETTI_NUMBERS = "input-signed-betti-numbers-"
 INPUT_Y_COVARIANT = "input-y-covariant-"
 CCF_PLOT_CONTROLS_DIV = "ccf-plot-controls-div-"
 CCF_DETAILS = "ccf-details-"
+CCF_EXTRAS = "ccf-extras-"
 PV_DETAILS = "pv-details-"
 PV_PLOT_CONTROLS_DIV = "pv-plot-controls-div-"
 LOG = "log-"
@@ -762,6 +763,16 @@ class PersistableInteractive:
                                         ),
                                     ],
                                 ),
+                                
+                                html.Div(children=[
+                                    html.Details(
+                                        id=CCF_EXTRAS,
+                                        children=[
+                                            html.Summary("Extras"),
+                                            html.Div(),
+                                        ]
+                                    ),
+                                ]),
                             ],
                         ),
                         html.Div(
@@ -1444,14 +1455,14 @@ class PersistableInteractive:
                         fig.add_trace(
                             _draw_bar([r_st[0], r_end[0]], [r_st[1], r_end[1]], color)
                         )
-                fig.add_trace(
-                    generate_line(
-                        [st_x, end_x],
-                        [st_y, end_y],
-                        "selected",
-                        color="blue",
+                    fig.add_trace(
+                        generate_line(
+                            [st_x, end_x],
+                            [st_y, end_y],
+                            "selected",
+                            color="blue",
+                        )
                     )
-                )
 
             yaxis = (
                 [y_ticks[0], y_ticks[-1] - delta_y]
