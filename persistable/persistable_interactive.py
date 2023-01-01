@@ -361,6 +361,34 @@ class PersistableInteractive:
                                     ),
                                 ],
                             ),
+                            # html.Div(
+                            #    className="row",
+                            #    children=[
+                            #        html.Div(
+                            #            className="column",
+                            #            children=[
+                            #                html.Div(
+                            #                    className="parameter-single",
+                            #                    children=[
+                            #                        html.Span(
+                            #                            className="name",
+                            #                            children="Granularity",
+                            #                        ),
+                            #                        dcc.Input(
+                            #                            id=INPUT_GRANULARITY_CCF,
+                            #                            className="small-value",
+                            #                            type="number",
+                            #                            value=default_granularity_ccf,
+                            #                            min=min_granularity,
+                            #                            max=max_granularity,
+                            #                            debounce=True,
+                            #                        ),
+                            #                    ],
+                            #                )
+                            #            ],
+                            #        )
+                            #    ],
+                            # ),
                             html.Div(
                                 className="parameter-single",
                                 children=[
@@ -397,7 +425,7 @@ class PersistableInteractive:
                                 children=[
                                     html.Span(
                                         className="name",
-                                        children="Number of cores computation",
+                                        children="# cores computation",
                                     ),
                                     dcc.Input(
                                         className="small-value",
@@ -411,14 +439,14 @@ class PersistableInteractive:
                                     ),
                                     html.Span(
                                         className="name",
-                                        children="y axis",
+                                        children="Y axis",
                                     ),
                                     dcc.RadioItems(
                                         [
-                                            "Covariant",
-                                            "Contravariant",
+                                            "Cov",
+                                            "Contr",
                                         ],
-                                        "Covariant",
+                                        "Cov",
                                         id=INPUT_Y_COVARIANT,
                                         className="small-value",
                                     ),
@@ -512,6 +540,7 @@ class PersistableInteractive:
                         id=CCF_EXTRAS,
                         children=[
                             html.Summary("Extras"),
+                            html.H3("Rank decomposition"),
                             html.Div(
                                 className="parameters",
                                 children=[
@@ -520,7 +549,7 @@ class PersistableInteractive:
                                         children=[
                                             html.Span(
                                                 className="name",
-                                                children="Granularity rank decomposition",
+                                                children="Granularity",
                                             ),
                                             dcc.Input(
                                                 id=INPUT_GRANULARITY_RI,
@@ -564,57 +593,7 @@ class PersistableInteractive:
                                             ),
                                             html.Span(
                                                 className="name",
-                                                children="Decompose by",
-                                            ),
-                                            dcc.RadioItems(
-                                                [
-                                                    "Rectangles",
-                                                    "Hooks",
-                                                ],
-                                                "Rectangles",
-                                                id=INPUT_DECOMPOSE_BY_RI,
-                                                className="small-value",
-                                            ),
-                                        ],
-                                    ),
-                                    html.Div(
-                                        className="parameter-single",
-                                        children=[
-                                            html.Span(
-                                                className="name",
-                                                children="Rank decomposition reduced homology",
-                                            ),
-                                            dcc.RadioItems(
-                                                [
-                                                    "Yes",
-                                                    "No",
-                                                ],
-                                                "Yes",
-                                                id=INPUT_REDUCED_HOMOLOGY_RI,
-                                                className="small-value",
-                                            ),
-                                            html.Span(
-                                                className="name",
-                                                children="Display rank decomposition",
-                                            ),
-                                            dcc.RadioItems(
-                                                [
-                                                    "Yes",
-                                                    "No",
-                                                ],
-                                                "Yes",
-                                                id=INPUT_DISPLAY_RI,
-                                                className="small-value",
-                                            ),
-                                        ],
-                                    ),
-
-                                    html.Div(
-                                        className="parameter-single",
-                                        children=[
-                                            html.Span(
-                                                className="name",
-                                                children="Number of cores computation rank decomposition",
+                                                children="# cores computation",
                                             ),
                                             dcc.Input(
                                                 className="small-value",
@@ -629,15 +608,64 @@ class PersistableInteractive:
                                         ],
                                     ),
                                     html.Div(
+                                        className="parameter-single",
+                                        children=[
+                                            html.Span(
+                                                className="name",
+                                                children="Reduced homology",
+                                            ),
+                                            dcc.RadioItems(
+                                                [
+                                                    "Yes",
+                                                    "No",
+                                                ],
+                                                "Yes",
+                                                id=INPUT_REDUCED_HOMOLOGY_RI,
+                                                className="small-value",
+                                            ),
+                                            html.Span(
+                                                className="name",
+                                                children="Display",
+                                            ),
+                                            dcc.RadioItems(
+                                                [
+                                                    "Yes",
+                                                    "No",
+                                                ],
+                                                "Yes",
+                                                id=INPUT_DISPLAY_RI,
+                                                className="small-value",
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="parameter-single",
+                                        children=[
+                                            html.Span(
+                                                className="name",
+                                                children="Decompose by",
+                                            ),
+                                            dcc.RadioItems(
+                                                [
+                                                    "Rect",
+                                                    "Hook",
+                                                ],
+                                                "Rect",
+                                                id=INPUT_DECOMPOSE_BY_RI,
+                                                className="value",
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
                                         className="large-buttons",
                                         children=[
                                             html.Button(
-                                                "Compute rank decomposition",
+                                                "Compute",
                                                 id=COMPUTE_RI_BUTTON,
                                                 className="button1",
                                             ),
                                             html.Button(
-                                                "Stop computation rank decomposition",
+                                                "Stop computation",
                                                 id=STOP_COMPUTE_RI_BUTTON,
                                                 className="button2",
                                                 disabled=True,
@@ -771,7 +799,7 @@ class PersistableInteractive:
                                 children=[
                                     html.Span(
                                         className="name",
-                                        children="Number of lines vineyard",
+                                        children="# lines vineyard",
                                     ),
                                     dcc.Input(
                                         id=INPUT_GRANULARITY_PV,
@@ -802,7 +830,7 @@ class PersistableInteractive:
                                 children=[
                                     html.Span(
                                         className="name",
-                                        children="Number of cores computation",
+                                        children="# cores computation",
                                     ),
                                     dcc.Input(
                                         className="small-value",
@@ -1353,7 +1381,9 @@ class PersistableInteractive:
 
             # draw signed barcode
             if d[INPUT_DISPLAY_RI + VALUE] == "Yes":
-                using_rectangles = True if d[INPUT_DECOMPOSE_BY_RI + VALUE] == "Rectangles" else False
+                using_rectangles = (
+                    True if d[INPUT_DECOMPOSE_BY_RI + VALUE] == "Rect" else False
+                )
                 if using_rectangles:
                     sb = np.array(
                         json.loads(d[STORED_SIGNED_BARCODE_RECTANGLES + DATA])
@@ -1387,14 +1417,14 @@ class PersistableInteractive:
                                 width = 10 * (length / total_width)
                                 size = min_size + 5 * (length / total_width)
                             else:
-                                #if i == i_ and j == j_:
+                                # if i == i_ and j == j_:
                                 #    i_ += 1
                                 #    j_ += 1
-                                #elif i == i_ and j != j_:
+                                # elif i == i_ and j != j_:
                                 #    j_ += 1
-                                #elif i != i_ and j == j_:
+                                # elif i != i_ and j == j_:
                                 #    i_ += 1
-                                #else:
+                                # else:
                                 #    i_ += 1
                                 #    j_ += 1
                                 length = max((i_ - i), (j_ - j))
@@ -1582,19 +1612,29 @@ class PersistableInteractive:
             params = json.loads(d[FIXED_PARAMETERS + DATA])
             if len(params) != 0 and d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On":
                 pd = json.loads(d[STORED_PD + DATA])
-                if len(pd) != 0:
 
-                    st_x = params["start"][0]
-                    st_y = params["start"][1]
-                    end_x = params["end"][0]
-                    end_y = params["end"][1]
+                st_x = params["start"][0]
+                st_y = params["start"][1]
+                end_x = params["end"][0]
+                end_y = params["end"][1]
+
+                fig.add_trace(
+                    generate_line(
+                        [st_x, end_x],
+                        [st_y, end_y],
+                        "selected",
+                        color="blue",
+                    )
+                )
+
+                if len(pd) != 0:
                     st = np.array([st_x, st_y])
                     end = np.array([end_x, end_y])
                     A = end - st
 
                     # ideally we would get the actual ratio of the rendered picture
-                    # we are using an estimate given by the "usual" way in which persistable
-                    # is rendered
+                    # we are using an estimate given by the "usual" way in which
+                    # persistable's GUI is rendered
                     ratio = np.array([3, 2])
                     ratio = (ratio / np.linalg.norm(ratio)) * np.linalg.norm(
                         np.array([1, 1])
@@ -1638,18 +1678,10 @@ class PersistableInteractive:
                         fig.add_trace(
                             _draw_bar([r_st[0], r_end[0]], [r_st[1], r_end[1]], color)
                         )
-                    fig.add_trace(
-                        generate_line(
-                            [st_x, end_x],
-                            [st_y, end_y],
-                            "selected",
-                            color="blue",
-                        )
-                    )
 
             yaxis = (
                 [y_ticks_ccf[0], y_ticks_ccf[-1] - delta_y_ccf]
-                if d[INPUT_Y_COVARIANT + VALUE] == "Covariant"
+                if d[INPUT_Y_COVARIANT + VALUE] == "Cov"
                 else [y_ticks_ccf[-1] - delta_y_ccf, y_ticks_ccf[0]]
             )
 
@@ -1789,7 +1821,9 @@ class PersistableInteractive:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 try:
-                    reduced = True if d[INPUT_REDUCED_HOMOLOGY_RI + VALUE] == "Yes" else False
+                    reduced = (
+                        True if d[INPUT_REDUCED_HOMOLOGY_RI + VALUE] == "Yes" else False
+                    )
                     ss, ks, ri, sbr, sbh = persistable._compute_rank_invariant(
                         d[MIN_DIST_SCALE + VALUE],
                         d[MAX_DIST_SCALE + VALUE],
