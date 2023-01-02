@@ -32,6 +32,8 @@ cpdef rank_decomposition_2d_rectangles_to_hooks(long[:,:,:,:] rdr):
         for j in range(rdr.shape[1]):
             for i_ in range(i, rdr.shape[2]):
                 for j_ in range(j, rdr.shape[3]):
+                    up_i = min(i_+1,rdr.shape[0] - 1)
+                    up_j = min(j_+1,rdr.shape[1] - 1)
                     rdh_view[i,j,up_i,up_j] -= rdr_view[i,j,i_,j_]
                     rdh_view[i,j,up_i,j] += rdr_view[i,j,i_,j_]
                     rdh_view[i,j,i,up_j] += rdr_view[i,j,i_,j_]
