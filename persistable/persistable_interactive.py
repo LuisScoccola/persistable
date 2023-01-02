@@ -104,7 +104,6 @@ STORED_PD = "stored-pd-"
 STORED_CCF_COMPUTATION_WARNINGS = "stored-ccf-computation-warnings-"
 STORED_PV_COMPUTATION_WARNINGS = "stored-pv-computation-warnings-"
 STORED_RI_COMPUTATION_WARNINGS = "stored-ri-computation-warnings-"
-# STORED_PD_COMPUTATION_WARNINGS = "stored-pd-computation-warnings-"
 
 EXPORTED_PARAMETER = "exported-parameter-"
 
@@ -201,9 +200,6 @@ class PersistableInteractive:
             self._layout_gui()
             self._register_callbacks(self._persistable, self._debug)
 
-            # import logging
-            # self._app.logger.setLevel(logging.WARNING)
-            # logging.getLogger("werkzeug").setLevel(logging.ERROR)
             self._app.run_server(port=port, mode="inline", debug=debug)
         else:
             self._app = dash.Dash(
@@ -281,6 +277,7 @@ class PersistableInteractive:
         default_max_vines = 15
         min_granularity = 4
         max_granularity = 512
+        max_granularity_ri = 64
         min_granularity_vineyard = 1
         max_granularity_vineyard = max_granularity
         defr = 6
@@ -361,34 +358,6 @@ class PersistableInteractive:
                                     ),
                                 ],
                             ),
-                            # html.Div(
-                            #    className="row",
-                            #    children=[
-                            #        html.Div(
-                            #            className="column",
-                            #            children=[
-                            #                html.Div(
-                            #                    className="parameter-single",
-                            #                    children=[
-                            #                        html.Span(
-                            #                            className="name",
-                            #                            children="Granularity",
-                            #                        ),
-                            #                        dcc.Input(
-                            #                            id=INPUT_GRANULARITY_CCF,
-                            #                            className="small-value",
-                            #                            type="number",
-                            #                            value=default_granularity_ccf,
-                            #                            min=min_granularity,
-                            #                            max=max_granularity,
-                            #                            debounce=True,
-                            #                        ),
-                            #                    ],
-                            #                )
-                            #            ],
-                            #        )
-                            #    ],
-                            # ),
                             html.Div(
                                 className="parameter-single",
                                 children=[
@@ -557,7 +526,7 @@ class PersistableInteractive:
                                                 type="number",
                                                 value=default_granularity_ri,
                                                 min=min_granularity,
-                                                max=max_granularity,
+                                                max=max_granularity_ri,
                                                 debounce=True,
                                             ),
                                             html.Span(
@@ -971,12 +940,10 @@ class PersistableInteractive:
                 dcc.Store(id=STORED_CCF_COMPUTATION_WARNINGS, data=json.dumps(" ")),
                 dcc.Store(id=STORED_RI_COMPUTATION_WARNINGS, data=json.dumps(" ")),
                 dcc.Store(id=STORED_PV_COMPUTATION_WARNINGS, data=json.dumps(" ")),
-                # dcc.Store(id=STORED_PD_COMPUTATION_WARNINGS),
                 #
                 dcc.Store(id=FIXED_PARAMETERS, data=json.dumps([])),
                 #
                 html.Div(id=EXPORTED_PARAMETER, hidden=True),
-                # html.Div(id=EXPORTED_PARAMETER_2, hidden=True),
                 html.Div(
                     className="grid",
                     children=[
@@ -1417,16 +1384,6 @@ class PersistableInteractive:
                                 width = 10 * (length / total_width)
                                 size = min_size + 5 * (length / total_width)
                             else:
-                                # if i == i_ and j == j_:
-                                #    i_ += 1
-                                #    j_ += 1
-                                # elif i == i_ and j != j_:
-                                #    j_ += 1
-                                # elif i != i_ and j == j_:
-                                #    i_ += 1
-                                # else:
-                                #    i_ += 1
-                                #    j_ += 1
                                 length = max((i_ - i), (j_ - j))
                                 width = 10 * (length / total_width)
                                 size = min_size + 5 * (length / total_width)
@@ -1719,8 +1676,6 @@ class PersistableInteractive:
                 [STORED_Y_TICKS_CCF, DATA],
                 [STORED_CCF_COMPUTATION_WARNINGS, DATA],
                 [STORED_BETTI, DATA],
-                # [STORED_SIGNED_BARCODE_RECTANGLES, DATA],
-                # [STORED_SIGNED_BARCODE_HOOKS, DATA],
                 [CCF_PLOT_CONTROLS_DIV, HIDDEN],
             ],
             prevent_initial_call=True,
@@ -1750,14 +1705,6 @@ class PersistableInteractive:
                         granularity,
                         n_jobs=num_jobs,
                     )
-
-                    ##print("parameters",
-                    ##    d[MIN_DIST_SCALE + VALUE],
-                    ##    d[MAX_DIST_SCALE + VALUE],
-                    ##    d[MAX_DENSITY_THRESHOLD + VALUE],
-                    ##    d[MIN_DENSITY_THRESHOLD + VALUE],
-                    ##    granularity
-                    ##)
 
                 except ValueError:
                     out += traceback.format_exc()
