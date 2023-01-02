@@ -1628,6 +1628,8 @@ class PersistableInteractive:
                 )
 
                 if len(pd) != 0:
+                    pd = np.array(pd)
+                    pd = pd-st_x
                     st = np.array([st_x, st_y])
                     end = np.array([end_x, end_y])
                     A = end - st
@@ -1655,7 +1657,6 @@ class PersistableInteractive:
                     B = B / np.linalg.norm(B)
                     tau = B * alpha / shift
 
-                    pd = np.array(pd)
                     lengths = pd[:, 1] - pd[:, 0]
                     pd = pd[np.argsort(lengths)[::-1]]
                     for i, point in enumerate(pd):

@@ -702,7 +702,7 @@ class _MetricProbabilitySpace:
         merges_heights = np.minimum(hc_end, sl[:, 2])
         merges_heights = np.maximum(hc_start, sl[:, 2])
         return _HierarchicalClustering(
-            core_distances-hc_start, merges, merges_heights-hc_start, hc_start-hc_start, hc_end-hc_start
+            core_distances, merges, merges_heights, hc_start, hc_end
         )
 
     def lambda_linkage(self, start, end):
