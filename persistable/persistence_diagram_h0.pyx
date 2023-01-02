@@ -13,11 +13,11 @@ ctypedef np.uint8_t uint8
 from .borrowed._hdbscan_boruvka cimport BoruvkaUnionFind
 
 
-cpdef persistence_diagram_h0(double end, double[:] heights, np.intp_t[:,:] merges, double[:] merges_heights):
-    cdef np.intp_t n_points = heights.shape[0]
-    cdef np.intp_t n_merges = merges.shape[0]
+cpdef persistence_diagram_h0(double end, double[:] heights, np.int64_t[:,:] merges, double[:] merges_heights):
+    cdef np.int64_t n_points = heights.shape[0]
+    cdef np.int64_t n_merges = merges.shape[0]
     # this orders the point by appearance
-    cdef np.intp_t[:] appearances = np.argsort(heights)
+    cdef np.int64_t[:] appearances = np.argsort(heights)
     # contains the current clusters
     cdef BoruvkaUnionFind uf = BoruvkaUnionFind(len(heights))
     # contains the birth time of clusters that are alive
@@ -26,24 +26,24 @@ cpdef persistence_diagram_h0(double end, double[:] heights, np.intp_t[:,:] merge
     # contains the persistence diagram
     cdef list pd = []
     # height index
-    cdef np.intp_t hind = 0
+    cdef np.int64_t hind = 0
     # merge index
-    cdef np.intp_t mind = 0
+    cdef np.int64_t mind = 0
     if len(appearances) == 0:
         return []
 
     cdef double current_appearence_height = heights[appearances[0]]
     cdef double current_merge_height
-    cdef np.intp_t[:] xy
-    cdef np.intp_t x
-    cdef np.intp_t y
-    cdef np.intp_t rx
-    cdef np.intp_t ry
+    cdef np.int64_t[:] xy
+    cdef np.int64_t x
+    cdef np.int64_t y
+    cdef np.int64_t rx
+    cdef np.int64_t ry
     cdef double bx
     cdef double by
     cdef double elder_birth
     cdef double younger_birth
-    cdef np.intp_t to_delete
+    cdef np.int64_t to_delete
 
     if len(merges_heights) == 0:
         current_merge_height = end

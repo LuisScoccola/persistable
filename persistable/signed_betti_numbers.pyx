@@ -22,13 +22,13 @@ cpdef signed_betti(hilbert_function):
     slices = np.ix_( *[range(0,hilbert_function.shape[i]) for i in range(n)] )
     return bn[slices]
 
-cpdef rank_decomposition_2d_rectangles(np.intp_t[:,:,:,:] rank_invariant):
+cpdef rank_decomposition_2d_rectangles(np.int64_t[:,:,:,:] rank_invariant):
     return np.flip(signed_betti(np.flip(rank_invariant,(2,3))),(2,3))
 
-cpdef rank_decomposition_2d_rectangles_to_hooks(np.intp_t[:,:,:,:] rdr):
-    cdef np.intp_t[:,:,:,:] rdr_view = rdr
-    rdh = np.zeros_like(rdr, dtype=np.intp)
-    cdef np.intp_t[:,:,:,:] rdh_view = rdh
+cpdef rank_decomposition_2d_rectangles_to_hooks(np.int64_t[:,:,:,:] rdr):
+    cdef np.int64_t[:,:,:,:] rdr_view = rdr
+    rdh = np.zeros_like(rdr, dtype=np.int64)
+    cdef np.int64_t[:,:,:,:] rdh_view = rdh
     cdef int i, j, i_, j_
     for i in range(rdr.shape[0]):
         for j in range(rdr.shape[1]):
