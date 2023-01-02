@@ -380,7 +380,8 @@ class Persistable:
         ss = np.linspace(min_s, max_s, granularity)
         ks = np.linspace(min_k, max_k, granularity)[::-1]
         ri = self._mpspace.rank_invariant(ss, ks, n_jobs=n_jobs, reduced=reduced)
-        rdr = rank_decomposition_2d_rectangles(ri)
+        # need to cast explicitly to int64 for windows compatibility
+        rdr = rank_decomposition_2d_rectangles(np.array(ri, dtype=np.int64))
         return ss, ks, ri, rdr, rank_decomposition_2d_rectangles_to_hooks(rdr)
 
 
@@ -1097,8 +1098,9 @@ class _HierarchicalClustering:
         return res
 
     def persistence_diagram(self, reduced=False, tol=_TOL):
+        # need to cast explicitly to int64 for windows compatibility
         pd = persistence_diagram_h0(
-            self._end, self._heights, self._merges, self._merges_heights
+            self._end, self._heights, np.array(self._merges,dtype=np.int64), self._merges_heights
         )
         pd = np.array(pd)
         if pd.shape[0] == 0:
