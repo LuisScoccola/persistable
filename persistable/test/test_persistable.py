@@ -24,6 +24,17 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         for _ in range(self._number_different_weights):
             self._different_weights.append(np.random.random_sample(self._n))
 
+    def test_k_can_be_one(self):
+        # check that k can be 1 when intialized with all neighbors
+        n = 2000
+        X = np.random.random_sample((n, 2))
+
+        p = Persistable(X, n_neighbors="all")
+        mps = p._mpspace
+        s0 = np.infty
+        k0 = 1
+        mps._core_distance(np.arange(n), s0, k0)
+
     def test_core_distances(self):
         n = 4
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
