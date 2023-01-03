@@ -506,27 +506,30 @@ class _MetricProbabilitySpace:
         else:
             i_indices = []
             for p in point_index:
-                i_indices.append(
-                    np.searchsorted(self._kernel_estimate[p], k_intercept, side="left")
-                )
+                idx = np.searchsorted(self._kernel_estimate[p], k_intercept, side="left")
+                if idx == self._nn_distance[p].shape[0]:
+                    idx -= 1
+                i_indices.append(idx)
             i_indices = np.array(i_indices)
-            if self._n_neighbors < self._size:
-                out_of_range = np.where(
-                    (
-                        i_indices
-                        >= np.apply_along_axis(len, -1, self._nn_indices[point_index])
-                    )
-                    & (
-                        np.apply_along_axis(len, -1, self._nn_indices[point_index])
-                        < self._size
-                    ),
-                    True,
-                    False,
-                )
-                if np.any(out_of_range):
-                    warnings.warn(
-                        "Don't have enough neighbors to properly compute core scale."
-                    )
+            # TODO: properly check and warn of not enough n_neighbors or
+            # explicitly ensure that the following does not happen:
+            #if self._n_neighbors < self._size:
+            #    out_of_range = np.where(
+            #        (
+            #            i_indices
+            #            >= np.apply_along_axis(len, -1, self._nn_indices[point_index])
+            #        )
+            #        & (
+            #            np.apply_along_axis(len, -1, self._nn_indices[point_index])
+            #            < self._size
+            #        ),
+            #        True,
+            #        False,
+            #    )
+            #    if np.any(out_of_range):
+            #        warnings.warn(
+            #            "Don't have enough neighbors to properly compute core scale."
+            #        )
             return self._nn_distance[(point_index, i_indices)]
 
     def find_end(self, tolerance=1e-4):
