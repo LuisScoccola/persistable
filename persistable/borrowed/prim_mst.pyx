@@ -13,8 +13,6 @@ from libc.float cimport DBL_MAX
 
 from dist_metrics cimport DistanceMetric
 
-from .relabel_dendrogram import label
-
 
 cpdef np.ndarray[np.double_t, ndim=2] mst_linkage_core_vector(
         np.ndarray[np.double_t, ndim=2, mode='c'] raw_data,
@@ -141,5 +139,7 @@ cpdef np.ndarray[np.double_t, ndim=2] mst_linkage_core_vector(
     
     order = np.argsort(result_arr[:,2], kind='mergesort')
     result_arr = result_arr[order]
-    label(result_arr, dim)
+    # do not relabel since we don't really need it, and this makes things easier
+    # when combining different hierarchical clusterings
+    #label(result_arr, dim, dim)
     return result_arr

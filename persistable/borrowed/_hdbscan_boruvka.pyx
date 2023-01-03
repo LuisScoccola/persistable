@@ -72,8 +72,6 @@ cimport dist_metrics as dist_metrics
 
 from joblib import Parallel, delayed
 
-from .relabel_dendrogram import label
-
 
 cdef np.double_t INF = np.inf
 
@@ -153,12 +151,6 @@ cdef class BoruvkaUnionFind (object):
         a component.
     """
 
-    cdef np.ndarray _parent_arr
-    cdef np.intp_t[::1] _parent
-    cdef np.ndarray _rank_arr
-    cdef np.uint8_t[::1] _rank
-    cdef np.ndarray is_component
-
     def __init__(self, size):
         self._parent_arr = np.arange(size, dtype=np.intp)
         self._parent = (<np.intp_t[:size:1]> (<np.intp_t *>
@@ -168,7 +160,7 @@ cdef class BoruvkaUnionFind (object):
                                              self._rank_arr.data))
         self.is_component = np.ones(size, dtype=bool)
 
-    cdef int union_(self, np.intp_t x, np.intp_t y) except -1:
+    cpdef int union_(self, np.intp_t x, np.intp_t y) except -1:
         """Union together elements x and y"""
         cdef np.intp_t x_root = self.find(x)
         cdef np.intp_t y_root = self.find(y)
@@ -189,7 +181,7 @@ cdef class BoruvkaUnionFind (object):
 
         return 0
 
-    cdef np.intp_t find(self, np.intp_t x) except -1:
+    cpdef np.intp_t find(self, np.intp_t x) except -1:
         """Find the root or identifier for the component that x is in"""
         cdef np.intp_t x_parent
         cdef np.intp_t x_grandparent
@@ -203,7 +195,7 @@ cdef class BoruvkaUnionFind (object):
             x = x_parent
             x_parent = x_grandparent
 
-    cdef np.ndarray[np.intp_t, ndim=1] components(self):
+    cpdef np.ndarray[np.intp_t, ndim=1] components(self):
         """Return an array of all component roots/identifiers"""
         return self.is_component.nonzero()[0]
 
@@ -749,7 +741,9 @@ cdef class KDTreeBoruvkaAlgorithm (object):
 
         order = np.argsort(self.edges[:, 2], kind='mergesort')
         self.dendrogram = self.edges[order]
-        label(self.dendrogram, self.num_points)
+        # do not relabel since we don't really need it, and this makes things easier
+        # when combining different hierarchical clusterings
+        #label(self.dendrogram, self.num_points, self.num_points)
 
         return self.dendrogram
 
@@ -1279,6 +1273,8 @@ cdef class BallTreeBoruvkaAlgorithm (object):
 
         order = np.argsort(self.edges[:, 2], kind='mergesort')
         self.dendrogram = self.edges[order]
-        label(self.dendrogram, self.num_points)
+        # do not relabel since we don't really need it, and this makes things easier
+        # when combining different hierarchical clusterings
+        #label(self.dendrogram, self.num_points, self.num_points)
 
         return self.dendrogram
