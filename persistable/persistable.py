@@ -10,16 +10,42 @@ from .borrowed.prim_mst import mst_linkage_core_vector
 from .borrowed.dense_mst import stepwise_dendrogram_with_core_distances
 from .borrowed.dist_metrics import DistanceMetric
 from .auxiliary import lazy_intersection
+from .persistence_diagram_h0 import persistence_diagram_h0
+from .signed_betti_numbers import (
+    signed_betti,
+    rank_decomposition_2d_rectangles,
+    rank_decomposition_2d_rectangles_to_hooks,
+)
 import numpy as np
 import warnings
 from sklearn.neighbors import KDTree, BallTree
 from scipy.cluster.hierarchy import DisjointSet
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import (
+    minimum_spanning_tree as sparse_matrix_minimum_spanning_tree,
+)
 from scipy.stats import mode
 from joblib import Parallel, delayed
 from joblib.parallel import cpu_count
 
 
 _TOL = 1e-08
+
+
+def parallel_computation(function, inputs, n_jobs, debug=False, threading=False):
+    if n_jobs == 1:
+        return [function(inp) for inp in inputs]
+    else:
+        verbose = 11 if debug else 0
+        n_jobs = min(cpu_count(), n_jobs)
+        if threading:
+            return Parallel(n_jobs=n_jobs, backend="threading", verbose=verbose)(
+                delayed(function)(inp) for inp in inputs
+            )
+        else:
+            return Parallel(n_jobs=n_jobs, verbose=verbose)(
+                delayed(function)(inp) for inp in inputs
+            )
 
 
 class Persistable:
@@ -111,17 +137,14 @@ class Persistable:
         self._maxk = self._n_neighbors / X.shape[0]
         # fit the mpspace
         self._mpspace.fit(self._n_neighbors)
-        default_percentile = 0.95
-        # compute and keep robust connection radius
-        self._connection_radius = self._mpspace.connection_radius(default_percentile)
 
     def quick_cluster(
         self,
         n_neighbors: int = 30,
         n_clusters_range=[3, 15],
-        extend_clustering_by_hill_climbing=False,
-        n_iterations_extend_cluster=10,
-        n_neighbors_extend_cluster=5,
+        propagate_labels=False,
+        n_iterations_propagate_labels=30,
+        n_neighbors_propagate_labels=5,
     ):
         """Find parameters automatically and cluster dataset passed at initialization.
 
@@ -138,15 +161,15 @@ class Persistable:
             range of possible numbers of clusters to consider when finding the
             optimum number of clusters.
 
-        extend_clustering_by_hill_climbing: bool, optional, default is False
+        propagate_labels: bool, optional, default is False
             Boolean representing whether or not to extend the clustering to
-            noise points by hill climbing.
+            noise points by propagating labels.
 
-        n_iterations_extend_cluster: int, optional, default is 10
-            How many iterations of hill climbing to perform. More iterations
+        n_iterations_propagate_labels: int, optional, default is 30
+            Maximum number of iterations of label propagation to perform. More iterations
             will cluster more noise points.
 
-        n_neighbors_extend_cluster: int, optional, default is 5
+        n_neighbors_propagate_labels: int, optional, default is 5
             How many neighbors to use in the hill climbing procedure.
 
         returns:
@@ -157,7 +180,9 @@ class Persistable:
 
         """
         k = n_neighbors / self._mpspace._size
-        s = self._connection_radius * 2
+        default_percentile = 0.95
+        s = self._mpspace.connection_radius(default_percentile) * 2
+
         hc = self._mpspace.lambda_linkage([0, k], [s, 0])
         pd = hc.persistence_diagram()
         if pd.shape[0] == 0:
@@ -178,9 +203,9 @@ class Persistable:
             num_clust,
             [0, k],
             [s, 0],
-            extend_clustering_by_hill_climbing=extend_clustering_by_hill_climbing,
-            n_iterations_extend_cluster=n_iterations_extend_cluster,
-            n_neighbors_extend_cluster=n_neighbors_extend_cluster,
+            propagate_labels=propagate_labels,
+            n_iterations_propagate_labels=n_iterations_propagate_labels,
+            n_neighbors_propagate_labels=n_neighbors_propagate_labels,
         )
 
     def cluster(
@@ -188,9 +213,9 @@ class Persistable:
         n_clusters,
         start,
         end,
-        extend_clustering_by_hill_climbing=False,
-        n_iterations_extend_cluster=10,
-        n_neighbors_extend_cluster=5,
+        propagate_labels=False,
+        n_iterations_propagate_labels=30,
+        n_neighbors_propagate_labels=5,
     ):
         """Cluster dataset passed at initialization.
 
@@ -211,15 +236,15 @@ class Persistable:
             two-parameter hierarchical clustering used to do persistence-based
             clustering.
 
-        extend_clustering_by_hill_climbing: bool, optional, default is False
+        propagate_labels: bool, optional, default is False
             Boolean representing whether or not to extend the clustering to
-            noise points by hill climbing.
+            noise points by propagating labels.
 
-        n_iterations_extend_cluster: int, optional, default is 10
-            How many iterations of hill climbing to perform. More iterations
+        n_iterations_propagate_labels: int, optional, default is 30
+            Maximum number of iterations of label propagation to perform. More iterations
             will cluster more noise points.
 
-        n_neighbors_extend_cluster: int, optional, default is 5
+        n_neighbors_propagate_labels: int, optional, default is 5
             How many neighbors to use in the hill climbing procedure.
 
         returns:
@@ -253,26 +278,27 @@ class Persistable:
                 )
             threshold = (spers[-n_clusters] + spers[-(n_clusters + 1)]) / 2
         cl = hc.persistence_based_flattening(threshold)
-        if extend_clustering_by_hill_climbing:
-            cl = self._mpspace.extend_clustering_by_hill_climbing(
-                cl, n_iterations_extend_cluster, n_neighbors_extend_cluster
+        if propagate_labels:
+            cl = self._mpspace._propagate_labels(
+                cl, n_iterations_propagate_labels, n_neighbors_propagate_labels
             )
         return cl
 
     def _find_end(self, fast=False):
         if fast:
-            return self._connection_radius * 4, self._maxk
+            default_percentile = 0.95
+            return self._mpspace.connection_radius(default_percentile) * 4, self._maxk
         else:
             return self._mpspace.find_end()
 
-    def _compute_vineyard(self, start_end1, start_end2, n_parameters=50, n_jobs=4):
+    def _compute_vineyard(self, start_end1, start_end2, n_parameters, n_jobs=4):
         start1, end1 = start_end1
         start2, end2 = start_end2
         if (
-            start1[0] >= end1[0]
-            or start1[1] <= end1[1]
-            or start2[0] >= end2[0]
-            or start2[1] <= end2[1]
+            start1[0] > end1[0]
+            or start1[1] < end1[1]
+            or start2[0] > end2[0]
+            or start2[1] < end2[1]
         ):
             raise ValueError(
                 "Parameters chosen for vineyard will result in non-monotonic lines!"
@@ -295,11 +321,11 @@ class Persistable:
 
     def _compute_hilbert_function(
         self,
-        min_k,
-        max_k,
         min_s,
         max_s,
-        granularity=50,
+        max_k,
+        min_k,
+        granularity,
         n_jobs=4,
     ):
         if min_k >= max_k:
@@ -319,21 +345,51 @@ class Persistable:
                 "max density threshold too large, using " + str(min_k) + " instead."
             )
 
-        # how many more ss than ks (note that getting more ss is very cheap)
-        more_s_than_k = 1
-        ss = np.linspace(
-            min_s,
-            max_s + (max_s - min_s) / (granularity * more_s_than_k),
-            granularity * more_s_than_k + 1,
-        )
-        ks = np.linspace(min_k, max_k + (max_k - min_k) / granularity, granularity + 1)
-        hf = self._mpspace.hilbert_function(ks, ss, n_jobs=n_jobs)
-        return ss, ks, hf
+        ss = np.linspace(min_s, max_s, granularity)
+        ks = np.linspace(min_k, max_k, granularity)[::-1]
+        hf = self._mpspace.hilbert_function(ss, ks, n_jobs=n_jobs)
+        return ss, ks, hf, signed_betti(hf)
+
+    def _compute_rank_invariant(
+        self,
+        min_s,
+        max_s,
+        max_k,
+        min_k,
+        granularity,
+        reduced=False,
+        n_jobs=4,
+    ):
+        if min_k >= max_k:
+            raise ValueError("min_k must be smaller than max_k.")
+        if min_s >= max_s:
+            raise ValueError("min_s must be smaller than max_s.")
+        if max_k > self._maxk:
+            max_k = min(max_k, self._maxk)
+            warnings.warn(
+                "Not enough neighbors to compute chosen max density threshold, using "
+                + str(max_k)
+                + " instead. If needed, re-initialize the Persistable instance with a larger n_neighbors."
+            )
+        if min_k >= max_k:
+            min_k = max_k / 2
+            warnings.warn(
+                "max density threshold too large, using " + str(min_k) + " instead."
+            )
+
+        ss = np.linspace(min_s, max_s, granularity)
+        ks = np.linspace(min_k, max_k, granularity)[::-1]
+        ri = self._mpspace.rank_invariant(ss, ks, n_jobs=n_jobs, reduced=reduced)
+        # need to cast explicitly to int64 for windows compatibility
+        rdr = rank_decomposition_2d_rectangles(np.array(ri, dtype=np.int64))
+        return ss, ks, ri, rdr, rank_decomposition_2d_rectangles_to_hooks(rdr)
 
 
 class _MetricProbabilitySpace:
     """Implements a finite metric probability space that can compute its \
        kernel density estimates and lambda linkage hierarchical clusterings """
+
+    _MAX_DIM_USE_BORUVKA = 60
 
     def __init__(
         self, X, metric, measure, leaf_size=40, debug=False, threading=False, **kwargs
@@ -358,13 +414,12 @@ class _MetricProbabilitySpace:
         self._kernel_estimate = None
         self._n_neighbors = None
         self._maxs = None
-        self._tol = _TOL
         if metric in KDTree.valid_metrics:
             self._tree = KDTree(X, metric=metric, leaf_size=leaf_size, **kwargs)
         elif metric in BallTree.valid_metrics:
             self._tree = BallTree(X, metric=metric, leaf_size=leaf_size, **kwargs)
         elif metric == "precomputed":
-            self._dist_mat = X
+            self._dist_mat = np.array(X)
         else:
             raise ValueError("Metric given is not supported.")
 
@@ -451,27 +506,30 @@ class _MetricProbabilitySpace:
         else:
             i_indices = []
             for p in point_index:
-                i_indices.append(
-                    np.searchsorted(self._kernel_estimate[p], k_intercept, side="left")
-                )
+                idx = np.searchsorted(self._kernel_estimate[p], k_intercept, side="left")
+                if idx == self._nn_distance[p].shape[0]:
+                    idx -= 1
+                i_indices.append(idx)
             i_indices = np.array(i_indices)
-            if self._n_neighbors < self._size:
-                out_of_range = np.where(
-                    (
-                        i_indices
-                        >= np.apply_along_axis(len, -1, self._nn_indices[point_index])
-                    )
-                    & (
-                        np.apply_along_axis(len, -1, self._nn_indices[point_index])
-                        < self._size
-                    ),
-                    True,
-                    False,
-                )
-                if np.any(out_of_range):
-                    warnings.warn(
-                        "Don't have enough neighbors to properly compute core scale."
-                    )
+            # TODO: properly check and warn of not enough n_neighbors or
+            # explicitly ensure that the following does not happen:
+            #if self._n_neighbors < self._size:
+            #    out_of_range = np.where(
+            #        (
+            #            i_indices
+            #            >= np.apply_along_axis(len, -1, self._nn_indices[point_index])
+            #        )
+            #        & (
+            #            np.apply_along_axis(len, -1, self._nn_indices[point_index])
+            #            < self._size
+            #        ),
+            #        True,
+            #        False,
+            #    )
+            #    if np.any(out_of_range):
+            #        warnings.warn(
+            #            "Don't have enough neighbors to properly compute core scale."
+            #        )
             return self._nn_distance[(point_index, i_indices)]
 
     def find_end(self, tolerance=1e-4):
@@ -508,12 +566,79 @@ class _MetricProbabilitySpace:
                 pd = pers_diag(lower_bound)
                 return [np.max(pd[pd[:, 1] != np.infty][:, 1]), current_k]
 
-    def lambda_linkage(self, start, end):
-        if start[0] > end[0] or start[1] < end[1]:
+    # given a list of point indices and a radius, return the (unnormalized)
+    # kernel density estimate at those points and at that radius
+    def _density_estimate(self, point_index, radius, max_density=1):
+        density_estimates = []
+        out_of_range = False
+        for p in point_index:
+            if self._kernel_estimate[p, -1] < max_density:
+                out_of_range = True
+            neighbor_idx = np.searchsorted(self._nn_distance[p], radius, side="right")
+            density_estimates.append(self._kernel_estimate[p, neighbor_idx - 1])
+        if out_of_range:
+            warnings.warn("Don't have enough neighbors to properly compute core scale.")
+        return np.array(density_estimates)
+
+    def _lambda_linkage_vertical(self, s_intercept, k_start, k_end):
+        if k_end > k_start:
             raise ValueError("Parameters do not give a monotonic line.")
 
+        indices = np.arange(self._size)
+        k_births = self._density_estimate(indices, s_intercept, max_density=k_start)
+        # must add 1 otherwise the edges (below) are treated as not there by mst routine
+        k_births = k_start - np.maximum(k_end, np.minimum(k_start, k_births)) + 1
+
+        # metric tree case
+        if self._metric in KDTree.valid_metrics + BallTree.valid_metrics:
+            s_neighbors = self._tree.query_radius(self._points, s_intercept)
+        # dense distance matrix case
+        else:
+            s_neighbors = []
+            for i in range(self._size):
+                s_neighbors.append(np.argwhere(self._dist_mat[i] <= s_intercept)[:, 0])
+
+        edges = []
+        entries = []
+        for i in range(self._size):
+            for j in s_neighbors[i]:
+                if j > i:
+                    edges.append([i, j])
+                    entries.append(max(k_births[i], k_births[j]))
+        matrix_entries = np.array(entries)
+        edges = np.array(edges, dtype=int)
+        if len(edges) > 0:
+            graph = csr_matrix(
+                (matrix_entries, (edges[:, 0], edges[:, 1])), (self._size, self._size)
+            )
+
+            mst = sparse_matrix_minimum_spanning_tree(graph)
+            Is, Js = mst.nonzero()
+            # we now undo the adding 1
+            vals = np.array(mst[Is, Js])[0] - 1
+            sort_indices = np.argsort(vals)
+            Is = Is[sort_indices]
+            Js = Js[sort_indices]
+            vals = vals[sort_indices]
+            merges = np.zeros((vals.shape[0], 2), dtype=int)
+            merges[:, 0] = Is
+            merges[:, 1] = Js
+            merges_heights = vals
+        else:
+            merges = np.array([], dtype=int)
+            merges_heights = np.array([])
+        hc_start = 0
+        hc_end = k_start - k_end
+        # we now undo the adding 1
+        core_scales = k_births - 1
+
+        return _HierarchicalClustering(
+            core_scales, merges, merges_heights, hc_start, hc_end
+        )
+
+    def _lambda_linkage_skew(self, start, end):
         def _startend_to_intercepts(start, end):
-            if end[0] == np.infty:
+            if end[0] == np.infty or start[1] == end[1]:
                 k_intercept = start[1]
                 s_intercept = np.infty
             else:
@@ -531,7 +656,7 @@ class _MetricProbabilitySpace:
         core_distances = np.minimum(hc_end, core_distances)
         core_distances = np.maximum(hc_start, core_distances)
         if self._metric in KDTree.valid_metrics:
-            if self._dimension > 60:
+            if self._dimension > self._MAX_DIM_USE_BORUVKA:
                 X = self._points
                 if not X.flags["C_CONTIGUOUS"]:
                     X = np.array(X, dtype=np.double, order="C")
@@ -547,7 +672,7 @@ class _MetricProbabilitySpace:
                     **self._kwargs
                 ).spanning_tree()
         elif self._metric in BallTree.valid_metrics:
-            if self._dimension > 60:
+            if self._dimension > self._MAX_DIM_USE_BORUVKA:
                 X = self._points
                 if not X.flags["C_CONTIGUOUS"]:
                     X = np.array(X, dtype=np.double, order="C")
@@ -567,56 +692,144 @@ class _MetricProbabilitySpace:
                 self._size, self._dist_mat, core_distances
             )
         merges = sl[:, 0:2].astype(int)
+        # label(merges, self._size, merges.shape[0])
         merges_heights = np.minimum(hc_end, sl[:, 2])
         merges_heights = np.maximum(hc_start, sl[:, 2])
         return _HierarchicalClustering(
             core_distances, merges, merges_heights, hc_start, hc_end
         )
 
-    def lambda_linkage_vineyard(self, startends, n_jobs, tol=_TOL):
+    def lambda_linkage(self, start, end):
+        if start[0] > end[0] or start[1] < end[1]:
+            raise ValueError("Parameters do not give a monotonic line.")
+
+        if start[0] == end[0]:
+            s_intercept = start[0]
+            k_start = start[1]
+            k_end = end[1]
+            return self._lambda_linkage_vertical(s_intercept, k_start, k_end)
+        else:
+            return self._lambda_linkage_skew(start, end)
+
+    def lambda_linkage_vineyard(self, startends, n_jobs, reduced=False, tol=_TOL):
         run_in_parallel = lambda startend: self.lambda_linkage(
             startend[0], startend[1]
-        ).persistence_diagram(tol=tol)
-        if n_jobs == 1:
-            return [run_in_parallel(startend) for startend in startends]
-        else:
-            verbose = 11 if self._debug else 0
-            n_jobs = min(cpu_count(), n_jobs)
-            # x = Parallel(n_jobs=n_jobs, backend="multiprocessing", verbose=verbose)(
-            #    delayed(self.lambda_linkage)(startend[0], startend[1]) for startend in startends
-            # )
-            # return [hc.persistence_diagram(tol=tol) for hc in x]
-            if self._threading:
-                return Parallel(n_jobs=n_jobs, backend="threading", verbose=verbose)(
-                    delayed(run_in_parallel)(startend) for startend in startends
-                )
-            else:
-                return Parallel(n_jobs=n_jobs, verbose=verbose)(
-                    delayed(run_in_parallel)(startend) for startend in startends
-                )
+        ).persistence_diagram(tol=tol, reduced=reduced)
 
+        return parallel_computation(
+            run_in_parallel,
+            startends,
+            n_jobs,
+            debug=self._debug,
+            threading=self._threading,
+        )
 
-
-    def hilbert_function(self, ks, ss, n_jobs, tol=_TOL):
+    def rank_invariant(self, ss, ks, n_jobs, reduced=False):
         n_s = len(ss)
         n_k = len(ks)
-        tol = ss[1] - ss[0]
-        startends = [[[0, k], [np.infty, k]] for k in ks[:-1]]
-        pds = self.lambda_linkage_vineyard(startends, n_jobs=n_jobs, tol=tol)
-        hf = np.zeros((n_k - 1, n_s - 1))
+        ks = np.array(ks)
+        startends_horizontal = [[[ss[0], k], [ss[-1], k]] for k in ks]
+        startends_vertical = [[[s, ks[0]], [s, ks[-1]]] for s in ss]
+        startends = startends_horizontal + startends_vertical
+        run_in_parallel = lambda startend: self.lambda_linkage(startend[0], startend[1])
+        hcs = parallel_computation(
+            run_in_parallel,
+            startends,
+            n_jobs,
+            debug=self._debug,
+            threading=self._threading,
+        )
+        hcs_horizontal = hcs[:n_k]
+        for hc in hcs_horizontal:
+            hc.snap_to_grid(ss)
+        hcs_vertical = hcs[n_k:]
+        for hc in hcs_vertical:
+            hc.snap_to_grid(ks[0] - ks)
+
+        def _splice_hcs(s_index, k_index):
+            # the horizontal hierarchical clustering
+            hor_hc = hcs_horizontal[k_index]
+            # keep only things that happened before s_index
+            hor_heights = hor_hc._heights.copy()
+            hor_heights[hor_heights >= s_index] = s_index + len(ks) - k_index + 1
+            hor_merges = hor_hc._merges[hor_hc._merges_heights < s_index]
+            hor_merges_heights = hor_hc._merges_heights[
+                hor_hc._merges_heights < s_index
+            ]
+            hor_end = s_index - 1
+            hor_start = hor_hc._start
+
+            # the vertical hierarchical clustering
+            ver_hc = hcs_vertical[s_index]
+            # push all things that happened before k_index there, and index starting from s_index
+            ver_heights = s_index + np.maximum(k_index, ver_hc._heights) - k_index
+            ver_merges_heights = (
+                s_index + np.maximum(k_index, ver_hc._merges_heights) - k_index
+            )
+            # same merges in same order
+            ver_merges = ver_hc._merges
+
+            ver_start = s_index
+            ver_end = s_index + ver_hc._end - k_index + 1
+
+            heights = np.minimum(hor_heights, ver_heights)
+            if len(hor_merges) == 0 and len(ver_merges) == 0:
+                merges = np.array([], dtype=int)
+            else:
+                if len(hor_merges) == 0:
+                    hor_merges.reshape([0, 2])
+                if len(ver_merges) == 0:
+                    ver_merges.reshape([0, 2])
+                merges = np.concatenate((hor_merges, ver_merges))
+            merges_heights = np.concatenate((hor_merges_heights, ver_merges_heights))
+            start = hor_start
+            end = ver_end
+
+            return _HierarchicalClustering(heights, merges, merges_heights, start, end)
+
+        def _pd_spliced_hc(s_index_k_index):
+           s_index, k_index = s_index_k_index
+           return _splice_hcs(s_index,k_index).persistence_diagram(reduced=reduced)
+
+        indices = [[s_index,k_index] for s_index in range(n_s) for k_index in range(n_k) ]
+        pds = parallel_computation(_pd_spliced_hc, indices, n_jobs, debug=self._debug, threading=self._threading)
+        pds = [[indices[i][0],indices[i][1],pds[i]] for i in range(len(indices)) ]
+
+        ri = np.zeros((n_s, n_k, n_s, n_k), dtype=int)
+
+        for s_index, k_index, pd in pds:
+            for bar in pd:
+                b, d = bar
+                b, d = int(b), int(d)
+                # this if may be unnecessary
+                if b <= s_index and d >= s_index:
+                    for i in range(b,s_index+1):
+                        for j in range(s_index,d):
+                            ri[i, k_index, s_index, j-s_index+k_index] += 1
+        return ri
+
+    def hilbert_function(self, ss, ks, n_jobs):
+        n_s = len(ss)
+        n_k = len(ks)
+        # go on one more step to compute the Hilbert function at the last point
+        ss = list(ss)
+        ss.append(ss[-1] + _TOL)
+        startends = [[[ss[0], k], [ss[-1], k]] for k in ks]
+        pds = self.lambda_linkage_vineyard(startends, n_jobs=n_jobs)
+        hf = np.zeros((n_s, n_k), dtype=int)
         for i, pd in enumerate(pds):
             for bar in pd:
                 b, d = bar
                 start = np.searchsorted(ss[:-1], b)
                 end = np.searchsorted(ss[:-1], d)
-                hf[i, start:end] += 1
+                hf[start:end, i] += 1
         return hf
 
     def connection_radius(self, percentiles=1):
         hc = self.lambda_linkage([0, 0], [np.infty, 0])
         return np.quantile(hc._merges_heights, percentiles)
 
-    def extend_clustering_by_hill_climbing(self, labels, n_iterations, n_neighbors):
+    def _propagate_labels(self, labels, n_iterations, n_neighbors):
         old_labels = labels
         for _ in range(n_iterations):
             new_labels = []
@@ -632,17 +845,37 @@ class _MetricProbabilitySpace:
                     new_labels.append(old_labels[x])
             new_labels = np.array(new_labels)
             old_labels = new_labels
+            if np.array_equal(new_labels, old_labels):
+                break
         return new_labels
 
 
 class _HierarchicalClustering:
     def __init__(self, heights, merges, merges_heights, start, end):
         # assumes heights and merges_heights are between start and end
-        self._merges = merges
-        self._merges_heights = merges_heights
-        self._heights = heights
+        self._merges = np.array(merges, dtype=int)
+        self._merges_heights = np.array(merges_heights, dtype=float)
+        self._heights = np.array(heights, dtype=float)
         self._start = start
         self._end = end
+        # persistence_diagram_h0 will fail if it receives an empty array
+        if self._merges.shape[0] == 0:
+            self._merges = np.array([[0, 0]], dtype=int)
+            self._merges_heights = np.array([self._end], dtype=float)
+
+    def snap_to_grid(self, grid):
+        def _snap_array(grid, arr):
+            res = np.zeros(arr.shape[0], dtype=int)
+            # assumes grid and arr are ordered smallest to largest
+            res[arr <= grid[0]] = 0
+            for i in range(len(grid) - 1):
+                res[(arr <= grid[i + 1]) & (arr > grid[i])] = i + 1
+            res[arr > grid[-1]] = len(grid)
+            return res
+
+        self._merges_heights = _snap_array(grid, self._merges_heights)
+        self._heights = _snap_array(grid, self._heights)
+        self._start, self._end = _snap_array(grid, np.array([self._start, self._end]))
 
     def persistence_based_flattening(self, threshold):
         end = self._end
@@ -703,8 +936,6 @@ class _HierarchicalClustering:
                         clusters.append(list(uf.subset(x)))
                         clusters.append(list(uf.subset(y)))
                         uf.merge(x, y)
-                        uf.add(mind + n_points)
-                        uf.merge(x, mind + n_points)
                         rxy = uf.__getitem__(x)
                         clusters_died[rxy] = True
                     # otherwise, merge them
@@ -713,15 +944,11 @@ class _HierarchicalClustering:
                         del clusters_birth[rx]
                         del clusters_birth[ry]
                         uf.merge(x, y)
-                        uf.add(mind + n_points)
-                        uf.merge(x, mind + n_points)
                         rxy = uf.__getitem__(x)
                         clusters_birth[rxy] = min(bx, by)
                 # if both clusters are already dead, just merge them into a dead cluster
                 elif rx in clusters_died and ry in clusters_died:
                     uf.merge(x, y)
-                    uf.add(mind + n_points)
-                    uf.merge(x, mind + n_points)
                     rxy = uf.__getitem__(x)
                     clusters_died[rxy] = True
                 # if only one of them is dead
@@ -735,8 +962,6 @@ class _HierarchicalClustering:
                         clusters.append(list(uf.subset(x)))
                     # then merge the clusters into a dead cluster
                     uf.merge(x, y)
-                    uf.add(mind + n_points)
-                    uf.merge(x, mind + n_points)
                     rxy = uf.__getitem__(x)
                     clusters_died[rxy] = True
                 mind += 1
@@ -765,74 +990,16 @@ class _HierarchicalClustering:
             current_cluster += 1
         return res
 
-    def persistence_diagram(self, tol=_TOL):
-        end = self._end
-        heights = self._heights
-        merges = self._merges
-        merges_heights = self._merges_heights
-        n_points = heights.shape[0]
-        n_merges = merges.shape[0]
-        # this orders the point by appearance
-        appearances = np.argsort(heights)
-        # contains representative points for the clusters that are alive
-        cluster_reps = np.full(heights.shape[0] + merges.shape[0], -1)
-        # contains the persistence diagram
-        pd = []
-        # height index
-        hind = 0
-        # merge index
-        mind = 0
-        current_appearence_height = heights[appearances[0]]
-        current_merge_height = merges_heights[0]
-        while True:
-            # while there is no merge
-            while (
-                hind < n_points
-                and heights[appearances[hind]] <= current_merge_height
-                and heights[appearances[hind]] < end
-            ):
-                # add all points that are born as new clusters
-                cluster_reps[appearances[hind]] = appearances[hind]
-                hind += 1
-                if hind == n_points:
-                    current_appearence_height = end
-                else:
-                    current_appearence_height = heights[appearances[hind]]
-            # while there is no cluster being born
-            while (
-                mind < n_merges
-                and merges_heights[mind] < current_appearence_height
-                and merges_heights[mind] < end
-            ):
-                xy = merges[mind]
-                x, y = xy
-                rx = cluster_reps[x]
-                ry = cluster_reps[y]
-                bx = heights[rx]
-                by = heights[ry]
-                # assume x was born before y
-                if bx > by:
-                    x, y = y, x
-                    bx, by = by, bx
-                    rx, ry = ry, rx
-                pd.append([by, merges_heights[mind]])
-                cluster_reps[mind + n_points] = rx
-                cluster_reps[ry] = -1
-                mind += 1
-                if mind == n_merges:
-                    current_merge_height = end
-                else:
-                    current_merge_height = merges_heights[mind]
-            if (hind == n_points or heights[appearances[hind]] >= end) and (
-                mind == n_merges or merges_heights[mind] >= end
-            ):
-                break
-        # go through all clusters that are still alive
-        for i in range(heights.shape[0]):
-            if cluster_reps[i] == i:
-                pd.append([heights[i], end])
+    def persistence_diagram(self, reduced=False, tol=_TOL):
+        # need to cast explicitly to int64 for windows compatibility
+        pd = persistence_diagram_h0(
+            self._end, self._heights, np.array(self._merges,dtype=np.int64), self._merges_heights
+        )
         pd = np.array(pd)
         if pd.shape[0] == 0:
             return np.array([])
-        else:
-            return pd[np.abs(pd[:, 0] - pd[:, 1]) > tol] - self._start
+        pd = pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]
+        if reduced:
+            to_delete = np.argmax(pd[:, 1] - pd[:, 0])
+            return np.delete(pd, to_delete, axis=0)
+        return pd

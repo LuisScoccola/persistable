@@ -8,7 +8,8 @@ import plotly.graph_objects as go
 import plotly
 from plotly.colors import sample_colorscale
 import json
-#import diskcache
+
+# import diskcache
 import dash
 from dash import dcc, html, DiskcacheManager, ctx
 from dash.exceptions import PreventUpdate
@@ -47,7 +48,14 @@ CCF_PLOT = "ccf-plot-"
 DISPLAY_LINES_SELECTION = "display-lines-selection-"
 ENDPOINT_SELECTION = "endpoint-selection-"
 STORED_CCF = "stored-ccf-"
+STORED_X_TICKS_CCF = "stored-x-ticks-ccf-"
+STORED_Y_TICKS_CCF = "stored-y-ticks-ccf-"
+STORED_X_TICKS_RI = "stored-x-ticks-ri-"
+STORED_Y_TICKS_RI = "stored-y-ticks-ri-"
 STORED_CCF_DRAWING = "stored-ccf-drawing-"
+STORED_BETTI = "stored-betti-"
+STORED_SIGNED_BARCODE_RECTANGLES = "stored-signed-barcode-rectangles-"
+STORED_SIGNED_BARCODE_HOOKS = "stored-signed-barcode-hooks-"
 MIN_DIST_SCALE = "min-dist-scale-"
 MAX_DIST_SCALE = "max-dist-scale-"
 MIN_DENSITY_THRESHOLD = "min-density-threshold-"
@@ -57,11 +65,23 @@ PARAMETER_SELECTION_DIV = "parameter-selection-div-"
 DISPLAY_PARAMETER_SELECTION = "display-parameter-selection-"
 COMPUTE_CCF_BUTTON = "compute-ccf-button-"
 STOP_COMPUTE_CCF_BUTTON = "stop-compute-ccf-button-"
+COMPUTE_RI_BUTTON = "compute-ri-button-"
+STOP_COMPUTE_RI_BUTTON = "stop-compute-ri-button-"
 INPUT_GRANULARITY_CCF = "input-granularity-ccf-"
+INPUT_GRANULARITY_RI = "input-granularity-ri-"
 INPUT_NUM_JOBS_CCF = "input-num-jobs-ccf-"
+INPUT_NUM_JOBS_RI = "input-num-jobs-ri-"
 INPUT_MAX_COMPONENTS = "input-max-components-"
+INPUT_MAX_RI = "input-max-ri-"
+INPUT_MIN_LENGTH_RI = "input-min-length-bars-ri-"
+INPUT_SIGNED_BETTI_NUMBERS = "input-signed-betti-numbers-"
+INPUT_Y_COVARIANT = "input-y-covariant-"
+INPUT_DISPLAY_RI = "input-display-ri-"
+INPUT_DECOMPOSE_BY_RI = "input-decompose-by-ri-"
+INPUT_REDUCED_HOMOLOGY_RI = "input-reduced-homology-ri-"
 CCF_PLOT_CONTROLS_DIV = "ccf-plot-controls-div-"
 CCF_DETAILS = "ccf-details-"
+CCF_EXTRAS = "ccf-extras-"
 PV_DETAILS = "pv-details-"
 PV_PLOT_CONTROLS_DIV = "pv-plot-controls-div-"
 LOG = "log-"
@@ -83,7 +103,7 @@ STORED_PD = "stored-pd-"
 
 STORED_CCF_COMPUTATION_WARNINGS = "stored-ccf-computation-warnings-"
 STORED_PV_COMPUTATION_WARNINGS = "stored-pv-computation-warnings-"
-# STORED_PD_COMPUTATION_WARNINGS = "stored-pd-computation-warnings-"
+STORED_RI_COMPUTATION_WARNINGS = "stored-ri-computation-warnings-"
 
 EXPORTED_PARAMETER = "exported-parameter-"
 
@@ -134,7 +154,6 @@ class PersistableInteractive:
         self._parameters_sem = threading.Semaphore()
         self._parameters = None
 
-
     def start_UI(self, port=8050, debug=False, inline=False):
         """Serve the GUI.
 
@@ -157,7 +176,7 @@ class PersistableInteractive:
         if debug:
             self._debug = debug
         max_port = 65535
-        for possible_port in range(port, max_port+1):
+        for possible_port in range(port, max_port + 1):
             # check if port is in use
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 in_use = s.connect_ex(("localhost", int(possible_port))) == 0
@@ -167,9 +186,7 @@ class PersistableInteractive:
                 port = possible_port
                 break
         if possible_port == max_port:
-            raise Exception(
-                "All ports are already in use. Cannot start the GUI."
-            )
+            raise Exception("All ports are already in use. Cannot start the GUI.")
 
         background_callback_manager = DiskcacheManager()
 
@@ -189,7 +206,7 @@ class PersistableInteractive:
             self._app = JupyterDash(
                 __name__,
                 background_callback_manager=background_callback_manager,
-                update_title = "Persistable is computing..."
+                update_title="Persistable is computing...",
             )
             self._layout_gui()
             self._register_callbacks(self._persistable, self._debug)
@@ -202,7 +219,7 @@ class PersistableInteractive:
             self._app = dash.Dash(
                 __name__,
                 background_callback_manager=background_callback_manager,
-                update_title = "Persistable is computing..."
+                update_title="Persistable is computing...",
             )
             self._layout_gui()
             self._register_callbacks(self._persistable, self._debug)
@@ -218,7 +235,6 @@ class PersistableInteractive:
             self._thread.start()
 
             return port
-
 
     def cluster(self, **kwargs):
         """Clusters the dataset passed to ``Persistable`` at initialization.
@@ -241,29 +257,29 @@ class PersistableInteractive:
         else:
             return self._persistable.cluster(**params, **kwargs)
 
-
     def _chosen_parameters(self):
         self._parameters_sem.acquire()
         params = self._parameters
         self._parameters_sem.release()
         return params
 
-
     def _layout_gui(self):
         default_min_k = 0
         end = self._persistable._find_end()
         default_max_k = end[1]
-        #default_k_step = default_max_k / 100
+        # default_k_step = default_max_k / 100
         default_min_s = 0
         default_max_s = end[0]
-        #default_s_step = (default_max_s - default_min_s) / 100
+        # default_s_step = (default_max_s - default_min_s) / 100
         default_granularity_ccf = 100
+        default_granularity_ri = 20
         default_granularity_pv = 40
         default_num_jobs = 4
         default_max_dim = 15
         default_max_vines = 15
         min_granularity = 4
         max_granularity = 512
+        max_granularity_ri = 64
         min_granularity_vineyard = 1
         max_granularity_vineyard = max_granularity
         defr = 6
@@ -281,13 +297,641 @@ class PersistableInteractive:
         default_y_end_second_line = (default_min_k + default_max_k) * (1 / 2)
 
         self._app.title = "Persistable"
+
+        ccf_inputs = (
+            html.Details(
+                id=CCF_DETAILS,
+                children=[
+                    html.Summary("Inputs"),
+                    html.Div(
+                        className="parameters",
+                        children=[
+                            html.Div(
+                                className="parameter-double",
+                                children=[
+                                    html.Span(
+                                        className="name",
+                                        children="Distance scale min/max",
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=MIN_DIST_SCALE,
+                                        type="number",
+                                        value=default_min_s,
+                                        min=0,
+                                        # step=default_s_step,
+                                        debounce=True,
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=MAX_DIST_SCALE,
+                                        type="number",
+                                        value=default_max_s,
+                                        min=0,
+                                        # step=default_s_step,
+                                        debounce=True,
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="parameter-double",
+                                children=[
+                                    html.Span(
+                                        className="name",
+                                        children="Density threshold min/max",
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=MIN_DENSITY_THRESHOLD,
+                                        type="number",
+                                        value=default_min_k,
+                                        min=0,
+                                        # step=default_k_step,
+                                        debounce=True,
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=MAX_DENSITY_THRESHOLD,
+                                        type="number",
+                                        value=default_max_k,
+                                        min=0,
+                                        # step=default_k_step,
+                                        debounce=True,
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="parameter-single",
+                                children=[
+                                    html.Span(
+                                        className="name",
+                                        children="Granularity",
+                                    ),
+                                    dcc.Input(
+                                        id=INPUT_GRANULARITY_CCF,
+                                        className="small-value",
+                                        type="number",
+                                        value=default_granularity_ccf,
+                                        min=min_granularity,
+                                        max=max_granularity,
+                                        debounce=True,
+                                    ),
+                                    html.Span(
+                                        className="name",
+                                        children="Max connected components",
+                                    ),
+                                    dcc.Input(
+                                        id=INPUT_MAX_COMPONENTS,
+                                        type="number",
+                                        value=default_max_dim,
+                                        min=1,
+                                        className="small-value",
+                                        step=1,
+                                        debounce=True,
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="parameter-single",
+                                children=[
+                                    html.Span(
+                                        className="name",
+                                        children="# cores computation",
+                                    ),
+                                    dcc.Input(
+                                        className="small-value",
+                                        id=INPUT_NUM_JOBS_CCF,
+                                        type="number",
+                                        value=default_num_jobs,
+                                        min=1,
+                                        step=1,
+                                        max=16,
+                                        debounce=True,
+                                    ),
+                                    html.Span(
+                                        className="name",
+                                        children="Y axis",
+                                    ),
+                                    dcc.RadioItems(
+                                        [
+                                            "Cov",
+                                            "Contr",
+                                        ],
+                                        "Cov",
+                                        id=INPUT_Y_COVARIANT,
+                                        className="small-value",
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
+
+        ccf_buttons = (
+            html.Div(
+                className="large-buttons",
+                children=[
+                    html.Button(
+                        "Compute",
+                        id=COMPUTE_CCF_BUTTON,
+                        className="button1",
+                    ),
+                    html.Button(
+                        "Stop computation",
+                        id=STOP_COMPUTE_CCF_BUTTON,
+                        className="button2",
+                        disabled=True,
+                    ),
+                ],
+            ),
+        )
+
+        ccf_parameter_selection = (
+            html.Div(
+                className="plot-tools",
+                children=[
+                    html.Div(
+                        id=CCF_PLOT_CONTROLS_DIV,
+                        className="parameters",
+                        hidden=True,
+                        children=[
+                            html.Div(
+                                className="parameters",
+                                children=[
+                                    html.Div(
+                                        className="parameter-single",
+                                        children=[
+                                            html.Span(
+                                                className="name",
+                                                children="Vineyard inputs selection",
+                                            ),
+                                            dcc.RadioItems(
+                                                ["On", "Off"],
+                                                "Off",
+                                                id=DISPLAY_LINES_SELECTION,
+                                                className=VALUE,
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="parameter-single",
+                                        id=ENDPOINT_SELECTION_DIV,
+                                        children=[
+                                            html.Span(
+                                                className="name",
+                                                children="Endpoint",
+                                            ),
+                                            dcc.RadioItems(
+                                                [
+                                                    "1st line start",
+                                                    "1st line end",
+                                                    "2nd line start",
+                                                    "2nd line end",
+                                                ],
+                                                "1st line start",
+                                                id=ENDPOINT_SELECTION,
+                                                className=VALUE,
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            )
+                        ],
+                    )
+                ],
+            ),
+        )
+
+        ccf_extras = (
+            html.Div(
+                children=[
+                    html.Details(
+                        id=CCF_EXTRAS,
+                        children=[
+                            html.Summary("Extras"),
+                            html.H3("Rank decomposition"),
+                            html.Div(
+                                className="parameters",
+                                children=[
+                                    html.Div(
+                                        className="parameter-single",
+                                        children=[
+                                            html.Span(
+                                                className="name",
+                                                children="Granularity",
+                                            ),
+                                            dcc.Input(
+                                                id=INPUT_GRANULARITY_RI,
+                                                className="small-value",
+                                                type="number",
+                                                value=default_granularity_ri,
+                                                min=min_granularity,
+                                                max=max_granularity_ri,
+                                                debounce=True,
+                                            ),
+                                            html.Span(
+                                                className="name",
+                                                children="Max rank",
+                                            ),
+                                            dcc.Input(
+                                                id=INPUT_MAX_RI,
+                                                type="number",
+                                                value=default_max_dim,
+                                                min=1,
+                                                className="small-value",
+                                                step=1,
+                                                debounce=True,
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="parameter-single",
+                                        children=[
+                                            html.Span(
+                                                className="name",
+                                                children="Min length bars",
+                                            ),
+                                            dcc.Input(
+                                                id=INPUT_MIN_LENGTH_RI,
+                                                type="number",
+                                                value=1,
+                                                min=1,
+                                                className="small-value",
+                                                step=1,
+                                                debounce=True,
+                                            ),
+                                            html.Span(
+                                                className="name",
+                                                children="# cores computation",
+                                            ),
+                                            dcc.Input(
+                                                className="small-value",
+                                                id=INPUT_NUM_JOBS_RI,
+                                                type="number",
+                                                value=default_num_jobs,
+                                                min=1,
+                                                step=1,
+                                                max=16,
+                                                debounce=True,
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="parameter-single",
+                                        children=[
+                                            html.Span(
+                                                className="name",
+                                                children="Reduced homology",
+                                            ),
+                                            dcc.RadioItems(
+                                                [
+                                                    "Yes",
+                                                    "No",
+                                                ],
+                                                "Yes",
+                                                id=INPUT_REDUCED_HOMOLOGY_RI,
+                                                className="small-value",
+                                            ),
+                                            html.Span(
+                                                className="name",
+                                                children="Display",
+                                            ),
+                                            dcc.RadioItems(
+                                                [
+                                                    "Yes",
+                                                    "No",
+                                                ],
+                                                "Yes",
+                                                id=INPUT_DISPLAY_RI,
+                                                className="small-value",
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="parameter-single",
+                                        children=[
+                                            html.Span(
+                                                className="name",
+                                                children="Decompose by",
+                                            ),
+                                            dcc.RadioItems(
+                                                [
+                                                    "Rect",
+                                                    "Hook",
+                                                ],
+                                                "Rect",
+                                                id=INPUT_DECOMPOSE_BY_RI,
+                                                className="value",
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="large-buttons",
+                                        children=[
+                                            html.Button(
+                                                "Compute",
+                                                id=COMPUTE_RI_BUTTON,
+                                                className="button1",
+                                            ),
+                                            html.Button(
+                                                "Stop computation",
+                                                id=STOP_COMPUTE_RI_BUTTON,
+                                                className="button2",
+                                                disabled=True,
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                ]
+            ),
+        )
+
+        pv_inputs = (
+            html.Details(
+                id=PV_DETAILS,
+                children=[
+                    html.Summary("Inputs"),
+                    html.Div(
+                        className="parameters",
+                        children=[
+                            html.Div(
+                                className="parameter-double",
+                                children=[
+                                    html.Span(
+                                        className="name",
+                                        children="1st line start x/y",
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=X_START_FIRST_LINE,
+                                        type="number",
+                                        value=default_x_start_first_line,
+                                        min=0,
+                                        # step=default_s_step,
+                                        debounce=True,
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=Y_START_FIRST_LINE,
+                                        type="number",
+                                        value=default_y_start_first_line,
+                                        min=0,
+                                        # step=default_k_step,
+                                        debounce=True,
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="parameter-double",
+                                children=[
+                                    html.Span(
+                                        className="name",
+                                        children="1st line end x/y",
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=X_END_FIRST_LINE,
+                                        type="number",
+                                        value=default_x_end_first_line,
+                                        min=0,
+                                        # step=default_s_step,
+                                        debounce=True,
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=Y_END_FIRST_LINE,
+                                        type="number",
+                                        value=default_y_end_first_line,
+                                        min=0,
+                                        # step=default_k_step,
+                                        debounce=True,
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="parameter-double",
+                                children=[
+                                    html.Span(
+                                        className="name",
+                                        children="2nd line start x/y",
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=X_START_SECOND_LINE,
+                                        type="number",
+                                        value=default_x_start_second_line,
+                                        min=0,
+                                        # step=default_s_step,
+                                        debounce=True,
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=Y_START_SECOND_LINE,
+                                        type="number",
+                                        value=default_y_start_second_line,
+                                        min=0,
+                                        # step=default_k_step,
+                                        debounce=True,
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="parameter-double",
+                                children=[
+                                    html.Span(
+                                        className="name",
+                                        children="2nd line end x/y",
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=X_END_SECOND_LINE,
+                                        type="number",
+                                        value=default_x_end_second_line,
+                                        min=0,
+                                        # step=default_s_step,
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=Y_END_SECOND_LINE,
+                                        type="number",
+                                        value=default_y_end_second_line,
+                                        min=0,
+                                        # step=default_k_step,
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="parameter-single",
+                                children=[
+                                    html.Span(
+                                        className="name",
+                                        children="# lines vineyard",
+                                    ),
+                                    dcc.Input(
+                                        id=INPUT_GRANULARITY_PV,
+                                        className="small-value",
+                                        type="number",
+                                        value=default_granularity_pv,
+                                        min=min_granularity_vineyard,
+                                        max=max_granularity_vineyard,
+                                        debounce=True,
+                                    ),
+                                    html.Span(
+                                        className="name",
+                                        children="Max number vines to display",
+                                    ),
+                                    dcc.Input(
+                                        id=INPUT_MAX_VINES,
+                                        type="number",
+                                        value=default_max_vines,
+                                        min=1,
+                                        className="small-value",
+                                        step=1,
+                                        debounce=True,
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="parameter-single",
+                                children=[
+                                    html.Span(
+                                        className="name",
+                                        children="# cores computation",
+                                    ),
+                                    dcc.Input(
+                                        className="small-value",
+                                        id=INPUT_NUM_JOBS_PV,
+                                        type="number",
+                                        value=default_num_jobs,
+                                        min=1,
+                                        step=1,
+                                        max=16,
+                                        debounce=True,
+                                    ),
+                                    html.Span(
+                                        className="name",
+                                        children="Prominence scale",
+                                    ),
+                                    dcc.RadioItems(
+                                        ["Lin", "Log"],
+                                        "Lin",
+                                        id=INPUT_PROM_VIN_SCALE,
+                                        className="small-value",
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
+
+        pv_buttons = (
+            html.Div(
+                className="parameters",
+                children=[
+                    html.Div(
+                        className="large-buttons",
+                        children=[
+                            html.Button(
+                                "Compute",
+                                id=COMPUTE_PV_BUTTON,
+                                className="button1",
+                            ),
+                            html.Button(
+                                "Stop computation",
+                                id=STOP_COMPUTE_PV_BUTTON,
+                                className="button2",
+                                disabled=True,
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
+
+        pv_parameter_selection = (
+            html.Div(
+                id=PV_PLOT_CONTROLS_DIV,
+                className="parameters",
+                hidden=True,
+                children=[
+                    html.Div(
+                        className="parameter-single",
+                        children=[
+                            html.Span(
+                                className="name",
+                                children="Parameter selection",
+                            ),
+                            dcc.RadioItems(
+                                ["On", "Off"],
+                                "Off",
+                                id=DISPLAY_PARAMETER_SELECTION,
+                                className=VALUE,
+                            ),
+                        ],
+                    ),
+                    html.Div(
+                        className="parameter-double-button",
+                        id=PARAMETER_SELECTION_DIV,
+                        children=[
+                            html.Span(
+                                className="name",
+                                children="Line number",
+                            ),
+                            dcc.Input(
+                                className=VALUE,
+                                id=INPUT_LINE,
+                                type="number",
+                                value=1,
+                                min=1,
+                                debounce=True,
+                            ),
+                            html.Span(
+                                className="name",
+                                children="Gap number",
+                            ),
+                            dcc.Input(
+                                className=VALUE,
+                                id=INPUT_GAP,
+                                type="number",
+                                value=1,
+                                min=1,
+                                debounce=True,
+                            ),
+                            html.Button(
+                                "Choose parameter",
+                                id=EXPORT_PARAMETERS_BUTTON,
+                                className="button",
+                                disabled=True,
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
+
         self._app.layout = html.Div(
             className="root",
             children=[
                 # contains the component counting function as a dictionary of lists
                 dcc.Store(id=STORED_CCF),
+                dcc.Store(id=STORED_X_TICKS_CCF),
+                dcc.Store(id=STORED_Y_TICKS_CCF),
                 # contains the basic component counting function plot as a plotly figure
                 dcc.Store(id=STORED_CCF_DRAWING),
+                # contains the signed betti numbers as a list of lists
+                dcc.Store(id=STORED_BETTI),
+                # contains the signed barcode a list of lists of ...
+                dcc.Store(id=STORED_SIGNED_BARCODE_RECTANGLES, data=json.dumps([])),
+                dcc.Store(id=STORED_SIGNED_BARCODE_HOOKS, data=json.dumps([])),
+                dcc.Store(id=STORED_X_TICKS_RI, data=json.dumps([])),
+                dcc.Store(id=STORED_Y_TICKS_RI, data=json.dumps([])),
                 # contains the vineyard as a vineyard object
                 dcc.Store(id=STORED_PV),
                 # contains the basic prominence vineyard plot as a plotly figure
@@ -296,13 +940,12 @@ class PersistableInteractive:
                 dcc.Store(id=STORED_PD, data=json.dumps([])),
                 #
                 dcc.Store(id=STORED_CCF_COMPUTATION_WARNINGS, data=json.dumps(" ")),
+                dcc.Store(id=STORED_RI_COMPUTATION_WARNINGS, data=json.dumps(" ")),
                 dcc.Store(id=STORED_PV_COMPUTATION_WARNINGS, data=json.dumps(" ")),
-                # dcc.Store(id=STORED_PD_COMPUTATION_WARNINGS),
                 #
                 dcc.Store(id=FIXED_PARAMETERS, data=json.dumps([])),
                 #
                 html.Div(id=EXPORTED_PARAMETER, hidden=True),
-                #html.Div(id=EXPORTED_PARAMETER_2, hidden=True),
                 html.Div(
                     className="grid",
                     children=[
@@ -311,142 +954,7 @@ class PersistableInteractive:
                                 html.H2("Component Counting Function"),
                                 html.Div(
                                     className="parameters",
-                                    children=[
-                                        html.Details(
-                                            id = CCF_DETAILS,
-                                            children = [
-                                                html.Summary("Inputs"),
-                                                html.Div(
-                                                    className="parameters",
-                                                    children=[
-                                                        html.Div(
-                                                            className="parameter-double",
-                                                            children=[
-                                                                html.Span(
-                                                                    className="name",
-                                                                    children="Distance scale min/max",
-                                                                ),
-                                                                dcc.Input(
-                                                                    className=VALUE,
-                                                                    id=MIN_DIST_SCALE,
-                                                                    type="number",
-                                                                    value=default_min_s,
-                                                                    min=0,
-                                                                    #step=default_s_step,
-                                                                    debounce=True,
-                                                                ),
-                                                                dcc.Input(
-                                                                    className=VALUE,
-                                                                    id=MAX_DIST_SCALE,
-                                                                    type="number",
-                                                                    value=default_max_s,
-                                                                    min=0,
-                                                                    #step=default_s_step,
-                                                                    debounce=True,
-                                                                ),
-                                                            ],
-                                                        ),
-                                                        html.Div(
-                                                            className="parameter-double",
-                                                            children=[
-                                                                html.Span(
-                                                                    className="name",
-                                                                    children="Density threshold min/max",
-                                                                ),
-                                                                dcc.Input(
-                                                                    className=VALUE,
-                                                                    id=MIN_DENSITY_THRESHOLD,
-                                                                    type="number",
-                                                                    value=default_min_k,
-                                                                    min=0,
-                                                                    #step=default_k_step,
-                                                                    debounce=True,
-                                                                ),
-                                                                dcc.Input(
-                                                                    className=VALUE,
-                                                                    id=MAX_DENSITY_THRESHOLD,
-                                                                    type="number",
-                                                                    value=default_max_k,
-                                                                    min=0,
-                                                                    #step=default_k_step,
-                                                                    debounce=True,
-                                                                ),
-                                                            ],
-                                                        ),
-                                                        html.Div(
-                                                            className="parameter-single",
-                                                            children=[
-                                                                html.Span(
-                                                                    className="name",
-                                                                    children="Granularity",
-                                                                ),
-                                                                dcc.Input(
-                                                                    id=INPUT_GRANULARITY_CCF,
-                                                                    className="small-value",
-                                                                    type="number",
-                                                                    value=default_granularity_ccf,
-                                                                    min=min_granularity,
-                                                                    max=max_granularity,
-                                                                    debounce=True,
-                                                                ),
-                                                                html.Span(
-                                                                    className="name",
-                                                                    children="Max connected components",
-                                                                ),
-                                                                dcc.Input(
-                                                                    id=INPUT_MAX_COMPONENTS,
-                                                                    type="number",
-                                                                    value=default_max_dim,
-                                                                    min=1,
-                                                                    className="small-value",
-                                                                    step=1,
-                                                                    debounce=True,
-                                                                ),
-                                                            ],
-                                                        ),
-                                                        html.Div(
-                                                            className="parameter-single",
-                                                            children=[
-                                                                html.Span(
-                                                                    className="name",
-                                                                    children="Number of cores computation",
-                                                                ),
-                                                                dcc.Input(
-                                                                    className="small-value",
-                                                                    id=INPUT_NUM_JOBS_CCF,
-                                                                    type="number",
-                                                                    value=default_num_jobs,
-                                                                    min=1,
-                                                                    step=1,
-                                                                    max=16,
-                                                                    debounce=True,
-                                                                ),
-                                                                html.Div(
-                                                                    className="space"
-                                                                ),
-                                                            ],
-                                                        ),
-                                                    ],
-                                                ),
-                                            ]
-                                        ),
-                                        html.Div(
-                                            className="large-buttons",
-                                            children=[
-                                                html.Button(
-                                                    "Compute",
-                                                    id=COMPUTE_CCF_BUTTON,
-                                                    className="button1",
-                                                ),
-                                                html.Button(
-                                                    "Stop computation",
-                                                    id=STOP_COMPUTE_CCF_BUTTON,
-                                                    className="button2",
-                                                    disabled=True,
-                                                ),
-                                            ],
-                                        ),
-                                    ],
+                                    children=ccf_inputs + ccf_buttons,
                                 ),
                             ]
                         ),
@@ -455,206 +963,7 @@ class PersistableInteractive:
                                 html.H2("Prominence Vineyard"),
                                 html.Div(
                                     className="parameters",
-                                    children=[
-                                        html.Details(
-                                            id = PV_DETAILS,
-                                            children = [
-                                                html.Summary("Inputs"),
-                                                html.Div(
-                                                    className="parameters",
-                                                    children=[
-                                                        html.Div(
-                                                            className="parameter-double",
-                                                            children=[
-                                                                html.Span(
-                                                                    className="name",
-                                                                    children="1st line start x/y",
-                                                                ),
-                                                                dcc.Input(
-                                                                    className=VALUE,
-                                                                    id=X_START_FIRST_LINE,
-                                                                    type="number",
-                                                                    value=default_x_start_first_line,
-                                                                    min=0,
-                                                                    # step=default_s_step,
-                                                                    debounce=True,
-                                                                ),
-                                                                dcc.Input(
-                                                                    className=VALUE,
-                                                                    id=Y_START_FIRST_LINE,
-                                                                    type="number",
-                                                                    value=default_y_start_first_line,
-                                                                    min=0,
-                                                                    # step=default_k_step,
-                                                                    debounce=True,
-                                                                ),
-                                                            ],
-                                                        ),
-                                                        html.Div(
-                                                            className="parameter-double",
-                                                            children=[
-                                                                html.Span(
-                                                                    className="name",
-                                                                    children="1st line end x/y",
-                                                                ),
-                                                                dcc.Input(
-                                                                    className=VALUE,
-                                                                    id=X_END_FIRST_LINE,
-                                                                    type="number",
-                                                                    value=default_x_end_first_line,
-                                                                    min=0,
-                                                                    # step=default_s_step,
-                                                                    debounce=True,
-                                                                ),
-                                                                dcc.Input(
-                                                                    className=VALUE,
-                                                                    id=Y_END_FIRST_LINE,
-                                                                    type="number",
-                                                                    value=default_y_end_first_line,
-                                                                    min=0,
-                                                                    # step=default_k_step,
-                                                                    debounce=True,
-                                                                ),
-                                                            ],
-                                                        ),
-                                                        html.Div(
-                                                            className="parameter-double",
-                                                            children=[
-                                                                html.Span(
-                                                                    className="name",
-                                                                    children="2nd line start x/y",
-                                                                ),
-                                                                dcc.Input(
-                                                                    className=VALUE,
-                                                                    id=X_START_SECOND_LINE,
-                                                                    type="number",
-                                                                    value=default_x_start_second_line,
-                                                                    min=0,
-                                                                    # step=default_s_step,
-                                                                    debounce=True,
-                                                                ),
-                                                                dcc.Input(
-                                                                    className=VALUE,
-                                                                    id=Y_START_SECOND_LINE,
-                                                                    type="number",
-                                                                    value=default_y_start_second_line,
-                                                                    min=0,
-                                                                    # step=default_k_step,
-                                                                    debounce=True,
-                                                                ),
-                                                            ],
-                                                        ),
-                                                        html.Div(
-                                                            className="parameter-double",
-                                                            children=[
-                                                                html.Span(
-                                                                    className="name",
-                                                                    children="2nd line end x/y",
-                                                                ),
-                                                                dcc.Input(
-                                                                    className=VALUE,
-                                                                    id=X_END_SECOND_LINE,
-                                                                    type="number",
-                                                                    value=default_x_end_second_line,
-                                                                    min=0,
-                                                                    # step=default_s_step,
-                                                                ),
-                                                                dcc.Input(
-                                                                    className=VALUE,
-                                                                    id=Y_END_SECOND_LINE,
-                                                                    type="number",
-                                                                    value=default_y_end_second_line,
-                                                                    min=0,
-                                                                    # step=default_k_step,
-                                                                ),
-                                                            ],
-                                                        ),
-                                                        html.Div(
-                                                            className="parameter-single",
-                                                            children=[
-                                                                html.Span(
-                                                                    className="name",
-                                                                    children="Number of lines vineyard",
-                                                                ),
-                                                                dcc.Input(
-                                                                    id=INPUT_GRANULARITY_PV,
-                                                                    className="small-value",
-                                                                    type="number",
-                                                                    value=default_granularity_pv,
-                                                                    min=min_granularity_vineyard,
-                                                                    max=max_granularity_vineyard,
-                                                                    debounce=True,
-                                                                ),
-                                                                html.Span(
-                                                                    className="name",
-                                                                    children="Max number vines to display",
-                                                                ),
-                                                                dcc.Input(
-                                                                    id=INPUT_MAX_VINES,
-                                                                    type="number",
-                                                                    value=default_max_vines,
-                                                                    min=1,
-                                                                    className="small-value",
-                                                                    step=1,
-                                                                    debounce=True,
-                                                                ),
-                                                            ],
-                                                        ),
-                                                        html.Div(
-                                                            className="parameter-single",
-                                                            children=[
-                                                                html.Span(
-                                                                    className="name",
-                                                                    children="Number of cores computation",
-                                                                ),
-                                                                dcc.Input(
-                                                                    className="small-value",
-                                                                    id=INPUT_NUM_JOBS_PV,
-                                                                    type="number",
-                                                                    value=default_num_jobs,
-                                                                    min=1,
-                                                                    step=1,
-                                                                    max=16,
-                                                                    debounce=True,
-                                                                ),
-                                                                html.Span(
-                                                                    className="name",
-                                                                    children="Prominence scale",
-                                                                ),
-                                                                dcc.RadioItems(
-                                                                    ["Lin", "Log"],
-                                                                    "Lin",
-                                                                    id=INPUT_PROM_VIN_SCALE,
-                                                                    className="small-value",
-                                                                ),
-                                                            ],
-                                                        ),
-                                                    ],
-                                                ),
-                                            ]
-                                        ),
-                                        html.Div(
-                                            className="parameters",
-                                            children=[
-                                                html.Div(
-                                                    className="large-buttons",
-                                                    children=[
-                                                        html.Button(
-                                                            "Compute",
-                                                            id=COMPUTE_PV_BUTTON,
-                                                            className="button1",
-                                                        ),
-                                                        html.Button(
-                                                            "Stop computation",
-                                                            id=STOP_COMPUTE_PV_BUTTON,
-                                                            className="button2",
-                                                            disabled=True,
-                                                        ),
-                                                    ],
-                                                ),
-                                            ],
-                                        ),
-                                    ],
+                                    children=pv_inputs + pv_buttons,
                                 ),
                             ]
                         ),
@@ -697,115 +1006,11 @@ class PersistableInteractive:
                             },
                         ),
                         html.Div(
-                            className="plot-tools",
-                            children=[
-                                html.Div(
-                                    id=CCF_PLOT_CONTROLS_DIV,
-                                    className="parameters",
-                                    hidden=True,
-                                    children=[
-                                        html.Div(
-                                            className="parameter-single",
-                                            children=[
-                                                html.Span(
-                                                    className="name",
-                                                    children="Vineyard inputs selection",
-                                                ),
-                                                dcc.RadioItems(
-                                                    ["On", "Off"],
-                                                    "Off",
-                                                    id=DISPLAY_LINES_SELECTION,
-                                                    className=VALUE,
-                                                ),
-                                            ],
-                                        ),
-                                        html.Div(
-                                            className="parameter-single",
-                                            id=ENDPOINT_SELECTION_DIV,
-                                            children=[
-                                                html.Span(
-                                                    className="name",
-                                                    children="Endpoint",
-                                                ),
-                                                dcc.RadioItems(
-                                                    [
-                                                        "1st line start",
-                                                        "1st line end",
-                                                        "2nd line start",
-                                                        "2nd line end",
-                                                    ],
-                                                    "1st line start",
-                                                    id=ENDPOINT_SELECTION,
-                                                    className=VALUE,
-                                                ),
-                                            ],
-                                        ),
-                                    ],
-                                ),
-                            ],
+                            className="parameters",
+                            children=ccf_parameter_selection + ccf_extras,
                         ),
                         html.Div(
-                            className="plot-tools",
-                            children=[
-                                html.Div(
-                                    id=PV_PLOT_CONTROLS_DIV,
-                                    className="parameters",
-                                    hidden=True,
-                                    children=[
-                                        html.Div(
-                                            className="parameter-single",
-                                            children=[
-                                                html.Span(
-                                                    className="name",
-                                                    children="Parameter selection",
-                                                ),
-                                                dcc.RadioItems(
-                                                    ["On", "Off"],
-                                                    "Off",
-                                                    id=DISPLAY_PARAMETER_SELECTION,
-                                                    className=VALUE,
-                                                ),
-                                            ],
-                                        ),
-                                        html.Div(
-                                            className="parameter-double-button",
-                                            id=PARAMETER_SELECTION_DIV,
-                                            children=[
-                                                html.Span(
-                                                    className="name",
-                                                    children="Line number",
-                                                ),
-                                                dcc.Input(
-                                                    className=VALUE,
-                                                    id=INPUT_LINE,
-                                                    type="number",
-                                                    value=1,
-                                                    min=1,
-                                                    debounce=True,
-                                                ),
-                                                html.Span(
-                                                    className="name",
-                                                    children="Gap number",
-                                                ),
-                                                dcc.Input(
-                                                    className=VALUE,
-                                                    id=INPUT_GAP,
-                                                    type="number",
-                                                    value=1,
-                                                    min=1,
-                                                    debounce=True,
-                                                ),
-                                                html.Button(
-                                                    "Choose parameter",
-                                                    id=EXPORT_PARAMETERS_BUTTON,
-                                                    className="button",
-                                                    disabled=True,
-                                                ),
-                                            ],
-                                        ),
-                                    ],
-                                ),
-                            ],
+                            className="plot-tools", children=pv_parameter_selection
                         ),
                     ],
                 ),
@@ -838,7 +1043,6 @@ class PersistableInteractive:
                 ),
             ],
         )
-
 
     # when using long callbacks, dash will pickle all the objects that are used
     # in the function that is being registered as a long callback. In particular,
@@ -905,14 +1109,14 @@ class PersistableInteractive:
                     # TODO: figure out why the following causes problems with joblib Parallel
                     # Note that callback with background=True is the recommended way of running
                     # background jobs in dash now.
-                    #self._app.callback(
+                    # self._app.callback(
                     #    dash_outputs,
                     #    dash_inputs,
                     #    prevent_initial_call,
                     #    running=dash_running_outputs,
                     #    cancel=dash_cancel,
                     #    background=True,
-                    #)(callback_function)
+                    # )(callback_function)
                 else:
                     self._app.callback(
                         dash_outputs,
@@ -923,7 +1127,6 @@ class PersistableInteractive:
                 return function
 
             return out_function
-
 
         @dash_callback(
             [[DISPLAY_PARAMETER_SELECTION, VALUE, IN]],
@@ -939,6 +1142,7 @@ class PersistableInteractive:
         @dash_callback(
             [
                 [STORED_CCF_COMPUTATION_WARNINGS, DATA, IN],
+                [STORED_RI_COMPUTATION_WARNINGS, DATA, IN],
                 [STORED_PV_COMPUTATION_WARNINGS, DATA, IN],
             ],
             [[LOG, CHILDREN], [LOG_DIV, "open"]],
@@ -949,6 +1153,8 @@ class PersistableInteractive:
                 message = json.loads(d[STORED_CCF_COMPUTATION_WARNINGS + DATA])
             elif ctx.triggered_id == STORED_PV_COMPUTATION_WARNINGS:
                 message = json.loads(d[STORED_PV_COMPUTATION_WARNINGS + DATA])
+            elif ctx.triggered_id == STORED_RI_COMPUTATION_WARNINGS:
+                message = json.loads(d[STORED_RI_COMPUTATION_WARNINGS + DATA])
             else:
                 raise Exception(
                     "print_log was triggered by unknown id: " + str(ctx.triggered_id)
@@ -1019,14 +1225,19 @@ class PersistableInteractive:
             return d
 
         @dash_callback(
-            [[STORED_CCF, DATA, IN], [INPUT_MAX_COMPONENTS, VALUE, IN]],
+            [
+                [STORED_CCF, DATA, IN],
+                [STORED_X_TICKS_CCF, DATA, ST],
+                [STORED_Y_TICKS_CCF, DATA, ST],
+                [INPUT_MAX_COMPONENTS, VALUE, IN],
+            ],
             [[STORED_CCF_DRAWING, DATA]],
             False,
         )
         def draw_ccf(d):
-            ccf = d[STORED_CCF + DATA]
-
-            ccf = json.loads(ccf)
+            ccf = np.array(json.loads(d[STORED_CCF + DATA]))
+            x_ticks = json.loads(d[STORED_X_TICKS_CCF + DATA])
+            y_ticks = json.loads(d[STORED_Y_TICKS_CCF + DATA])
 
             max_components = d[INPUT_MAX_COMPONENTS + VALUE]
 
@@ -1041,7 +1252,10 @@ class PersistableInteractive:
 
             fig.add_trace(
                 go.Heatmap(
-                    **ccf,
+                    transpose=True,
+                    z=ccf,
+                    x=x_ticks,
+                    y=y_ticks,
                     hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
                     zmin=0,
                     zmax=max_components,
@@ -1049,6 +1263,7 @@ class PersistableInteractive:
                     name="",
                 )
             )
+
             fig.update_traces(colorscale="greys")
             fig.update_layout(showlegend=False)
             fig.update_layout(autosize=True)
@@ -1079,12 +1294,198 @@ class PersistableInteractive:
                 [FIXED_PARAMETERS, DATA, IN],
                 [STORED_PD, DATA, ST],
                 [INPUT_GAP, VALUE, ST],
+                [INPUT_DISPLAY_RI, VALUE, IN],
+                [INPUT_Y_COVARIANT, VALUE, IN],
+                [STORED_BETTI, DATA, ST],
+                [STORED_X_TICKS_CCF, DATA, ST],
+                [STORED_Y_TICKS_CCF, DATA, ST],
+                [INPUT_MAX_COMPONENTS, VALUE, IN],
+                [INPUT_MAX_RI, VALUE, IN],
+                [STORED_SIGNED_BARCODE_RECTANGLES, DATA, IN],
+                [STORED_SIGNED_BARCODE_HOOKS, DATA, IN],
+                [STORED_X_TICKS_RI, DATA, ST],
+                [STORED_Y_TICKS_RI, DATA, ST],
+                [INPUT_MIN_LENGTH_RI, VALUE, IN],
+                [INPUT_DECOMPOSE_BY_RI, VALUE, IN],
             ],
             [[CCF_PLOT, FIGURE]],
             False,
         )
         def draw_ccf_extras(d):
             fig = plotly.io.from_json(d[STORED_CCF_DRAWING + DATA])
+
+            x_ticks_ccf = json.loads(d[STORED_X_TICKS_CCF + DATA])
+            y_ticks_ccf = json.loads(d[STORED_Y_TICKS_CCF + DATA])
+            delta_x_ccf = (x_ticks_ccf[1] - x_ticks_ccf[0]) / 2
+            delta_y_ccf = (y_ticks_ccf[1] - y_ticks_ccf[0]) / 2
+            x_ticks_ccf.append(np.array(x_ticks_ccf[-1]) + 2 * delta_x_ccf)
+            y_ticks_ccf.append(np.array(y_ticks_ccf[-1]) + 2 * delta_y_ccf)
+
+            max_components = d[INPUT_MAX_COMPONENTS + VALUE]
+
+            def _rgba(color, opacity):
+                if color == "red":
+                    red, green, blue = "255", "0", "0"
+                if color == "green":
+                    red, green, blue = "0", "255", "0"
+                if color == "blue":
+                    red, green, blue = "0", "0", "255"
+                return (
+                    "rgba(" + red + "," + green + "," + blue + "," + str(opacity) + ")"
+                )
+
+            def _draw_bar(xs, ys, color, width=6, endpoints=False, size=5):
+                mode = "markers+lines" if endpoints else "lines"
+                marker_styles = ["diamond", "diamond"]
+                return go.Scatter(
+                    x=xs,
+                    y=ys,
+                    marker=dict(color=color, size=size),
+                    marker_symbol=marker_styles,
+                    hoverinfo="skip",
+                    showlegend=False,
+                    mode=mode,
+                    line=dict(width=width),
+                )
+
+            # draw signed barcode
+            if d[INPUT_DISPLAY_RI + VALUE] == "Yes":
+                using_rectangles = (
+                    True if d[INPUT_DECOMPOSE_BY_RI + VALUE] == "Rect" else False
+                )
+                if using_rectangles:
+                    sb = np.array(
+                        json.loads(d[STORED_SIGNED_BARCODE_RECTANGLES + DATA])
+                    )
+                else:
+                    sb = np.array(json.loads(d[STORED_SIGNED_BARCODE_HOOKS + DATA]))
+                if len(sb) != 0:
+
+                    max_components = d[INPUT_MAX_RI + VALUE]
+                    x_ticks = json.loads(d[STORED_X_TICKS_RI + DATA])
+                    y_ticks = json.loads(d[STORED_Y_TICKS_RI + DATA])
+                    delta_x = (x_ticks[1] - x_ticks[0]) / 2
+                    delta_y = (y_ticks[1] - y_ticks[0]) / 2
+                    x_ticks.append(np.array(x_ticks[-1]) + 2 * delta_x)
+                    y_ticks.append(np.array(y_ticks[-1]) + 2 * delta_y)
+
+                    lx = len(x_ticks)
+                    ly = len(y_ticks)
+                    traces = []
+                    if using_rectangles:
+                        total_width = min(lx, ly)
+                    else:
+                        total_width = max(lx, ly)
+                    for i, j, i_, j_, mult in sb:
+                        if mult != 0:
+                            min_size = 3
+                            if using_rectangles:
+                                i_ += 1
+                                j_ += 1
+                                length = min((i_ - i), (j_ - j))
+                                width = 10 * (length / total_width)
+                                size = min_size + 5 * (length / total_width)
+                            else:
+                                length = max((i_ - i), (j_ - j))
+                                width = 10 * (length / total_width)
+                                size = min_size + 5 * (length / total_width)
+                            min_opacity = 0.3
+                            opacity = min_opacity + (
+                                np.minimum(np.abs(mult), max_components)
+                                / max_components
+                            ) * (1 - min_opacity)
+                            x_coords = np.array(
+                                [x_ticks[i] - delta_x, x_ticks[i_] - delta_x]
+                            )
+                            y_coords = np.array(
+                                [y_ticks[j] - delta_y, y_ticks[j_] - delta_y]
+                            )
+                            if length >= d[INPUT_MIN_LENGTH_RI + VALUE]:
+                                if mult < 0:
+                                    color = _rgba("red", opacity)
+                                    traces.append(
+                                        _draw_bar(
+                                            x_coords,
+                                            y_coords,
+                                            color,
+                                            width,
+                                            endpoints=True,
+                                            size=size,
+                                        )
+                                    )
+                                if mult > 0:
+                                    color = _rgba("blue", opacity)
+                                    traces.append(
+                                        _draw_bar(
+                                            x_coords,
+                                            y_coords,
+                                            color,
+                                            width,
+                                            endpoints=True,
+                                            size=size,
+                                        )
+                                    )
+                    fig.add_traces(traces)
+
+            # draw Betti numbers
+            if False:
+
+                bn = np.array(json.loads(d[STORED_BETTI + DATA]))
+                xs = x_ticks
+                ys = y_ticks
+
+                positive_bn = np.array(
+                    [
+                        [xs[i] - delta_x, ys[j] - delta_y, bn[i, j]]
+                        for i in range(len(xs))
+                        for j in range(len(ys))
+                        if bn[i, j] > 0
+                    ]
+                )
+                negative_bn = np.array(
+                    [
+                        [xs[i] - delta_x, ys[j] - delta_y, -bn[i, j]]
+                        for i in range(len(xs))
+                        for j in range(len(ys))
+                        if bn[i, j] < 0
+                    ]
+                )
+                marker_size = 5
+                min_opacity = 0.3
+                positive_opacity = min_opacity + (
+                    (np.minimum(positive_bn[:, 2], max_components)) / max_components
+                ) * (1 - min_opacity)
+                negative_opacity = min_opacity + (
+                    (np.minimum(negative_bn[:, 2], max_components)) / max_components
+                ) * (1 - min_opacity)
+
+                # draw positive
+                fig.add_trace(
+                    go.Scatter(
+                        x=positive_bn[:, 0],
+                        y=positive_bn[:, 1],
+                        name="",
+                        marker=dict(
+                            color="blue", size=marker_size, opacity=positive_opacity
+                        ),
+                        hoverinfo="skip",
+                        mode="markers",
+                    )
+                )
+                # draw negative
+                fig.add_trace(
+                    go.Scatter(
+                        x=negative_bn[:, 0],
+                        y=negative_bn[:, 1],
+                        name="",
+                        marker=dict(
+                            color="red", size=marker_size, opacity=negative_opacity
+                        ),
+                        # color="green",
+                        hoverinfo="skip",
+                        mode="markers",
+                    )
+                )
 
             def generate_line(
                 xs, ys, text, color="mediumslateblue", different_marker=None
@@ -1170,46 +1571,51 @@ class PersistableInteractive:
             params = json.loads(d[FIXED_PARAMETERS + DATA])
             if len(params) != 0 and d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On":
                 pd = json.loads(d[STORED_PD + DATA])
+
+                st_x = params["start"][0]
+                st_y = params["start"][1]
+                end_x = params["end"][0]
+                end_y = params["end"][1]
+
+                fig.add_trace(
+                    generate_line(
+                        [st_x, end_x],
+                        [st_y, end_y],
+                        "selected",
+                        color="blue",
+                    )
+                )
+
                 if len(pd) != 0:
-
-                    def generate_bar(xs, ys, color):
-                        return go.Scatter(
-                            x=xs,
-                            y=ys,
-                            marker=dict(color=color),
-                            hoverinfo="skip",
-                            showlegend=False,
-                            mode="lines",
-                            line=dict(width=6),
-                        )
-
-                    st_x = params["start"][0]
-                    st_y = params["start"][1]
-                    end_x = params["end"][0]
-                    end_y = params["end"][1]
+                    pd = np.array(pd)
+                    pd = pd-st_x
                     st = np.array([st_x, st_y])
                     end = np.array([end_x, end_y])
                     A = end - st
 
                     # ideally we would get the actual ratio of the rendered picture
-                    # we are using an estimate given by the "usual" way in which persistable
-                    # is rendered
-                    ratio = np.array([3,2])
-                    ratio = (ratio / np.linalg.norm(ratio)) * np.linalg.norm(np.array([1,1]))
+                    # we are using an estimate given by the "usual" way in which
+                    # persistable's GUI is rendered
+                    ratio = np.array([3, 2])
+                    ratio = (ratio / np.linalg.norm(ratio)) * np.linalg.norm(
+                        np.array([1, 1])
+                    )
                     alpha = [
                         (d[MAX_DIST_SCALE + VALUE] - d[MIN_DIST_SCALE + VALUE]),
-                        ( d[MAX_DENSITY_THRESHOLD + VALUE] - d[MIN_DENSITY_THRESHOLD + VALUE]),
+                        (
+                            d[MAX_DENSITY_THRESHOLD + VALUE]
+                            - d[MIN_DENSITY_THRESHOLD + VALUE]
+                        ),
                     ]
                     alpha = np.array(alpha) / ratio
 
-                    A = A/alpha
+                    A = A / alpha
                     B = np.array([-A[1], A[0]])
 
                     shift = 50
                     B = B / np.linalg.norm(B)
-                    tau = B * alpha/ shift
+                    tau = B * alpha / shift
 
-                    pd = np.array(pd)
                     lengths = pd[:, 1] - pd[:, 0]
                     pd = pd[np.argsort(lengths)[::-1]]
                     for i, point in enumerate(pd):
@@ -1230,25 +1636,18 @@ class PersistableInteractive:
                             else "rgba(34, 139, 34, 0.3)"
                         )
                         fig.add_trace(
-                            generate_bar(
-                                [r_st[0], r_end[0]], [r_st[1], r_end[1]], color
-                            )
+                            _draw_bar([r_st[0], r_end[0]], [r_st[1], r_end[1]], color)
                         )
-                fig.add_trace(
-                    generate_line(
-                        [st_x, end_x],
-                        [st_y, end_y],
-                        "selected",
-                        color="blue",
-                    )
-                )
+
+            yaxis = (
+                [y_ticks_ccf[0], y_ticks_ccf[-1] - delta_y_ccf]
+                if d[INPUT_Y_COVARIANT + VALUE] == "Cov"
+                else [y_ticks_ccf[-1] - delta_y_ccf, y_ticks_ccf[0]]
+            )
 
             fig.update_layout(
-                xaxis=dict(range=[d[MIN_DIST_SCALE + VALUE], d[MAX_DIST_SCALE + VALUE]]),
-                yaxis=dict(range=[
-                    d[MIN_DENSITY_THRESHOLD + VALUE],
-                    d[MAX_DENSITY_THRESHOLD + VALUE],
-                ])
+                xaxis=dict(range=[x_ticks_ccf[0], x_ticks_ccf[-1] - delta_x_ccf]),
+                yaxis=dict(range=yaxis),
             )
 
             d[CCF_PLOT + FIGURE] = fig
@@ -1275,7 +1674,10 @@ class PersistableInteractive:
             ],
             [
                 [STORED_CCF, DATA],
+                [STORED_X_TICKS_CCF, DATA],
+                [STORED_Y_TICKS_CCF, DATA],
                 [STORED_CCF_COMPUTATION_WARNINGS, DATA],
+                [STORED_BETTI, DATA],
                 [CCF_PLOT_CONTROLS_DIV, HIDDEN],
             ],
             prevent_initial_call=True,
@@ -1297,14 +1699,15 @@ class PersistableInteractive:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 try:
-                    ss, ks, hf = persistable._compute_hilbert_function(
-                        d[MIN_DENSITY_THRESHOLD + VALUE],
-                        d[MAX_DENSITY_THRESHOLD + VALUE],
+                    ss, ks, hf, bn = persistable._compute_hilbert_function(
                         d[MIN_DIST_SCALE + VALUE],
                         d[MAX_DIST_SCALE + VALUE],
+                        d[MAX_DENSITY_THRESHOLD + VALUE],
+                        d[MIN_DENSITY_THRESHOLD + VALUE],
                         granularity,
                         n_jobs=num_jobs,
                     )
+
                 except ValueError:
                     out += traceback.format_exc()
                     d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
@@ -1317,15 +1720,110 @@ class PersistableInteractive:
                     a.message, a.category, a.filename, a.lineno
                 )
 
-            d[STORED_CCF + DATA] = json.dumps(
-                {"y": ks[:-1].tolist(), "x": ss[:-1].tolist(), "z" : hf.tolist()}
-            )
+            d[STORED_CCF + DATA] = json.dumps(hf.tolist())
+            d[STORED_X_TICKS_CCF + DATA] = json.dumps(ss.tolist())
+            d[STORED_Y_TICKS_CCF + DATA] = json.dumps(ks.tolist())
+
+            d[STORED_BETTI + DATA] = json.dumps(bn.tolist())
 
             d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = False
 
             if debug:
                 print("Compute ccf in background finished.")
+
+            return d
+
+        @dash_callback(
+            [
+                [COMPUTE_RI_BUTTON, N_CLICKS, IN],
+                [MIN_DENSITY_THRESHOLD, VALUE, ST],
+                [MAX_DENSITY_THRESHOLD, VALUE, ST],
+                [MIN_DIST_SCALE, VALUE, ST],
+                [MAX_DIST_SCALE, VALUE, ST],
+                [INPUT_GRANULARITY_RI, VALUE, ST],
+                [INPUT_NUM_JOBS_RI, VALUE, ST],
+                [INPUT_REDUCED_HOMOLOGY_RI, VALUE, ST],
+            ],
+            [
+                [STORED_X_TICKS_RI, DATA],
+                [STORED_Y_TICKS_RI, DATA],
+                [STORED_RI_COMPUTATION_WARNINGS, DATA],
+                [STORED_SIGNED_BARCODE_RECTANGLES, DATA],
+                [STORED_SIGNED_BARCODE_HOOKS, DATA],
+            ],
+            prevent_initial_call=True,
+            background=True,
+            running=[
+                [COMPUTE_RI_BUTTON, DISABLED, True, False],
+                [STOP_COMPUTE_RI_BUTTON, DISABLED, False, True],
+            ],
+            cancel=[[STOP_COMPUTE_RI_BUTTON, N_CLICKS]],
+        )
+        def compute_rank_invariant(d):
+            if debug:
+                print("Compute rank invariant in background started.")
+
+            granularity = d[INPUT_GRANULARITY_RI + VALUE]
+            num_jobs = int(d[INPUT_NUM_JOBS_RI + VALUE])
+
+            out = ""
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                try:
+                    reduced = (
+                        True if d[INPUT_REDUCED_HOMOLOGY_RI + VALUE] == "Yes" else False
+                    )
+                    ss, ks, ri, sbr, sbh = persistable._compute_rank_invariant(
+                        d[MIN_DIST_SCALE + VALUE],
+                        d[MAX_DIST_SCALE + VALUE],
+                        d[MAX_DENSITY_THRESHOLD + VALUE],
+                        d[MIN_DENSITY_THRESHOLD + VALUE],
+                        granularity,
+                        reduced=reduced,
+                        n_jobs=num_jobs,
+                    )
+
+                    lx = sbr.shape[0]
+                    ly = sbr.shape[1]
+                    sbr = [
+                        [i, j, i_, j_, int(sbr[i, j, i_, j_])]
+                        for i in range(lx)
+                        for j in range(ly)
+                        for i_ in range(i, lx)
+                        for j_ in range(j, ly)
+                        if sbr[i, j, i_, j_] != 0
+                    ]
+                    sbh = [
+                        [i, j, i_, j_, int(sbh[i, j, i_, j_])]
+                        for i in range(lx)
+                        for j in range(ly)
+                        for i_ in range(i, lx)
+                        for j_ in range(j, ly)
+                        if sbh[i, j, i_, j_] != 0
+                    ]
+                except ValueError:
+                    out += traceback.format_exc()
+                    d[STORED_RI_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
+                    d[STORED_SIGNED_BARCODE_RECTANGLES + DATA] = None
+                    d[STORED_SIGNED_BARCODE_HOOKS + DATA] = None
+                    return d
+
+            for a in w:
+                out += warnings.formatwarning(
+                    a.message, a.category, a.filename, a.lineno
+                )
+
+            d[STORED_SIGNED_BARCODE_RECTANGLES + DATA] = json.dumps(sbr)
+            d[STORED_SIGNED_BARCODE_HOOKS + DATA] = json.dumps(sbh)
+
+            d[STORED_X_TICKS_RI + DATA] = json.dumps(ss.tolist())
+            d[STORED_Y_TICKS_RI + DATA] = json.dumps(ks.tolist())
+
+            d[STORED_RI_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
+
+            if debug:
+                print("Compute rank invariant in background finished.")
 
             return d
 
