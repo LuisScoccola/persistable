@@ -75,6 +75,14 @@ Installation through PyPI is coming soon.
 pip install git+https://github.com/LuisScoccola/persistable.git
 ```
 
+## Experimental features
+
+Check the `experimental` branch for more advanced features.
+You can install from that branch by running
+
+```bash
+pip install git+https://github.com/LuisScoccola/persistable.git@experimental
+```
 
 ## Running the tests
 
