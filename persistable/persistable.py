@@ -284,6 +284,36 @@ class Persistable:
             )
         return cl
 
+    def _find_end(self):
+        return self._mpspace.find_end()
+
+    def _hilbert_function(
+        self,
+        min_s,
+        max_s,
+        max_k,
+        min_k,
+        granularity,
+        n_jobs=1,
+    ):
+        return self._mpspace.hilbert_function_on_grid(
+            min_s, max_s, max_k, min_k, granularity, n_jobs=n_jobs
+        )
+
+    def _rank_invariant(
+        self, min_s, max_s, max_k, min_k, granularity, reduced=False, n_jobs=1
+    ):
+        return self._mpspace.rank_invariant_on_grid(
+            min_s, max_s, max_k, min_k, granularity, reduced=reduced, n_jobs=n_jobs
+        )
+
+    def _linear_vineyard(
+        self, start_end1, start_end2, n_parameters, reduced=False, n_jobs=1
+    ):
+        return self._mpspace.linear_vineyard(
+            start_end1, start_end2, n_parameters, reduced=False, n_jobs=1
+        )
+
 
 class _MetricProbabilitySpace:
     """Implements a finite metric probability space that can compute its \
@@ -630,7 +660,9 @@ class _MetricProbabilitySpace:
             threading=self._threading,
         )
 
-    def linear_vineyard(self, start_end1, start_end2, n_parameters, reduced=False, n_jobs=1):
+    def linear_vineyard(
+        self, start_end1, start_end2, n_parameters, reduced=False, n_jobs=1
+    ):
         start1, end1 = start_end1
         start2, end2 = start_end2
         if (

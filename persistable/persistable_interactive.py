@@ -1697,7 +1697,7 @@ class PersistableInteractive:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 try:
-                    ss, ks, hf, bn = persistable._compute_hilbert_function(
+                    ss, ks, hf, bn = persistable._hilbert_function(
                         d[MIN_DIST_SCALE + VALUE],
                         d[MAX_DIST_SCALE + VALUE],
                         d[MAX_DENSITY_THRESHOLD + VALUE],
@@ -1772,7 +1772,7 @@ class PersistableInteractive:
                     reduced = (
                         True if d[INPUT_REDUCED_HOMOLOGY_RI + VALUE] == "Yes" else False
                     )
-                    ss, ks, ri, sbr, sbh = persistable._compute_rank_invariant(
+                    ss, ks, ri, sbr, sbh = persistable._rank_invariant(
                         d[MIN_DIST_SCALE + VALUE],
                         d[MAX_DIST_SCALE + VALUE],
                         d[MAX_DENSITY_THRESHOLD + VALUE],
@@ -1866,7 +1866,7 @@ class PersistableInteractive:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 try:
-                    pv = persistable._compute_vineyard(
+                    pv = persistable._linear_vineyard(
                         [
                             [
                                 d[X_START_FIRST_LINE + VALUE],
