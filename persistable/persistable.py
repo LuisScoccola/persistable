@@ -284,106 +284,6 @@ class Persistable:
             )
         return cl
 
-    def _find_end(self, fast=False):
-        if fast:
-            default_percentile = 0.95
-            return self._mpspace.connection_radius(default_percentile) * 4, self._maxk
-        else:
-            return self._mpspace.find_end()
-
-    def _compute_vineyard(self, start_end1, start_end2, n_parameters, n_jobs=4):
-        start1, end1 = start_end1
-        start2, end2 = start_end2
-        if (
-            start1[0] > end1[0]
-            or start1[1] < end1[1]
-            or start2[0] > end2[0]
-            or start2[1] < end2[1]
-        ):
-            raise ValueError(
-                "Parameters chosen for vineyard will result in non-monotonic lines!"
-            )
-        starts = list(
-            zip(
-                np.linspace(start1[0], start2[0], n_parameters),
-                np.linspace(start1[1], start2[1], n_parameters),
-            )
-        )
-        ends = list(
-            zip(
-                np.linspace(end1[0], end2[0], n_parameters),
-                np.linspace(end1[1], end2[1], n_parameters),
-            )
-        )
-        startends = list(zip(starts, ends))
-        pds = self._mpspace.lambda_linkage_vineyard(startends, n_jobs=n_jobs)
-        return Vineyard(startends, pds)
-
-    def _compute_hilbert_function(
-        self,
-        min_s,
-        max_s,
-        max_k,
-        min_k,
-        granularity,
-        n_jobs=4,
-    ):
-        if min_k >= max_k:
-            raise ValueError("min_k must be smaller than max_k.")
-        if min_s >= max_s:
-            raise ValueError("min_s must be smaller than max_s.")
-        if max_k > self._maxk:
-            max_k = min(max_k, self._maxk)
-            warnings.warn(
-                "Not enough neighbors to compute chosen max density threshold, using "
-                + str(max_k)
-                + " instead. If needed, re-initialize the Persistable instance with a larger n_neighbors."
-            )
-        if min_k >= max_k:
-            min_k = max_k / 2
-            warnings.warn(
-                "max density threshold too large, using " + str(min_k) + " instead."
-            )
-
-        ss = np.linspace(min_s, max_s, granularity)
-        ks = np.linspace(min_k, max_k, granularity)[::-1]
-        hf = self._mpspace.hilbert_function(ss, ks, n_jobs=n_jobs)
-        return ss, ks, hf, signed_betti(hf)
-
-    def _compute_rank_invariant(
-        self,
-        min_s,
-        max_s,
-        max_k,
-        min_k,
-        granularity,
-        reduced=False,
-        n_jobs=4,
-    ):
-        if min_k >= max_k:
-            raise ValueError("min_k must be smaller than max_k.")
-        if min_s >= max_s:
-            raise ValueError("min_s must be smaller than max_s.")
-        if max_k > self._maxk:
-            max_k = min(max_k, self._maxk)
-            warnings.warn(
-                "Not enough neighbors to compute chosen max density threshold, using "
-                + str(max_k)
-                + " instead. If needed, re-initialize the Persistable instance with a larger n_neighbors."
-            )
-        if min_k >= max_k:
-            min_k = max_k / 2
-            warnings.warn(
-                "max density threshold too large, using " + str(min_k) + " instead."
-            )
-
-        ss = np.linspace(min_s, max_s, granularity)
-        ks = np.linspace(min_k, max_k, granularity)[::-1]
-        ri = self._mpspace.rank_invariant(ss, ks, n_jobs=n_jobs, reduced=reduced)
-        # need to cast explicitly to int64 for windows compatibility
-        rdr = rank_decomposition_2d_rectangles(np.array(ri, dtype=np.int64))
-        return ss, ks, ri, rdr, rank_decomposition_2d_rectangles_to_hooks(rdr)
-
 
 class _MetricProbabilitySpace:
     """Implements a finite metric probability space that can compute its \
@@ -506,14 +406,16 @@ class _MetricProbabilitySpace:
         else:
             i_indices = []
             for p in point_index:
-                idx = np.searchsorted(self._kernel_estimate[p], k_intercept, side="left")
+                idx = np.searchsorted(
+                    self._kernel_estimate[p], k_intercept, side="left"
+                )
                 if idx == self._nn_distance[p].shape[0]:
                     idx -= 1
                 i_indices.append(idx)
             i_indices = np.array(i_indices)
             # TODO: properly check and warn of not enough n_neighbors or
             # explicitly ensure that the following does not happen:
-            #if self._n_neighbors < self._size:
+            # if self._n_neighbors < self._size:
             #    out_of_range = np.where(
             #        (
             #            i_indices
@@ -532,7 +434,11 @@ class _MetricProbabilitySpace:
             #        )
             return self._nn_distance[(point_index, i_indices)]
 
-    def find_end(self, tolerance=1e-4):
+    def find_end(self, tolerance=1e-4, fast=False):
+        if fast:
+            default_percentile = 0.95
+            return self.connection_radius(default_percentile) * 4, self._maxk
+
         def pers_diag(k):
             return self.lambda_linkage([0, k], [np.infty, k]).persistence_diagram()
 
@@ -711,7 +617,7 @@ class _MetricProbabilitySpace:
         else:
             return self._lambda_linkage_skew(start, end)
 
-    def lambda_linkage_vineyard(self, startends, n_jobs, reduced=False, tol=_TOL):
+    def lambda_linkage_vineyard(self, startends, reduced=False, tol=_TOL, n_jobs=1):
         run_in_parallel = lambda startend: self.lambda_linkage(
             startend[0], startend[1]
         ).persistence_diagram(tol=tol, reduced=reduced)
@@ -724,7 +630,35 @@ class _MetricProbabilitySpace:
             threading=self._threading,
         )
 
-    def rank_invariant(self, ss, ks, n_jobs, reduced=False):
+    def linear_vineyard(self, start_end1, start_end2, n_parameters, reduced=False, n_jobs=1):
+        start1, end1 = start_end1
+        start2, end2 = start_end2
+        if (
+            start1[0] > end1[0]
+            or start1[1] < end1[1]
+            or start2[0] > end2[0]
+            or start2[1] < end2[1]
+        ):
+            raise ValueError(
+                "Parameters chosen for vineyard will result in non-monotonic lines!"
+            )
+        starts = list(
+            zip(
+                np.linspace(start1[0], start2[0], n_parameters),
+                np.linspace(start1[1], start2[1], n_parameters),
+            )
+        )
+        ends = list(
+            zip(
+                np.linspace(end1[0], end2[0], n_parameters),
+                np.linspace(end1[1], end2[1], n_parameters),
+            )
+        )
+        startends = list(zip(starts, ends))
+        pds = self.lambda_linkage_vineyard(startends, reduced=reduced, n_jobs=n_jobs)
+        return Vineyard(startends, pds)
+
+    def _rank_invariant(self, ss, ks, reduced=False, n_jobs=1):
         n_s = len(ss)
         n_k = len(ks)
         ks = np.array(ks)
@@ -788,12 +722,20 @@ class _MetricProbabilitySpace:
             return _HierarchicalClustering(heights, merges, merges_heights, start, end)
 
         def _pd_spliced_hc(s_index_k_index):
-           s_index, k_index = s_index_k_index
-           return _splice_hcs(s_index,k_index).persistence_diagram(reduced=reduced)
+            s_index, k_index = s_index_k_index
+            return _splice_hcs(s_index, k_index).persistence_diagram(reduced=reduced)
 
-        indices = [[s_index,k_index] for s_index in range(n_s) for k_index in range(n_k) ]
-        pds = parallel_computation(_pd_spliced_hc, indices, n_jobs, debug=self._debug, threading=self._threading)
-        pds = [[indices[i][0],indices[i][1],pds[i]] for i in range(len(indices)) ]
+        indices = [
+            [s_index, k_index] for s_index in range(n_s) for k_index in range(n_k)
+        ]
+        pds = parallel_computation(
+            _pd_spliced_hc,
+            indices,
+            n_jobs,
+            debug=self._debug,
+            threading=self._threading,
+        )
+        pds = [[indices[i][0], indices[i][1], pds[i]] for i in range(len(indices))]
 
         ri = np.zeros((n_s, n_k, n_s, n_k), dtype=int)
 
@@ -803,19 +745,46 @@ class _MetricProbabilitySpace:
                 b, d = int(b), int(d)
                 # this if may be unnecessary
                 if b <= s_index and d >= s_index:
-                    for i in range(b,s_index+1):
-                        for j in range(s_index,d):
-                            ri[i, k_index, s_index, j-s_index+k_index] += 1
+                    for i in range(b, s_index + 1):
+                        for j in range(s_index, d):
+                            ri[i, k_index, s_index, j - s_index + k_index] += 1
         return ri
 
-    def hilbert_function(self, ss, ks, n_jobs):
+    def rank_invariant_on_grid(
+        self, min_s, max_s, max_k, min_k, granularity, reduced=False, n_jobs=1
+    ):
+        if min_k >= max_k:
+            raise ValueError("min_k must be smaller than max_k.")
+        if min_s >= max_s:
+            raise ValueError("min_s must be smaller than max_s.")
+        if max_k > self._maxk:
+            max_k = min(max_k, self._maxk)
+            warnings.warn(
+                "Not enough neighbors to compute chosen max density threshold, using "
+                + str(max_k)
+                + " instead. If needed, re-initialize the Persistable instance with a larger n_neighbors."
+            )
+        if min_k >= max_k:
+            min_k = max_k / 2
+            warnings.warn(
+                "max density threshold too large, using " + str(min_k) + " instead."
+            )
+
+        ss = np.linspace(min_s, max_s, granularity)
+        ks = np.linspace(min_k, max_k, granularity)[::-1]
+        ri = self._rank_invariant(ss, ks, n_jobs=n_jobs, reduced=reduced)
+        # need to cast explicitly to int64 for windows compatibility
+        rdr = rank_decomposition_2d_rectangles(np.array(ri, dtype=np.int64))
+        return ss, ks, ri, rdr, rank_decomposition_2d_rectangles_to_hooks(rdr)
+
+    def _hilbert_function(self, ss, ks, reduced=False, n_jobs=1):
         n_s = len(ss)
         n_k = len(ks)
         # go on one more step to compute the Hilbert function at the last point
         ss = list(ss)
         ss.append(ss[-1] + _TOL)
         startends = [[[ss[0], k], [ss[-1], k]] for k in ks]
-        pds = self.lambda_linkage_vineyard(startends, n_jobs=n_jobs)
+        pds = self.lambda_linkage_vineyard(startends, reduced=reduced, n_jobs=n_jobs)
         hf = np.zeros((n_s, n_k), dtype=int)
         for i, pd in enumerate(pds):
             for bar in pd:
@@ -824,6 +793,38 @@ class _MetricProbabilitySpace:
                 end = np.searchsorted(ss[:-1], d)
                 hf[start:end, i] += 1
         return hf
+
+    def hilbert_function_on_grid(
+        self,
+        min_s,
+        max_s,
+        max_k,
+        min_k,
+        granularity,
+        reduced=False,
+        n_jobs=1,
+    ):
+        if min_k >= max_k:
+            raise ValueError("min_k must be smaller than max_k.")
+        if min_s >= max_s:
+            raise ValueError("min_s must be smaller than max_s.")
+        if max_k > self._maxk:
+            max_k = min(max_k, self._maxk)
+            warnings.warn(
+                "Not enough neighbors to compute chosen max density threshold, using "
+                + str(max_k)
+                + " instead. If needed, re-initialize the Persistable instance with a larger n_neighbors."
+            )
+        if min_k >= max_k:
+            min_k = max_k / 2
+            warnings.warn(
+                "max density threshold too large, using " + str(min_k) + " instead."
+            )
+
+        ss = np.linspace(min_s, max_s, granularity)
+        ks = np.linspace(min_k, max_k, granularity)[::-1]
+        hf = self._hilbert_function(ss, ks, n_jobs=n_jobs)
+        return ss, ks, hf, signed_betti(hf)
 
     def connection_radius(self, percentiles=1):
         hc = self.lambda_linkage([0, 0], [np.infty, 0])
@@ -993,7 +994,10 @@ class _HierarchicalClustering:
     def persistence_diagram(self, reduced=False, tol=_TOL):
         # need to cast explicitly to int64 for windows compatibility
         pd = persistence_diagram_h0(
-            self._end, self._heights, np.array(self._merges,dtype=np.int64), self._merges_heights
+            self._end,
+            self._heights,
+            np.array(self._merges, dtype=np.int64),
+            self._merges_heights,
         )
         pd = np.array(pd)
         if pd.shape[0] == 0:

@@ -183,7 +183,53 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                 [4, 4, 2, 2, 1, 1, 1, 1],
             ]
         ).T
-        np.testing.assert_almost_equal(mps.hilbert_function(ss, ks, n_jobs=4), res)
+        np.testing.assert_almost_equal(mps._hilbert_function(ss, ks, reduced=False, n_jobs=4), res)
+
+
+        X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
+        p = Persistable(X)
+
+        # res_ss = [0.0, 0.5625, 1.125, 1.6875, 2.25, 2.8125, 3.375, 3.9375, 4.5]
+        res_ss = [
+            0.0,
+            0.5714286,
+            1.1428571,
+            1.7142857,
+            2.2857143,
+            2.8571429,
+            3.4285714,
+            4.0,
+        ]
+        res_ks = [
+            1,
+            0.8571429,
+            0.7142857,
+            0.5714286,
+            0.4285714,
+            0.2857143,
+            0.1428571,
+            0.0,
+        ]
+
+        res = np.array(
+            [
+                [0, 0, 0, 0, 1, 1, 1, 1],
+                [0, 0, 0, 0, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [4, 4, 2, 2, 1, 1, 1, 1],
+                [4, 4, 2, 2, 1, 1, 1, 1],
+            ]
+        ).T
+        ss, ks, hs, _ = p._mpspace.hilbert_function_on_grid(0, 4, 1, 0, granularity=8)
+
+        np.testing.assert_almost_equal(ss, np.array(res_ss))
+        np.testing.assert_almost_equal(ks, np.array(res_ks))
+        np.testing.assert_almost_equal(hs, res)
+
+
 
     def test_vertical_slice(self):
         """ Check that the persistence diagram of lambda_linkage is correct \
@@ -266,7 +312,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
 
         ks = [0.4, 0.3]
         ss = [1.3, 1.5]
-        ri = p._mpspace.rank_invariant(ss, ks, 1, reduced=False)
+        ri = p._mpspace._rank_invariant(ss, ks, reduced=False)
         np.testing.assert_almost_equal(
             ri,
             [
@@ -277,7 +323,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
 
         ks = [0.3, 0.2]
         ss = [1.5, 2.5]
-        ri = p._mpspace.rank_invariant(ss, ks, 1, reduced=False)
+        ri = p._mpspace._rank_invariant(ss, ks, reduced=False)
         np.testing.assert_almost_equal(
             ri,
             [
@@ -288,7 +334,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
 
         ks = [0.4, 0.3, 0.2]
         ss = [1.3, 1.5, 2.5]
-        ri = p._mpspace.rank_invariant(ss, ks, 1, reduced=False)
+        ri = p._mpspace._rank_invariant(ss, ks, reduced=False)
         res = np.zeros((3, 3, 3, 3))
         for i in range(3):
             for j in range(3):
@@ -430,52 +476,6 @@ class TestPersistable(unittest.TestCase):
         c = p.quick_cluster(propagate_labels=True)
         self.assertEqual(len(set(c[c >= 0])), 5)
 
-    def test_hilbert_function(self):
-        """ Check that _compute_hilbert_function method returns a correct answer \
-            and correct grid """
-        X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
-        p = Persistable(X)
-
-        # res_ss = [0.0, 0.5625, 1.125, 1.6875, 2.25, 2.8125, 3.375, 3.9375, 4.5]
-        res_ss = [
-            0.0,
-            0.5714286,
-            1.1428571,
-            1.7142857,
-            2.2857143,
-            2.8571429,
-            3.4285714,
-            4.0,
-        ]
-        res_ks = [
-            1,
-            0.8571429,
-            0.7142857,
-            0.5714286,
-            0.4285714,
-            0.2857143,
-            0.1428571,
-            0.0,
-        ]
-
-        res = np.array(
-            [
-                [0, 0, 0, 0, 1, 1, 1, 1],
-                [0, 0, 0, 0, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
-                [4, 4, 2, 2, 1, 1, 1, 1],
-                [4, 4, 2, 2, 1, 1, 1, 1],
-            ]
-        ).T
-        ss, ks, hs, _ = p._compute_hilbert_function(0, 4, 1, 0, granularity=8)
-
-        np.testing.assert_almost_equal(ss, np.array(res_ss))
-        np.testing.assert_almost_equal(ks, np.array(res_ks))
-        np.testing.assert_almost_equal(hs, res)
-
 
 class TestVineyard(unittest.TestCase):
     def test_prominence_vineyard(self):
@@ -485,7 +485,7 @@ class TestVineyard(unittest.TestCase):
 
         start_end1 = [(0, 0.1), (10, 0)]
         start_end2 = [(0, 1), (10, 0.9)]
-        vineyard = p._compute_vineyard(start_end1, start_end2, n_parameters=4)
+        vineyard = p._mpspace.linear_vineyard(start_end1, start_end2, n_parameters=4)
 
         vines = vineyard._vineyard_to_vines()
         res_vines = [
