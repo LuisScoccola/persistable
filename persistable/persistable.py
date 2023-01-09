@@ -116,9 +116,6 @@ class Persistable:
             leaf_size = kwargs["leaf_size"]
         else:
             leaf_size = 40
-        self._mpspace = _MetricProbabilitySpace(
-            X, metric, measure, leaf_size, debug=debug, threading=threading, **kwargs
-        )
         # if no n_neighbors for fitting mpspace was passed, compute a reasonable one
         if n_neighbors == "auto":
             if X.shape[0] < 100:
@@ -135,8 +132,11 @@ class Persistable:
             )
         # keep max_k (normalized n_neighbors)
         self._maxk = self._n_neighbors / X.shape[0]
-        # fit the mpspace
-        self._mpspace.fit(self._n_neighbors)
+
+        # construct the filtration
+        self._mpspace = _MetricProbabilitySpace(
+            X, metric, measure, self._n_neighbors, leaf_size, debug=debug, threading=threading, **kwargs
+        )
 
     def quick_cluster(
         self,
@@ -322,21 +322,27 @@ class _MetricProbabilitySpace:
     _MAX_DIM_USE_BORUVKA = 60
 
     def __init__(
-        self, X, metric, measure, leaf_size=40, debug=False, threading=False, **kwargs
+        self, X, metric, measure, n_neighbors, leaf_size=40, debug=False, threading=False, **kwargs
     ):
+        # meta variables
         self._threading = threading
         self._debug = debug
-        self._metric = metric
+
+        # save extra arguments for metric
         self._kwargs = kwargs
-        self._leaf_size = leaf_size
-        self._size = X.shape[0]
+
+        # save measure
         self._measure = measure
+
+        # save point cloud
+        self._size = X.shape[0]
         self._dimension = X.shape[1]
-        self._metric = metric
         if metric != "precomputed":
             self._points = X
         else:
             self._points = np.array(range(self._size))
+
+        # default values before fitting
         self._fitted_nn = False
         self._fitted_density_estimates = False
         self._nn_distance = None
@@ -344,21 +350,24 @@ class _MetricProbabilitySpace:
         self._kernel_estimate = None
         self._n_neighbors = None
         self._maxs = None
+
+        self._fit_metric_and_tree(X, metric, leaf_size, **kwargs)
+        self.fit_nn_and_density_estimates(n_neighbors)
+
+    def _fit_metric_and_tree(self, X, metric, leaf_size, **kwargs):
+        self._metric = metric
+        self._leaf_size = leaf_size
         if metric in KDTree.valid_metrics:
-            self._tree = KDTree(X, metric=metric, leaf_size=leaf_size, **kwargs)
+            self._tree = KDTree(X, metric=metric, leaf_size=self._leaf_size, **kwargs)
         elif metric in BallTree.valid_metrics:
-            self._tree = BallTree(X, metric=metric, leaf_size=leaf_size, **kwargs)
+            self._tree = BallTree(X, metric=metric, leaf_size=self._leaf_size, **kwargs)
         elif metric == "precomputed":
             self._dist_mat = np.array(X)
         else:
             raise ValueError("Metric given is not supported.")
 
-    def fit(self, n_neighbors):
-        self._fit_nn(n_neighbors)
-        self._fit_density_estimates()
-        self._maxk = self._n_neighbors / self._size
-
-    def _fit_nn(self, n_neighbors):
+    def fit_nn_and_density_estimates(self, n_neighbors):
+        # fit nearest neighbors
         self._n_neighbors = n_neighbors
         if self._metric in BallTree.valid_metrics + KDTree.valid_metrics:
             k_neighbors = self._tree.query(
@@ -385,9 +394,13 @@ class _MetricProbabilitySpace:
         self._nn_distance = np.array(_nn_distance)
         self._fitted_nn = True
 
-    def _fit_density_estimates(self):
+
+        # fit density estimate
         self._fitted_density_estimates = True
         self._kernel_estimate = np.cumsum(self._measure[self._nn_indices], axis=1)
+
+        # set the max k for which we have enough neighbors
+        self._maxk = self._n_neighbors / self._size
 
     def _core_distance(self, point_index, s_intercept, k_intercept, max_k=None):
         max_k = k_intercept if max_k is None else max_k
