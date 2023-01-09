@@ -566,9 +566,9 @@ class _MetricProbabilitySpace:
                 pd = pers_diag(lower_bound)
                 return [np.max(pd[pd[:, 1] != np.infty][:, 1]), current_k]
 
-    # given a list of point indices and a radius, return the (unnormalized)
-    # kernel density estimate at those points and at that radius
     def _density_estimate(self, point_index, radius, max_density=1):
+        """ Given a list of point indices and a radius, return the (unnormalized) \
+            kernel density estimate at those points and at that radius """
         density_estimates = []
         out_of_range = False
         for p in point_index:

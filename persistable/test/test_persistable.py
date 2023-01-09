@@ -25,7 +25,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
             self._different_weights.append(np.random.random_sample(self._n))
 
     def test_k_can_be_one(self):
-        # check that k can be 1 when intialized with all neighbors
+        """ Check that k can be 1 when intialized with all neighbors """
         n = 2000
         X = np.random.random_sample((n, 2))
 
@@ -36,6 +36,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         mps._core_distance(np.arange(n), s0, k0)
 
     def test_core_distances(self):
+        """ Check that the _core_distance method returns the correct answer """
         n = 4
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
         p = Persistable(X)
@@ -68,7 +69,22 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         res = np.array([1, 1, 1, 2])
         np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
 
+    #def test_core_distances_nonuniform_measure(self):
+    #    """ Check that the _core_distance method returns the correct answer \
+    #        when the measure is not uniform """
+    #    n = 4
+    #    X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
+    #    p = Persistable(X)
+    #    mps = p._mpspace
+
+    #    s0 = 2
+    #    k0 = 0.5
+    #    res = np.array([1, 1, 1, 1])
+    #    np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
+
     def test_same_core_distances(self):
+        """ Check that the _core_distance method returns the same answer \
+            when using a precomputed distance and a Minkowski distance """
         for w in self._different_weights:
             for p in self._ps:
                 p1 = Persistable(self._X, measure=w, p=p)
@@ -87,6 +103,8 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                         )
 
     def test_same_hierarchy(self):
+        """ Check that lambda_linkage returns the same answer when using precomputed \
+            distance, KDTree, BallTree, and Boruvka, Prim """
         # test Boruvka, Prim, and dense Prim
         for w in self._different_weights:
             V = np.ones(self._X.shape[1])
@@ -148,6 +166,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                         )
 
     def test_hilbert_function(self):
+        """ Check that _hilbert_function method returns a correct answer """
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
         p = Persistable(X)
         mps = p._mpspace
@@ -167,6 +186,8 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         np.testing.assert_almost_equal(mps.hilbert_function(ss, ks, n_jobs=4), res)
 
     def test_vertical_slice(self):
+        """ Check that the persistence diagram of lambda_linkage is correct \
+            for some vertical slices """
         X = np.array(
             [
                 [0, 0],
@@ -225,6 +246,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         )
 
     def test_rank_invariant(self):
+        """ Check that the rank_invariant method returns correct answers """
         X = np.array(
             [
                 [0, 0],
@@ -288,6 +310,7 @@ class TestHierarchicalClustering(unittest.TestCase):
         return mat
 
     def test_persistence_diagram(self):
+        """ Check that persistence_diagram method returns correct answers """
         heights = np.array([0, 1, 3, 2])
         merges = np.array([[0, 1], [2, 0]])
         merges_heights = np.array([2, 6])
@@ -333,6 +356,7 @@ class TestHierarchicalClustering(unittest.TestCase):
         )
 
     def test_flattening(self):
+        """ Check that persistence_based_flattening method returns correct answers """
         heights = np.array([0, 1, 3, 8])
         merges = np.array([[0, 1], [2, 0]])
         merges_heights = np.array([2, 6])
@@ -353,6 +377,7 @@ class TestHierarchicalClustering(unittest.TestCase):
 
 class TestPersistable(unittest.TestCase):
     def test_number_clusters(self):
+        """ Check that cluster method returns the correct number of clusters """
         n_datapoints = 1000
         n_true_points = int(n_datapoints * 0.7)
         X, _ = datasets.make_blobs(
@@ -381,6 +406,7 @@ class TestPersistable(unittest.TestCase):
                 self.assertEqual(len(set(c[c >= 0])), i)
 
     def test_number_clusters_quick_cluster(self):
+        """ Check that quick_cluster method returns the correct number of clusters """
         X, _ = datasets.make_blobs(
             n_samples=1000, centers=3, cluster_std=[0.05, 0.06, 0.07], random_state=1
         )
@@ -405,6 +431,8 @@ class TestPersistable(unittest.TestCase):
         self.assertEqual(len(set(c[c >= 0])), 5)
 
     def test_hilbert_function(self):
+        """ Check that _compute_hilbert_function method returns a correct answer \
+            and correct grid """
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
         p = Persistable(X)
 
@@ -448,7 +476,10 @@ class TestPersistable(unittest.TestCase):
         np.testing.assert_almost_equal(ks, np.array(res_ks))
         np.testing.assert_almost_equal(hs, res)
 
+
+class TestVineyard(unittest.TestCase):
     def test_prominence_vineyard(self):
+        """ Check that _vineyard_to_vines and _vine_parts methods return a correct answer """
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
         p = Persistable(X)
 
@@ -480,8 +511,9 @@ class TestPersistable(unittest.TestCase):
 
 
 class TestBettiNumbers(unittest.TestCase):
-    # only tests Hilbert functions of dimensions (shape) 1, 2, 3, 4
     def test_signed_betti(self):
+    """ Check that signed_betti method returns correct answers in \
+        dimensions (shape) 1, 2, 3, 4 """
 
         np.random.seed(0)
         N = 4
