@@ -11,7 +11,7 @@ from sklearn import datasets
 import numpy as np
 
 
-class TestMetricProbabilitySpace(unittest.TestCase):
+class TestRipsBifiltration(unittest.TestCase):
     def setUp(self):
         np.random.seed(0)
         self._n = 25
@@ -30,44 +30,44 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         X = np.random.random_sample((n, 2))
 
         p = Persistable(X, n_neighbors="all")
-        mps = p._mpspace
+        bf = p._bifiltration
         s0 = np.infty
         k0 = 1
-        mps._core_distance(np.arange(n), s0, k0)
+        bf._core_distance(np.arange(n), s0, k0)
 
     def test_core_distances(self):
         """ Check that the _core_distance method returns the correct answer """
         n = 4
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
         p = Persistable(X)
-        mps = p._mpspace
+        bf = p._bifiltration
 
         s0 = 2
         k0 = 0.5
         res = np.array([1, 1, 1, 1])
-        np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
+        np.testing.assert_almost_equal(bf._core_distance(np.arange(n), s0, k0), res)
 
         s0 = 1
         k0 = 0.5
         res = np.array([1 / 2, 1 / 2, 1 / 2, 1 / 2])
-        np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
+        np.testing.assert_almost_equal(bf._core_distance(np.arange(n), s0, k0), res)
 
         s0 = np.infty
         k0 = 1
         res = np.array([3, 2, np.sqrt(5), 3])
-        np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
+        np.testing.assert_almost_equal(bf._core_distance(np.arange(n), s0, k0), res)
 
         s0 = np.infty
         k0 = 0.5
         res = np.array([1, 1, 1, 2])
-        np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
+        np.testing.assert_almost_equal(bf._core_distance(np.arange(n), s0, k0), res)
 
         p = Persistable(X, measure=np.array([0.5, 0.5, 0.5, 0.5]))
-        mps = p._mpspace
+        bf = p._bifiltration
         s0 = np.infty
         k0 = 0.6
         res = np.array([1, 1, 1, 2])
-        np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
+        np.testing.assert_almost_equal(bf._core_distance(np.arange(n), s0, k0), res)
 
     #def test_core_distances_nonuniform_measure(self):
     #    """ Check that the _core_distance method returns the correct answer \
@@ -88,18 +88,18 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         for w in self._different_weights:
             for p in self._ps:
                 p1 = Persistable(self._X, measure=w, p=p)
-                mps1 = p1._mpspace
+                bf1 = p1._bifiltration
                 p2 = Persistable(
                     distance_matrix(self._X, self._X, p=p),
                     metric="precomputed",
                     measure=w,
                 )
-                mps2 = p2._mpspace
+                bf2 = p2._bifiltration
                 for s0 in self._s0s:
                     for k0 in self._k0s:
                         np.testing.assert_almost_equal(
-                            mps1._core_distance(np.arange(self._n), s0, k0),
-                            mps2._core_distance(np.arange(self._n), s0, k0),
+                            bf1._core_distance(np.arange(self._n), s0, k0),
+                            bf2._core_distance(np.arange(self._n), s0, k0),
                         )
 
     def test_same_hierarchy(self):
@@ -110,26 +110,26 @@ class TestMetricProbabilitySpace(unittest.TestCase):
             V = np.ones(self._X.shape[1])
             # will use BallTree and Boruvka
             p1 = Persistable(self._X, metric="seuclidean", measure=w, V=V)
-            mps1 = p1._mpspace
+            bf1 = p1._bifiltration
             # will use dense MST
             p2 = Persistable(
                 cdist(self._X, self._X, metric="seuclidean", V=V),
                 metric="precomputed",
                 measure=w,
             )
-            mps2 = p2._mpspace
+            bf2 = p2._bifiltration
             num_components = 1000
             big_X = np.zeros((self._X.shape[0], num_components))
             big_X[:, : self._X.shape[1]] = self._X
             # will use BallTree and Prim
             V2 = np.ones(big_X.shape[1])
             p3 = Persistable(big_X, metric="seuclidean", measure=w, V=V2)
-            mps3 = p3._mpspace
+            bf3 = p3._bifiltration
             for s0 in self._s0s:
                 for k0 in self._k0s:
-                    hc1 = mps1.lambda_linkage([0, k0], [s0, 0])
-                    hc2 = mps2.lambda_linkage([0, k0], [s0, 0])
-                    hc3 = mps3.lambda_linkage([0, k0], [s0, 0])
+                    hc1 = bf1.lambda_linkage([0, k0], [s0, 0])
+                    hc2 = bf2.lambda_linkage([0, k0], [s0, 0])
+                    hc3 = bf3.lambda_linkage([0, k0], [s0, 0])
                     np.testing.assert_almost_equal(
                         hc1._merges_heights, hc2._merges_heights
                     )
@@ -139,25 +139,25 @@ class TestMetricProbabilitySpace(unittest.TestCase):
             for p in self._ps:
                 # will use KDTree and Boruvka
                 p1 = Persistable(self._X, measure=w, p=p)
-                mps1 = p1._mpspace
+                bf1 = p1._bifiltration
                 # will use dense MST
                 p2 = Persistable(
                     distance_matrix(self._X, self._X, p=p),
                     metric="precomputed",
                     measure=w,
                 )
-                mps2 = p2._mpspace
+                bf2 = p2._bifiltration
                 num_components = 1000
                 big_X = np.zeros((self._X.shape[0], num_components))
                 big_X[:, : self._X.shape[1]] = self._X
                 # will use KDTree and Prim
                 p3 = Persistable(big_X, measure=w, p=p)
-                mps3 = p3._mpspace
+                bf3 = p3._bifiltration
                 for s0 in self._s0s:
                     for k0 in self._k0s:
-                        hc1 = mps1.lambda_linkage([0, k0], [s0, 0])
-                        hc2 = mps2.lambda_linkage([0, k0], [s0, 0])
-                        hc3 = mps3.lambda_linkage([0, k0], [s0, 0])
+                        hc1 = bf1.lambda_linkage([0, k0], [s0, 0])
+                        hc2 = bf2.lambda_linkage([0, k0], [s0, 0])
+                        hc3 = bf3.lambda_linkage([0, k0], [s0, 0])
                         np.testing.assert_almost_equal(
                             hc1._merges_heights, hc2._merges_heights
                         )
@@ -169,7 +169,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
         """ Check that _hilbert_function method returns a correct answer """
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
         p = Persistable(X)
-        mps = p._mpspace
+        bf = p._bifiltration
 
         ss = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]
         ks = [1, 3 / 4, 1 / 2, 1 / 4 + 0.01, 0]
@@ -183,7 +183,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                 [4, 4, 2, 2, 1, 1, 1, 1],
             ]
         ).T
-        np.testing.assert_almost_equal(mps._hilbert_function(ss, ks, reduced=False, n_jobs=4), res)
+        np.testing.assert_almost_equal(bf._hilbert_function(ss, ks, reduced=False, n_jobs=4), res)
 
 
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
@@ -223,7 +223,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                 [4, 4, 2, 2, 1, 1, 1, 1],
             ]
         ).T
-        ss, ks, hs, _ = p._mpspace.hilbert_function_on_grid(0, 4, 1, 0, granularity=8)
+        ss, ks, hs, _ = p._bifiltration.hilbert_function_on_grid(0, 4, 1, 0, granularity=8)
 
         np.testing.assert_almost_equal(ss, np.array(res_ss))
         np.testing.assert_almost_equal(ks, np.array(res_ks))
@@ -250,8 +250,8 @@ class TestMetricProbabilitySpace(unittest.TestCase):
             ]
         )
         p = Persistable(X, debug=True)
-        mps = p._mpspace
-        hc = mps._lambda_linkage_vertical(1, 1, 0)
+        bf = p._bifiltration
+        hc = bf._lambda_linkage_vertical(1, 1, 0)
         res = np.array(
             [
                 0.72727273,
@@ -271,24 +271,24 @@ class TestMetricProbabilitySpace(unittest.TestCase):
 
         dist_mat = distance_matrix(X, X)
         p = Persistable(dist_mat, debug=True, metric="precomputed")
-        mps = p._mpspace
-        hc = mps._lambda_linkage_vertical(1, 1, 0)
+        bf = p._bifiltration
+        hc = bf._lambda_linkage_vertical(1, 1, 0)
         np.testing.assert_almost_equal(res, hc._merges_heights)
 
         np.testing.assert_almost_equal(
             np.array([[0.0, 0.1010101], [0.0, 0.1010101]]),
-            mps.lambda_linkage(
+            bf.lambda_linkage(
                 [1.777777777777778, 0.393939393939394],
                 [1.777777777777778, 0.29292929292929293],
             ).persistence_diagram(),
         )
         np.testing.assert_almost_equal(
             np.array([[0.0, 0.1], [0.0, 0.1]]),
-            mps.lambda_linkage([1.3, 0.4], [1.3, 0.3]).persistence_diagram(),
+            bf.lambda_linkage([1.3, 0.4], [1.3, 0.3]).persistence_diagram(),
         )
         np.testing.assert_almost_equal(
             np.array([[0.0, 0.1], [0.0, 0.1]]),
-            mps.lambda_linkage([1.7, 0.4], [1.7, 0.3]).persistence_diagram(),
+            bf.lambda_linkage([1.7, 0.4], [1.7, 0.3]).persistence_diagram(),
         )
 
     def test_rank_invariant(self):
@@ -312,7 +312,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
 
         ks = [0.4, 0.3]
         ss = [1.3, 1.5]
-        ri = p._mpspace._rank_invariant(ss, ks, reduced=False)
+        ri = p._bifiltration._rank_invariant(ss, ks, reduced=False)
         np.testing.assert_almost_equal(
             ri,
             [
@@ -323,7 +323,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
 
         ks = [0.3, 0.2]
         ss = [1.5, 2.5]
-        ri = p._mpspace._rank_invariant(ss, ks, reduced=False)
+        ri = p._bifiltration._rank_invariant(ss, ks, reduced=False)
         np.testing.assert_almost_equal(
             ri,
             [
@@ -334,7 +334,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
 
         ks = [0.4, 0.3, 0.2]
         ss = [1.3, 1.5, 2.5]
-        ri = p._mpspace._rank_invariant(ss, ks, reduced=False)
+        ri = p._bifiltration._rank_invariant(ss, ks, reduced=False)
         res = np.zeros((3, 3, 3, 3))
         for i in range(3):
             for j in range(3):
@@ -485,7 +485,7 @@ class TestVineyard(unittest.TestCase):
 
         start_end1 = [(0, 0.1), (10, 0)]
         start_end2 = [(0, 1), (10, 0.9)]
-        vineyard = p._mpspace.linear_vineyard(start_end1, start_end2, n_parameters=4)
+        vineyard = p._bifiltration.linear_vineyard(start_end1, start_end2, n_parameters=4)
 
         vines = vineyard._vineyard_to_vines()
         res_vines = [

@@ -138,6 +138,8 @@ class Persistable:
             X, metric, measure, self._n_neighbors, leaf_size, debug=debug, threading=threading, **kwargs
         )
 
+        self._bifiltration = _RipsBifiltration(self._mpspace)
+
     def quick_cluster(
         self,
         n_neighbors: int = 30,
@@ -181,9 +183,9 @@ class Persistable:
         """
         k = n_neighbors / self._mpspace._size
         default_percentile = 0.95
-        s = self._mpspace.connection_radius(default_percentile) * 2
+        s = self._bifiltration.connection_radius(default_percentile) * 2
 
-        hc = self._mpspace.lambda_linkage([0, k], [s, 0])
+        hc = self._bifiltration.lambda_linkage([0, k], [s, 0])
         pd = hc.persistence_diagram()
         if pd.shape[0] == 0:
             return np.full(self._mpspace._size, -1)
@@ -260,7 +262,7 @@ class Persistable:
             raise ValueError("start and end must both be points on the plane.")
         if n_clusters < 1:
             raise ValueError("n_clusters must be greater than 0.")
-        hc = self._mpspace.lambda_linkage(start, end)
+        hc = self._bifiltration.lambda_linkage(start, end)
         bd = hc.persistence_diagram()
         pers = np.abs(bd[:, 0] - bd[:, 1])
         # TODO: use sort from largest to smallest and make the logic below simpler
@@ -279,13 +281,13 @@ class Persistable:
             threshold = (spers[-n_clusters] + spers[-(n_clusters + 1)]) / 2
         cl = hc.persistence_based_flattening(threshold)
         if propagate_labels:
-            cl = self._mpspace._propagate_labels(
+            cl = self._mpspace.propagate_labels(
                 cl, n_iterations_propagate_labels, n_neighbors_propagate_labels
             )
         return cl
 
     def _find_end(self):
-        return self._mpspace.find_end()
+        return self._bifiltration.find_end()
 
     def _hilbert_function(
         self,
@@ -296,111 +298,31 @@ class Persistable:
         granularity,
         n_jobs=1,
     ):
-        return self._mpspace.hilbert_function_on_grid(
+        return self._bifiltration.hilbert_function_on_grid(
             min_s, max_s, max_k, min_k, granularity, n_jobs=n_jobs
         )
 
     def _rank_invariant(
         self, min_s, max_s, max_k, min_k, granularity, reduced=False, n_jobs=1
     ):
-        return self._mpspace.rank_invariant_on_grid(
+        return self._bifiltration.rank_invariant_on_grid(
             min_s, max_s, max_k, min_k, granularity, reduced=reduced, n_jobs=n_jobs
         )
 
     def _linear_vineyard(
         self, start_end1, start_end2, n_parameters, reduced=False, n_jobs=1
     ):
-        return self._mpspace.linear_vineyard(
+        return self._bifiltration.linear_vineyard(
             start_end1, start_end2, n_parameters, reduced=False, n_jobs=1
         )
 
 
-class _MetricProbabilitySpace:
-    """Implements a finite metric probability space that can compute its \
-       kernel density estimates and lambda linkage hierarchical clusterings """
-
-    _MAX_DIM_USE_BORUVKA = 60
+class _RipsBifiltration:
 
     def __init__(
-        self, X, metric, measure, n_neighbors, leaf_size=40, debug=False, threading=False, **kwargs
+        self, mpspace
     ):
-        # meta variables
-        self._threading = threading
-        self._debug = debug
-
-        # save extra arguments for metric
-        self._kwargs = kwargs
-
-        # save measure
-        self._measure = measure
-
-        # save point cloud
-        self._size = X.shape[0]
-        self._dimension = X.shape[1]
-        if metric != "precomputed":
-            self._points = X
-        else:
-            self._points = np.array(range(self._size))
-
-        # default values before fitting
-        self._fitted_nn = False
-        self._fitted_density_estimates = False
-        self._nn_distance = None
-        self._nn_indices = None
-        self._kernel_estimate = None
-        self._n_neighbors = None
-        self._maxs = None
-
-        self._fit_metric_and_tree(X, metric, leaf_size, **kwargs)
-        self.fit_nn_and_density_estimates(n_neighbors)
-
-    def _fit_metric_and_tree(self, X, metric, leaf_size, **kwargs):
-        self._metric = metric
-        self._leaf_size = leaf_size
-        if metric in KDTree.valid_metrics:
-            self._tree = KDTree(X, metric=metric, leaf_size=self._leaf_size, **kwargs)
-        elif metric in BallTree.valid_metrics:
-            self._tree = BallTree(X, metric=metric, leaf_size=self._leaf_size, **kwargs)
-        elif metric == "precomputed":
-            self._dist_mat = np.array(X)
-        else:
-            raise ValueError("Metric given is not supported.")
-
-    def fit_nn_and_density_estimates(self, n_neighbors):
-        # fit nearest neighbors
-        self._n_neighbors = n_neighbors
-        if self._metric in BallTree.valid_metrics + KDTree.valid_metrics:
-            k_neighbors = self._tree.query(
-                self._points,
-                self._n_neighbors,
-                return_distance=True,
-                sort_results=True,
-                dualtree=True,
-                breadth_first=True,
-            )
-            k_neighbors = (np.array(k_neighbors[1]), np.array(k_neighbors[0]))
-            maxs_given_by_n_neighbors = np.min(k_neighbors[1][:, -1])
-            self._maxs = maxs_given_by_n_neighbors
-            neighbors = k_neighbors[0]
-            _nn_distance = k_neighbors[1]
-        else:
-            self._n_neighbors = self._size
-            self._maxs = 0
-            neighbors = np.argsort(self._dist_mat)
-            _nn_distance = self._dist_mat[
-                np.arange(len(self._dist_mat)), neighbors.transpose()
-            ].transpose()
-        self._nn_indices = np.array(neighbors, dtype=np.int_)
-        self._nn_distance = np.array(_nn_distance)
-        self._fitted_nn = True
-
-
-        # fit density estimate
-        self._fitted_density_estimates = True
-        self._kernel_estimate = np.cumsum(self._measure[self._nn_indices], axis=1)
-
-        # set the max k for which we have enough neighbors
-        self._maxk = self._n_neighbors / self._size
+        self._mpspace = mpspace
 
     def _core_distance(self, point_index, s_intercept, k_intercept, max_k=None):
         max_k = k_intercept if max_k is None else max_k
@@ -412,14 +334,14 @@ class _MetricProbabilitySpace:
             for p in point_index:
                 i_indices_and_finished_at_last_index.append(
                     lazy_intersection(
-                        self._kernel_estimate[p],
-                        self._nn_distance[p],
+                        self._mpspace._kernel_estimate[p],
+                        self._mpspace._nn_distance[p],
                         s_intercept,
                         k_intercept,
                     )
                 )
                 max_k_larger_last_kernel_estimate.append(
-                    (self._kernel_estimate[p, -1] < max_k)
+                    (self._mpspace._kernel_estimate[p, -1] < max_k)
                 )
             max_k_larger_last_kernel_estimate = np.array(
                 max_k_larger_last_kernel_estimate
@@ -441,18 +363,18 @@ class _MetricProbabilitySpace:
                     "Don't have enough neighbors to properly compute core scale, or point takes too long to appear."
                 )
             op = lambda p, i: np.where(
-                k_to_s(self._kernel_estimate[p, i - 1]) <= self._nn_distance[p, i],
-                k_to_s(self._kernel_estimate[p, i - 1]),
-                self._nn_distance[p, i],
+                k_to_s(self._mpspace._kernel_estimate[p, i - 1]) <= self._mpspace._nn_distance[p, i],
+                k_to_s(self._mpspace._kernel_estimate[p, i - 1]),
+                self._mpspace._nn_distance[p, i],
             )
             return np.where(i_indices == 0, 0, op(point_index, i_indices))
         else:
             i_indices = []
             for p in point_index:
                 idx = np.searchsorted(
-                    self._kernel_estimate[p], k_intercept, side="left"
+                    self._mpspace._kernel_estimate[p], k_intercept, side="left"
                 )
-                if idx == self._nn_distance[p].shape[0]:
+                if idx == self._mpspace._nn_distance[p].shape[0]:
                     idx -= 1
                 i_indices.append(idx)
             i_indices = np.array(i_indices)
@@ -475,18 +397,18 @@ class _MetricProbabilitySpace:
             #        warnings.warn(
             #            "Don't have enough neighbors to properly compute core scale."
             #        )
-            return self._nn_distance[(point_index, i_indices)]
+            return self._mpspace._nn_distance[(point_index, i_indices)]
 
     def find_end(self, tolerance=1e-4, fast=False):
         if fast:
             default_percentile = 0.95
-            return self.connection_radius(default_percentile) * 4, self._maxk
+            return self.connection_radius(default_percentile) * 4, self._mpspace._maxk
 
         def pers_diag(k):
             return self.lambda_linkage([0, k], [np.infty, k]).persistence_diagram()
 
         lower_bound = 0
-        upper_bound = self._maxk
+        upper_bound = self._mpspace._maxk
 
         i = 0
         while True:
@@ -504,7 +426,7 @@ class _MetricProbabilitySpace:
             # persistence diagram has more than one class
             elif pd.shape[0] > 1:
                 lower_bound, upper_bound = current_k, upper_bound
-                if np.abs(current_k - self._maxk) < _TOL:
+                if np.abs(current_k - self._mpspace._maxk) < _TOL:
                     pd = pers_diag(lower_bound)
                     return [np.max(pd[pd[:, 1] != np.infty][:, 1]), current_k]
             # persistence diagram has exactly one class
@@ -515,41 +437,31 @@ class _MetricProbabilitySpace:
                 pd = pers_diag(lower_bound)
                 return [np.max(pd[pd[:, 1] != np.infty][:, 1]), current_k]
 
-    def _density_estimate(self, point_index, radius, max_density=1):
-        """ Given a list of point indices and a radius, return the (unnormalized) \
-            kernel density estimate at those points and at that radius """
-        density_estimates = []
-        out_of_range = False
-        for p in point_index:
-            if self._kernel_estimate[p, -1] < max_density:
-                out_of_range = True
-            neighbor_idx = np.searchsorted(self._nn_distance[p], radius, side="right")
-            density_estimates.append(self._kernel_estimate[p, neighbor_idx - 1])
-        if out_of_range:
-            warnings.warn("Don't have enough neighbors to properly compute core scale.")
-        return np.array(density_estimates)
+    def connection_radius(self, percentiles=1):
+        hc = self.lambda_linkage([0, 0], [np.infty, 0])
+        return np.quantile(hc._merges_heights, percentiles)
 
     def _lambda_linkage_vertical(self, s_intercept, k_start, k_end):
         if k_end > k_start:
             raise ValueError("Parameters do not give a monotonic line.")
 
-        indices = np.arange(self._size)
-        k_births = self._density_estimate(indices, s_intercept, max_density=k_start)
+        indices = np.arange(self._mpspace._size)
+        k_births = self._mpspace.density_estimate(indices, s_intercept, max_density=k_start)
         # must add 1 otherwise the edges (below) are treated as not there by mst routine
         k_births = k_start - np.maximum(k_end, np.minimum(k_start, k_births)) + 1
 
         # metric tree case
-        if self._metric in KDTree.valid_metrics + BallTree.valid_metrics:
-            s_neighbors = self._tree.query_radius(self._points, s_intercept)
+        if self._mpspace._metric in KDTree.valid_metrics + BallTree.valid_metrics:
+            s_neighbors = self._mpspace._tree.query_radius(self._mpspace._points, s_intercept)
         # dense distance matrix case
         else:
             s_neighbors = []
-            for i in range(self._size):
-                s_neighbors.append(np.argwhere(self._dist_mat[i] <= s_intercept)[:, 0])
+            for i in range(self._mpspace._size):
+                s_neighbors.append(np.argwhere(self._mpspace._dist_mat[i] <= s_intercept)[:, 0])
 
         edges = []
         entries = []
-        for i in range(self._size):
+        for i in range(self._mpspace._size):
             for j in s_neighbors[i]:
                 if j > i:
                     edges.append([i, j])
@@ -558,7 +470,7 @@ class _MetricProbabilitySpace:
         edges = np.array(edges, dtype=int)
         if len(edges) > 0:
             graph = csr_matrix(
-                (matrix_entries, (edges[:, 0], edges[:, 1])), (self._size, self._size)
+                (matrix_entries, (edges[:, 0], edges[:, 1])), (self._mpspace._size, self._mpspace._size)
             )
 
             mst = sparse_matrix_minimum_spanning_tree(graph)
@@ -598,47 +510,47 @@ class _MetricProbabilitySpace:
 
         hc_start = start[0]
         hc_end = end[0]
-        indices = np.arange(self._size)
+        indices = np.arange(self._mpspace._size)
         s_intercept, k_intercept = _startend_to_intercepts(start, end)
         max_k = start[1]
         core_distances = self._core_distance(indices, s_intercept, k_intercept, max_k)
         core_distances = np.minimum(hc_end, core_distances)
         core_distances = np.maximum(hc_start, core_distances)
-        if self._metric in KDTree.valid_metrics:
-            if self._dimension > self._MAX_DIM_USE_BORUVKA:
-                X = self._points
+        if self._mpspace._metric in KDTree.valid_metrics:
+            if self._mpspace._dimension > self._mpspace._MAX_DIM_USE_BORUVKA:
+                X = self._mpspace._points
                 if not X.flags["C_CONTIGUOUS"]:
                     X = np.array(X, dtype=np.double, order="C")
-                dist_metric = DistanceMetric.get_metric(self._metric, **self._kwargs)
+                dist_metric = DistanceMetric.get_metric(self._mpspace._metric, **self._mpspace._kwargs)
                 sl = mst_linkage_core_vector(X, core_distances, dist_metric)
             else:
                 sl = KDTreeBoruvkaAlgorithm(
-                    self._tree,
+                    self._mpspace._tree,
                     core_distances,
-                    self._nn_indices,
-                    leaf_size=self._leaf_size // 3,
-                    metric=self._metric,
-                    **self._kwargs
+                    self._mpspace._nn_indices,
+                    leaf_size=self._mpspace._leaf_size // 3,
+                    metric=self._mpspace._metric,
+                    **self._mpspace._kwargs
                 ).spanning_tree()
-        elif self._metric in BallTree.valid_metrics:
-            if self._dimension > self._MAX_DIM_USE_BORUVKA:
-                X = self._points
+        elif self._mpspace._metric in BallTree.valid_metrics:
+            if self._mpspace._dimension > self._mpspace._MAX_DIM_USE_BORUVKA:
+                X = self._mpspace._points
                 if not X.flags["C_CONTIGUOUS"]:
                     X = np.array(X, dtype=np.double, order="C")
-                dist_metric = DistanceMetric.get_metric(self._metric, **self._kwargs)
+                dist_metric = DistanceMetric.get_metric(self._mpspace._metric, **self._mpspace._kwargs)
                 sl = mst_linkage_core_vector(X, core_distances, dist_metric)
             else:
                 sl = BallTreeBoruvkaAlgorithm(
-                    self._tree,
+                    self._mpspace._tree,
                     core_distances,
-                    self._nn_indices,
-                    leaf_size=self._leaf_size // 3,
-                    metric=self._metric,
-                    **self._kwargs
+                    self._mpspace._nn_indices,
+                    leaf_size=self._mpspace._leaf_size // 3,
+                    metric=self._mpspace._metric,
+                    **self._mpspace._kwargs
                 ).spanning_tree()
         else:
             sl = stepwise_dendrogram_with_core_distances(
-                self._size, self._dist_mat, core_distances
+                self._mpspace._size, self._mpspace._dist_mat, core_distances
             )
         merges = sl[:, 0:2].astype(int)
         # label(merges, self._size, merges.shape[0])
@@ -669,8 +581,8 @@ class _MetricProbabilitySpace:
             run_in_parallel,
             startends,
             n_jobs,
-            debug=self._debug,
-            threading=self._threading,
+            debug=self._mpspace._debug,
+            threading=self._mpspace._threading,
         )
 
     def linear_vineyard(
@@ -715,8 +627,8 @@ class _MetricProbabilitySpace:
             run_in_parallel,
             startends,
             n_jobs,
-            debug=self._debug,
-            threading=self._threading,
+            debug=self._mpspace._debug,
+            threading=self._mpspace._threading,
         )
         hcs_horizontal = hcs[:n_k]
         for hc in hcs_horizontal:
@@ -777,8 +689,8 @@ class _MetricProbabilitySpace:
             _pd_spliced_hc,
             indices,
             n_jobs,
-            debug=self._debug,
-            threading=self._threading,
+            debug=self._mpspace._debug,
+            threading=self._mpspace._threading,
         )
         pds = [[indices[i][0], indices[i][1], pds[i]] for i in range(len(indices))]
 
@@ -802,8 +714,8 @@ class _MetricProbabilitySpace:
             raise ValueError("min_k must be smaller than max_k.")
         if min_s >= max_s:
             raise ValueError("min_s must be smaller than max_s.")
-        if max_k > self._maxk:
-            max_k = min(max_k, self._maxk)
+        if max_k > self._mpspace._maxk:
+            max_k = min(max_k, self._mpspace._maxk)
             warnings.warn(
                 "Not enough neighbors to compute chosen max density threshold, using "
                 + str(max_k)
@@ -853,8 +765,8 @@ class _MetricProbabilitySpace:
             raise ValueError("min_k must be smaller than max_k.")
         if min_s >= max_s:
             raise ValueError("min_s must be smaller than max_s.")
-        if max_k > self._maxk:
-            max_k = min(max_k, self._maxk)
+        if max_k > self._mpspace._maxk:
+            max_k = min(max_k, self._mpspace._maxk)
             warnings.warn(
                 "Not enough neighbors to compute chosen max density threshold, using "
                 + str(max_k)
@@ -871,11 +783,116 @@ class _MetricProbabilitySpace:
         hf = self._hilbert_function(ss, ks, n_jobs=n_jobs)
         return ss, ks, hf, signed_betti(hf)
 
-    def connection_radius(self, percentiles=1):
-        hc = self.lambda_linkage([0, 0], [np.infty, 0])
-        return np.quantile(hc._merges_heights, percentiles)
 
-    def _propagate_labels(self, labels, n_iterations, n_neighbors):
+
+class _MetricProbabilitySpace:
+    """Implements a finite metric probability space that can compute its \
+       kernel density estimates """
+
+    _MAX_DIM_USE_BORUVKA = 60
+
+    def __init__(
+        self, X, metric, measure, n_neighbors, leaf_size=40, debug=False, threading=False, **kwargs
+    ):
+        # meta variables
+        self._threading = threading
+        self._debug = debug
+
+        # save extra arguments for metric
+        self._kwargs = kwargs
+
+        # default values before fitting
+        self._fitted_nn = False
+        self._fitted_density_estimates = False
+        self._nn_distance = None
+        self._nn_indices = None
+        self._kernel_estimate = None
+        self._n_neighbors = None
+        self._maxs = None
+        self._measure = None
+        self._size = None
+        self._dimension = None
+        self._points = None
+        self._tree = None
+        self._dist_mat = None
+
+        self._fit_point_cloud(X, metric, measure, leaf_size, **kwargs)
+        self._fit_nn_and_density_estimates(n_neighbors)
+
+    def _fit_point_cloud(self, X, metric, measure, leaf_size, **kwargs):
+        # save measure
+        self._measure = measure
+
+        # save point cloud
+        self._size = X.shape[0]
+        self._dimension = X.shape[1]
+        if metric != "precomputed":
+            self._points = X
+        else:
+            self._points = np.array(range(self._size))
+
+        # save metric and spatial tree
+        self._metric = metric
+        self._leaf_size = leaf_size
+        if metric in KDTree.valid_metrics:
+            self._tree = KDTree(X, metric=metric, leaf_size=self._leaf_size, **kwargs)
+        elif metric in BallTree.valid_metrics:
+            self._tree = BallTree(X, metric=metric, leaf_size=self._leaf_size, **kwargs)
+        elif metric == "precomputed":
+            self._dist_mat = np.array(X)
+        else:
+            raise ValueError("Metric given is not supported.")
+
+    def _fit_nn_and_density_estimates(self, n_neighbors):
+        # fit nearest neighbors
+        self._n_neighbors = n_neighbors
+        if self._metric in BallTree.valid_metrics + KDTree.valid_metrics:
+            k_neighbors = self._tree.query(
+                self._points,
+                self._n_neighbors,
+                return_distance=True,
+                sort_results=True,
+                dualtree=True,
+                breadth_first=True,
+            )
+            k_neighbors = (np.array(k_neighbors[1]), np.array(k_neighbors[0]))
+            maxs_given_by_n_neighbors = np.min(k_neighbors[1][:, -1])
+            self._maxs = maxs_given_by_n_neighbors
+            neighbors = k_neighbors[0]
+            _nn_distance = k_neighbors[1]
+        else:
+            self._n_neighbors = self._size
+            self._maxs = 0
+            neighbors = np.argsort(self._dist_mat)
+            _nn_distance = self._dist_mat[
+                np.arange(len(self._dist_mat)), neighbors.transpose()
+            ].transpose()
+        self._nn_indices = np.array(neighbors, dtype=np.int_)
+        self._nn_distance = np.array(_nn_distance)
+        self._fitted_nn = True
+
+        # fit density estimate
+        self._fitted_density_estimates = True
+        self._kernel_estimate = np.cumsum(self._measure[self._nn_indices], axis=1)
+
+        # set the max k for which we have enough neighbors
+        self._maxk = self._n_neighbors / self._size
+
+    def density_estimate(self, point_index, radius, max_density=1):
+        """ Given a list of point indices and a radius, return the (unnormalized) \
+            kernel density estimate at those points and at that radius """
+        density_estimates = []
+        out_of_range = False
+        for p in point_index:
+            if self._kernel_estimate[p, -1] < max_density:
+                out_of_range = True
+            neighbor_idx = np.searchsorted(self._nn_distance[p], radius, side="right")
+            density_estimates.append(self._kernel_estimate[p, neighbor_idx - 1])
+        if out_of_range:
+            warnings.warn("Don't have enough neighbors to properly compute core scale.")
+        return np.array(density_estimates)
+
+    def propagate_labels(self, labels, n_iterations, n_neighbors):
         old_labels = labels
         for _ in range(n_iterations):
             new_labels = []
