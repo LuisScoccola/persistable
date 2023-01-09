@@ -512,8 +512,8 @@ class TestVineyard(unittest.TestCase):
 
 class TestBettiNumbers(unittest.TestCase):
     def test_signed_betti(self):
-    """ Check that signed_betti method returns correct answers in \
-        dimensions (shape) 1, 2, 3, 4 """
+        """ Check that signed_betti method returns correct answers in \
+            dimensions (shape) 1, 2, 3, 4 """
 
         np.random.seed(0)
         N = 4
