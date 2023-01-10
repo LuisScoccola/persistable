@@ -275,7 +275,7 @@ class PersistableInteractive:
         default_num_jobs = 4
         default_max_dim = 15
         default_max_vines = 15
-        min_granularity = 4
+        min_granularity = 2
         max_granularity = 512
         max_granularity_ri = 64
         min_granularity_vineyard = 1
@@ -1234,8 +1234,18 @@ class PersistableInteractive:
         )
         def draw_ccf(d):
             ccf = np.array(json.loads(d[STORED_CCF + DATA]))
-            x_ticks = json.loads(d[STORED_X_TICKS_CCF + DATA])
-            y_ticks = json.loads(d[STORED_Y_TICKS_CCF + DATA])
+            x_ticks = np.array(json.loads(d[STORED_X_TICKS_CCF + DATA]))
+            y_ticks = np.array(json.loads(d[STORED_Y_TICKS_CCF + DATA]))
+            delta_x_ccf = (x_ticks[1] - x_ticks[0]) / 2
+            delta_y_ccf = (y_ticks[1] - y_ticks[0]) / 2
+            def fn_x(x):
+                return x + delta_x_ccf
+            def fn_x_inverse(x):
+                return x - delta_x_ccf
+            def fn_y(y):
+                return y + delta_y_ccf
+            def fn_y_inverse(y):
+                return y - delta_y_ccf
 
             max_components = d[INPUT_MAX_COMPONENTS + VALUE]
 
@@ -1248,19 +1258,26 @@ class PersistableInteractive:
                 ),
             )
 
+            # TODO: there is a small inconsistency (~ delta_x and delta_y) between what
+            # is displayed on the heatmap and the numbers that one sees when hovering
+            # we thus turn off the coordinates on hovering, below
             fig.add_trace(
                 go.Heatmap(
                     transpose=True,
                     z=ccf,
-                    x=x_ticks,
-                    y=y_ticks,
-                    hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
+                    x=fn_x(x_ticks),
+                    y=fn_y(y_ticks),
+                    #hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
+                    hovertemplate="<b># comp.: %{z:d}</b> ",
                     zmin=0,
                     zmax=max_components,
                     showscale=False,
                     name="",
                 )
             )
+
+            fig.update_xaxes(tickson='boundaries')
+            fig.update_yaxes(tickson='boundaries')
 
             fig.update_traces(colorscale="greys")
             fig.update_layout(showlegend=False)
@@ -1393,10 +1410,12 @@ class PersistableInteractive:
                                 / max_components
                             ) * (1 - min_opacity)
                             x_coords = np.array(
-                                [x_ticks[i] - delta_x, x_ticks[i_] - delta_x]
+                                #[x_ticks[i] - delta_x, x_ticks[i_] - delta_x]
+                                [x_ticks[i], x_ticks[i_]]
                             )
                             y_coords = np.array(
-                                [y_ticks[j] - delta_y, y_ticks[j_] - delta_y]
+                                #[y_ticks[j] - delta_y, y_ticks[j_] - delta_y]
+                                [y_ticks[j], y_ticks[j_]]
                             )
                             if length >= d[INPUT_MIN_LENGTH_RI + VALUE]:
                                 if mult < 0:
@@ -1434,7 +1453,8 @@ class PersistableInteractive:
 
                 positive_bn = np.array(
                     [
-                        [xs[i] - delta_x, ys[j] - delta_y, bn[i, j]]
+                        #[xs[i] - delta_x, ys[j] - delta_y, bn[i, j]]
+                        [xs[i], ys[j], bn[i, j]]
                         for i in range(len(xs))
                         for j in range(len(ys))
                         if bn[i, j] > 0
@@ -1442,7 +1462,7 @@ class PersistableInteractive:
                 )
                 negative_bn = np.array(
                     [
-                        [xs[i] - delta_x, ys[j] - delta_y, -bn[i, j]]
+                        [xs[i], ys[j], -bn[i, j]]
                         for i in range(len(xs))
                         for j in range(len(ys))
                         if bn[i, j] < 0
@@ -1638,13 +1658,13 @@ class PersistableInteractive:
                         )
 
             yaxis = (
-                [y_ticks_ccf[0], y_ticks_ccf[-1] - delta_y_ccf]
+                [y_ticks_ccf[0], y_ticks_ccf[-1]]
                 if d[INPUT_Y_COVARIANT + VALUE] == "Cov"
-                else [y_ticks_ccf[-1] - delta_y_ccf, y_ticks_ccf[0]]
+                else [y_ticks_ccf[-1], y_ticks_ccf[0]]
             )
 
             fig.update_layout(
-                xaxis=dict(range=[x_ticks_ccf[0], x_ticks_ccf[-1] - delta_x_ccf]),
+                xaxis=dict(range=[x_ticks_ccf[0], x_ticks_ccf[-1]]),
                 yaxis=dict(range=yaxis),
             )
 
