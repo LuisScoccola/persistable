@@ -68,14 +68,22 @@ class Persistable:
         ``from sklearn.neighbors import KDTree, BallTree``) or ``"precomputed"``
         if X is a distance matrix.
 
+    measure: None or ndarray(n_samples), default is None
+        A numpy vector of length (samples) of non-negative numbers, which is
+        intepreted as a measure on the data points.
+        If None, the uniform measure where each point has weight 1/samples is used.
+        If the measure does not sum to 1, it is normalized.
+
+    subsample: None or int, optional, default is None
+        Number of datapoints to subsample. The subsample is taken to have a measure
+        that approximates the original measure on the full dataset as best as possible,
+        in the Prokhorov sense.
+
     n_neighbors: int or string, optional, default is "auto"
         Number of neighbors for each point in X used to initialize
         datastructures used for clustering. If set to ``"all"`` it will use
         the number of points in the dataset, if set to ``"auto"`` it will find
         a reasonable default.
-
-    subsample: None or int, optional, default is None
-        Number of datapoints to do measure-consistent subsampling.
 
     debug: bool, optional, default is False
         Whether to print debug messages.
@@ -96,8 +104,8 @@ class Persistable:
         X,
         metric="minkowski",
         measure=None,
-        n_neighbors="auto",
         subsample=None,
+        n_neighbors="auto",
         debug=False,
         threading=False,
         **kwargs
