@@ -933,6 +933,13 @@ class _MetricSpace:
         return self._size
 
 
+# TODO:
+# rips bifiltration should take a persistent metric space as input.
+# examples of persistent metric spaces are the kernel filtration induced by a
+# metric probability space, as well as a metric space together with a function
+#class _PersistentMetricSpace:
+
+
 class _MetricProbabilitySpace(_MetricSpace):
     """Implements a finite metric probability space that can compute its \
        kernel density estimates """
