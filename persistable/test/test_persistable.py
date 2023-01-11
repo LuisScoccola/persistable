@@ -3,15 +3,16 @@
 
 import unittest
 from persistable import Persistable
-from persistable.persistable import _HierarchicalClustering
+from persistable.persistable import _HierarchicalClustering, _MetricSpace
 from persistable.signed_betti_numbers import signed_betti
 from scipy.spatial import distance_matrix
 from scipy.spatial.distance import cdist
 from sklearn import datasets
+from sklearn.datasets import make_blobs
 import numpy as np
 
 
-class TestMetricProbabilitySpace(unittest.TestCase):
+class TestDegreeRipsBifiltration(unittest.TestCase):
     def setUp(self):
         np.random.seed(0)
         self._n = 25
@@ -25,93 +26,111 @@ class TestMetricProbabilitySpace(unittest.TestCase):
             self._different_weights.append(np.random.random_sample(self._n))
 
     def test_k_can_be_one(self):
-        # check that k can be 1 when intialized with all neighbors
+        """ Check that k can be 1 when intialized with all neighbors """
         n = 2000
         X = np.random.random_sample((n, 2))
 
         p = Persistable(X, n_neighbors="all")
-        mps = p._mpspace
+        bf = p._bifiltration
         s0 = np.infty
         k0 = 1
-        mps._core_distance(np.arange(n), s0, k0)
+        bf._core_distance(np.arange(n), s0, k0)
 
     def test_core_distances(self):
+        """ Check that the _core_distance method returns the correct answer """
         n = 4
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
         p = Persistable(X)
-        mps = p._mpspace
+        bf = p._bifiltration
 
         s0 = 2
         k0 = 0.5
         res = np.array([1, 1, 1, 1])
-        np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
+        np.testing.assert_almost_equal(bf._core_distance(np.arange(n), s0, k0), res)
 
         s0 = 1
         k0 = 0.5
         res = np.array([1 / 2, 1 / 2, 1 / 2, 1 / 2])
-        np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
+        np.testing.assert_almost_equal(bf._core_distance(np.arange(n), s0, k0), res)
 
         s0 = np.infty
         k0 = 1
         res = np.array([3, 2, np.sqrt(5), 3])
-        np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
+        np.testing.assert_almost_equal(bf._core_distance(np.arange(n), s0, k0), res)
 
         s0 = np.infty
         k0 = 0.5
         res = np.array([1, 1, 1, 2])
-        np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
+        np.testing.assert_almost_equal(bf._core_distance(np.arange(n), s0, k0), res)
 
-        p = Persistable(X, measure=np.array([0.5, 0.5, 0.5, 0.5]))
-        mps = p._mpspace
+        p = Persistable(X, measure=np.array([0.25, 0.25, 0.25, 0.25]))
+        bf = p._bifiltration
         s0 = np.infty
-        k0 = 0.6
+        k0 = 0.3
         res = np.array([1, 1, 1, 2])
-        np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
+        np.testing.assert_almost_equal(bf._core_distance(np.arange(n), s0, k0), res)
+
+    #def test_core_distances_nonuniform_measure(self):
+    #    """ Check that the _core_distance method returns the correct answer \
+    #        when the measure is not uniform """
+    #    n = 4
+    #    X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
+    #    p = Persistable(X)
+    #    mps = p._mpspace
+
+    #    s0 = 2
+    #    k0 = 0.5
+    #    res = np.array([1, 1, 1, 1])
+    #    np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
 
     def test_same_core_distances(self):
+        """ Check that the _core_distance method returns the same answer \
+            when using a precomputed distance and a Minkowski distance """
         for w in self._different_weights:
             for p in self._ps:
                 p1 = Persistable(self._X, measure=w, p=p)
-                mps1 = p1._mpspace
+                bf1 = p1._bifiltration
                 p2 = Persistable(
                     distance_matrix(self._X, self._X, p=p),
                     metric="precomputed",
                     measure=w,
                 )
-                mps2 = p2._mpspace
+                bf2 = p2._bifiltration
                 for s0 in self._s0s:
                     for k0 in self._k0s:
                         np.testing.assert_almost_equal(
-                            mps1._core_distance(np.arange(self._n), s0, k0),
-                            mps2._core_distance(np.arange(self._n), s0, k0),
+                            bf1._core_distance(np.arange(self._n), s0, k0),
+                            bf2._core_distance(np.arange(self._n), s0, k0),
                         )
 
     def test_same_hierarchy(self):
+        """ Check that lambda_linkage returns the same answer when using precomputed \
+            distance, KDTree, BallTree, and Boruvka, Prim """
         # test Boruvka, Prim, and dense Prim
         for w in self._different_weights:
             V = np.ones(self._X.shape[1])
             # will use BallTree and Boruvka
             p1 = Persistable(self._X, metric="seuclidean", measure=w, V=V)
-            mps1 = p1._mpspace
+            bf1 = p1._bifiltration
             # will use dense MST
             p2 = Persistable(
                 cdist(self._X, self._X, metric="seuclidean", V=V),
                 metric="precomputed",
                 measure=w,
             )
-            mps2 = p2._mpspace
+            bf2 = p2._bifiltration
             num_components = 1000
             big_X = np.zeros((self._X.shape[0], num_components))
             big_X[:, : self._X.shape[1]] = self._X
             # will use BallTree and Prim
             V2 = np.ones(big_X.shape[1])
             p3 = Persistable(big_X, metric="seuclidean", measure=w, V=V2)
-            mps3 = p3._mpspace
+            bf3 = p3._bifiltration
             for s0 in self._s0s:
                 for k0 in self._k0s:
-                    hc1 = mps1.lambda_linkage([0, k0], [s0, 0])
-                    hc2 = mps2.lambda_linkage([0, k0], [s0, 0])
-                    hc3 = mps3.lambda_linkage([0, k0], [s0, 0])
+                    hc1 = bf1.lambda_linkage([0, k0], [s0, 0])
+                    hc2 = bf2.lambda_linkage([0, k0], [s0, 0])
+                    hc3 = bf3.lambda_linkage([0, k0], [s0, 0])
                     np.testing.assert_almost_equal(
                         hc1._merges_heights, hc2._merges_heights
                     )
@@ -121,25 +140,25 @@ class TestMetricProbabilitySpace(unittest.TestCase):
             for p in self._ps:
                 # will use KDTree and Boruvka
                 p1 = Persistable(self._X, measure=w, p=p)
-                mps1 = p1._mpspace
+                bf1 = p1._bifiltration
                 # will use dense MST
                 p2 = Persistable(
                     distance_matrix(self._X, self._X, p=p),
                     metric="precomputed",
                     measure=w,
                 )
-                mps2 = p2._mpspace
+                bf2 = p2._bifiltration
                 num_components = 1000
                 big_X = np.zeros((self._X.shape[0], num_components))
                 big_X[:, : self._X.shape[1]] = self._X
                 # will use KDTree and Prim
                 p3 = Persistable(big_X, measure=w, p=p)
-                mps3 = p3._mpspace
+                bf3 = p3._bifiltration
                 for s0 in self._s0s:
                     for k0 in self._k0s:
-                        hc1 = mps1.lambda_linkage([0, k0], [s0, 0])
-                        hc2 = mps2.lambda_linkage([0, k0], [s0, 0])
-                        hc3 = mps3.lambda_linkage([0, k0], [s0, 0])
+                        hc1 = bf1.lambda_linkage([0, k0], [s0, 0])
+                        hc2 = bf2.lambda_linkage([0, k0], [s0, 0])
+                        hc3 = bf3.lambda_linkage([0, k0], [s0, 0])
                         np.testing.assert_almost_equal(
                             hc1._merges_heights, hc2._merges_heights
                         )
@@ -148,9 +167,10 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                         )
 
     def test_hilbert_function(self):
+        """ Check that _hilbert_function method returns a correct answer """
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
         p = Persistable(X)
-        mps = p._mpspace
+        bf = p._bifiltration
 
         ss = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]
         ks = [1, 3 / 4, 1 / 2, 1 / 4 + 0.01, 0]
@@ -164,9 +184,57 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                 [4, 4, 2, 2, 1, 1, 1, 1],
             ]
         ).T
-        np.testing.assert_almost_equal(mps.hilbert_function(ss, ks, n_jobs=4), res)
+        np.testing.assert_almost_equal(bf._hilbert_function(ss, ks, reduced=False, n_jobs=4), res)
+
+
+        X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
+        p = Persistable(X)
+
+        # res_ss = [0.0, 0.5625, 1.125, 1.6875, 2.25, 2.8125, 3.375, 3.9375, 4.5]
+        res_ss = [
+            0.0,
+            0.5714286,
+            1.1428571,
+            1.7142857,
+            2.2857143,
+            2.8571429,
+            3.4285714,
+            4.0,
+        ]
+        res_ks = [
+            1,
+            0.8571429,
+            0.7142857,
+            0.5714286,
+            0.4285714,
+            0.2857143,
+            0.1428571,
+            0.0,
+        ]
+
+        res = np.array(
+            [
+                [0, 0, 0, 0, 1, 1, 1, 1],
+                [0, 0, 0, 0, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1, 1],
+                [4, 4, 2, 2, 1, 1, 1, 1],
+                [4, 4, 2, 2, 1, 1, 1, 1],
+            ]
+        ).T
+        ss, ks, hs, _ = p._bifiltration.hilbert_function_on_regular_grid(0, 4, 1, 0, granularity=8)
+
+        np.testing.assert_almost_equal(ss, np.array(res_ss))
+        np.testing.assert_almost_equal(ks, np.array(res_ks))
+        np.testing.assert_almost_equal(hs, res)
+
+
 
     def test_vertical_slice(self):
+        """ Check that the persistence diagram of lambda_linkage is correct \
+            for some vertical slices """
         X = np.array(
             [
                 [0, 0],
@@ -183,8 +251,8 @@ class TestMetricProbabilitySpace(unittest.TestCase):
             ]
         )
         p = Persistable(X, debug=True)
-        mps = p._mpspace
-        hc = mps._lambda_linkage_vertical(1, 1, 0)
+        bf = p._bifiltration
+        hc = bf._lambda_linkage_vertical(1, 1, 0)
         res = np.array(
             [
                 0.72727273,
@@ -204,27 +272,32 @@ class TestMetricProbabilitySpace(unittest.TestCase):
 
         dist_mat = distance_matrix(X, X)
         p = Persistable(dist_mat, debug=True, metric="precomputed")
-        mps = p._mpspace
-        hc = mps._lambda_linkage_vertical(1, 1, 0)
+        bf = p._bifiltration
+        hc = bf._lambda_linkage_vertical(1, 1, 0)
         np.testing.assert_almost_equal(res, hc._merges_heights)
 
         np.testing.assert_almost_equal(
             np.array([[0.0, 0.1010101], [0.0, 0.1010101]]),
-            mps.lambda_linkage(
+            bf.lambda_linkage(
                 [1.777777777777778, 0.393939393939394],
                 [1.777777777777778, 0.29292929292929293],
             ).persistence_diagram(),
         )
         np.testing.assert_almost_equal(
             np.array([[0.0, 0.1], [0.0, 0.1]]),
-            mps.lambda_linkage([1.3, 0.4], [1.3, 0.3]).persistence_diagram(),
+            bf.lambda_linkage([1.3, 0.4], [1.3, 0.3]).persistence_diagram(),
         )
         np.testing.assert_almost_equal(
             np.array([[0.0, 0.1], [0.0, 0.1]]),
-            mps.lambda_linkage([1.7, 0.4], [1.7, 0.3]).persistence_diagram(),
+            bf.lambda_linkage([1.5, 0.4], [1.5, 0.3]).persistence_diagram(),
+        )
+        np.testing.assert_almost_equal(
+            np.array([[0.0, 0.1], [0.0, 0.1]]),
+            bf.lambda_linkage([1.7, 0.4], [1.7, 0.3]).persistence_diagram(),
         )
 
     def test_rank_invariant(self):
+        """ Check that the rank_invariant method returns correct answers """
         X = np.array(
             [
                 [0, 0],
@@ -244,7 +317,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
 
         ks = [0.4, 0.3]
         ss = [1.3, 1.5]
-        ri = p._mpspace.rank_invariant(ss, ks, 1, reduced=False)
+        ri = p._bifiltration._rank_invariant(ss, ks, reduced=False)
         np.testing.assert_almost_equal(
             ri,
             [
@@ -255,7 +328,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
 
         ks = [0.3, 0.2]
         ss = [1.5, 2.5]
-        ri = p._mpspace.rank_invariant(ss, ks, 1, reduced=False)
+        ri = p._bifiltration._rank_invariant(ss, ks, reduced=False)
         np.testing.assert_almost_equal(
             ri,
             [
@@ -266,7 +339,7 @@ class TestMetricProbabilitySpace(unittest.TestCase):
 
         ks = [0.4, 0.3, 0.2]
         ss = [1.3, 1.5, 2.5]
-        ri = p._mpspace.rank_invariant(ss, ks, 1, reduced=False)
+        ri = p._bifiltration._rank_invariant(ss, ks, reduced=False)
         res = np.zeros((3, 3, 3, 3))
         for i in range(3):
             for j in range(3):
@@ -276,6 +349,23 @@ class TestMetricProbabilitySpace(unittest.TestCase):
                             2 if i < 2 and j < 2 and i_ < 2 and j_ < 2 else 1
                         )
         np.testing.assert_almost_equal(ri, res)
+
+
+class TestMetricSpace(unittest.TestCase):
+    def test_subsampling(self):
+        """ Check that subsampling with fast metric produces the same \
+            subsample as subsampling with distance matrix """
+    X = make_blobs(n_samples=1000, n_features=2, centers=3, random_state=6, cluster_std=1.5)[0]
+    dm = distance_matrix(X, X, p=2)
+    ms = _MetricSpace(dm, "precomputed")
+    Y, radii, reps = ms.close_subsample(100, seed=0)
+
+    ms2 = _MetricSpace(X, metric="minkowski")
+    Y2, radii2, reps2 = ms2.close_subsample(100, seed=0)
+
+    np.testing.assert_array_equal(Y,Y2)
+    np.testing.assert_array_equal(radii,radii2)
+    np.testing.assert_array_equal(reps,reps2)
 
 
 class TestHierarchicalClustering(unittest.TestCase):
@@ -288,6 +378,7 @@ class TestHierarchicalClustering(unittest.TestCase):
         return mat
 
     def test_persistence_diagram(self):
+        """ Check that persistence_diagram method returns correct answers """
         heights = np.array([0, 1, 3, 2])
         merges = np.array([[0, 1], [2, 0]])
         merges_heights = np.array([2, 6])
@@ -333,6 +424,7 @@ class TestHierarchicalClustering(unittest.TestCase):
         )
 
     def test_flattening(self):
+        """ Check that persistence_based_flattening method returns correct answers """
         heights = np.array([0, 1, 3, 8])
         merges = np.array([[0, 1], [2, 0]])
         merges_heights = np.array([2, 6])
@@ -353,6 +445,7 @@ class TestHierarchicalClustering(unittest.TestCase):
 
 class TestPersistable(unittest.TestCase):
     def test_number_clusters(self):
+        """ Check that cluster method returns the correct number of clusters """
         n_datapoints = 1000
         n_true_points = int(n_datapoints * 0.7)
         X, _ = datasets.make_blobs(
@@ -381,6 +474,7 @@ class TestPersistable(unittest.TestCase):
                 self.assertEqual(len(set(c[c >= 0])), i)
 
     def test_number_clusters_quick_cluster(self):
+        """ Check that quick_cluster method returns the correct number of clusters """
         X, _ = datasets.make_blobs(
             n_samples=1000, centers=3, cluster_std=[0.05, 0.06, 0.07], random_state=1
         )
@@ -404,57 +498,16 @@ class TestPersistable(unittest.TestCase):
         c = p.quick_cluster(propagate_labels=True)
         self.assertEqual(len(set(c[c >= 0])), 5)
 
-    def test_hilbert_function(self):
-        X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
-        p = Persistable(X)
 
-        # res_ss = [0.0, 0.5625, 1.125, 1.6875, 2.25, 2.8125, 3.375, 3.9375, 4.5]
-        res_ss = [
-            0.0,
-            0.5714286,
-            1.1428571,
-            1.7142857,
-            2.2857143,
-            2.8571429,
-            3.4285714,
-            4.0,
-        ]
-        res_ks = [
-            1,
-            0.8571429,
-            0.7142857,
-            0.5714286,
-            0.4285714,
-            0.2857143,
-            0.1428571,
-            0.0,
-        ]
-
-        res = np.array(
-            [
-                [0, 0, 0, 0, 1, 1, 1, 1],
-                [0, 0, 0, 0, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
-                [0, 0, 1, 1, 1, 1, 1, 1],
-                [4, 4, 2, 2, 1, 1, 1, 1],
-                [4, 4, 2, 2, 1, 1, 1, 1],
-            ]
-        ).T
-        ss, ks, hs, _ = p._compute_hilbert_function(0, 4, 1, 0, granularity=8)
-
-        np.testing.assert_almost_equal(ss, np.array(res_ss))
-        np.testing.assert_almost_equal(ks, np.array(res_ks))
-        np.testing.assert_almost_equal(hs, res)
-
+class TestVineyard(unittest.TestCase):
     def test_prominence_vineyard(self):
+        """ Check that _vineyard_to_vines and _vine_parts methods return a correct answer """
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
         p = Persistable(X)
 
         start_end1 = [(0, 0.1), (10, 0)]
         start_end2 = [(0, 1), (10, 0.9)]
-        vineyard = p._compute_vineyard(start_end1, start_end2, n_parameters=4)
+        vineyard = p._bifiltration.linear_vineyard(start_end1, start_end2, n_parameters=4)
 
         vines = vineyard._vineyard_to_vines()
         res_vines = [
@@ -480,8 +533,9 @@ class TestPersistable(unittest.TestCase):
 
 
 class TestBettiNumbers(unittest.TestCase):
-    # only tests Hilbert functions of dimensions (shape) 1, 2, 3, 4
     def test_signed_betti(self):
+        """ Check that signed_betti method returns correct answers in \
+            dimensions (shape) 1, 2, 3, 4 """
 
         np.random.seed(0)
         N = 4
