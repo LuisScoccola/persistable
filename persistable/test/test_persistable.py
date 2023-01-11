@@ -63,10 +63,10 @@ class TestRipsBifiltration(unittest.TestCase):
         res = np.array([1, 1, 1, 2])
         np.testing.assert_almost_equal(bf._core_distance(np.arange(n), s0, k0), res)
 
-        p = Persistable(X, measure=np.array([0.5, 0.5, 0.5, 0.5]))
+        p = Persistable(X, measure=np.array([0.25, 0.25, 0.25, 0.25]))
         bf = p._bifiltration
         s0 = np.infty
-        k0 = 0.6
+        k0 = 0.3
         res = np.array([1, 1, 1, 2])
         np.testing.assert_almost_equal(bf._core_distance(np.arange(n), s0, k0), res)
 
@@ -358,12 +358,14 @@ class TestMetricSpace(unittest.TestCase):
     X = make_blobs(n_samples=1000, n_features=2, centers=3, random_state=6, cluster_std=1.5)[0]
     dm = distance_matrix(X, X, p=2)
     ms = _MetricSpace(dm, "precomputed")
-    Y, radii = ms.close_subsample(100, seed=0)
+    Y, radii, reps = ms.close_subsample(100, seed=0)
 
     ms2 = _MetricSpace(X, metric="minkowski")
-    Y2, radii2 = ms2.close_subsample(100, seed=0)
+    Y2, radii2, reps2 = ms2.close_subsample(100, seed=0)
 
     np.testing.assert_array_equal(Y,Y2)
+    np.testing.assert_array_equal(radii,radii2)
+    np.testing.assert_array_equal(reps,reps2)
 
 
 class TestHierarchicalClustering(unittest.TestCase):

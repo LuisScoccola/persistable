@@ -74,6 +74,9 @@ class Persistable:
         the number of points in the dataset, if set to ``"auto"`` it will find
         a reasonable default.
 
+    subsample: None or int, optional, default is None
+        Number of datapoints to do measure-consistent subsampling.
+
     debug: bool, optional, default is False
         Whether to print debug messages.
 
@@ -92,51 +95,81 @@ class Persistable:
         self,
         X,
         metric="minkowski",
+        measure=None,
         n_neighbors="auto",
+        subsample=None,
         debug=False,
         threading=False,
         **kwargs
     ):
-        self._debug = debug
-        self._threading = threading
-        # keep dataset
-        self._data = X
-        # if metric is minkowski but no p was passed, assume p = 2
-        if metric == "minkowski" and "p" not in kwargs:
-            kwargs["p"] = 2
-        # if no measure was passed, assume normalized counting measure
-        if "measure" not in kwargs:
-            measure = np.full(X.shape[0], 1.0 / X.shape[0])
-        elif "measure" in kwargs and kwargs["measure"] is None:
-            measure = np.full(X.shape[0], 1.0 / X.shape[0])
-            del kwargs["measure"]
-        else:
-            measure = kwargs["measure"]
-            del kwargs["measure"]
+        self._subsample = None 
+
         if "leaf_size" in kwargs:
             leaf_size = kwargs["leaf_size"]
         else:
             leaf_size = 40
+
+        # if no measure was passed, assume normalized counting measure
+        if measure is None:
+            measure = np.full(X.shape[0], 1.0 / X.shape[0])
+        else:
+            measure = np.array(measure)
+            assert np.all(measure >= 0)
+            # rescale so that total measure is 1
+            measure = measure / np.sum(measure)
+
+        if subsample is not None:
+            if type(subsample) != int:
+                raise ValueError("subsample must be either None or an integer.")
+            ms = _MetricSpace(X, metric, **kwargs)
+            if subsample >= X.shape[0]:
+                subsample = X.shape[0] / 10
+                warnings.warn(
+                    "subsample is greater than or equal to number of datapoints, using "
+                    + str(subsample)
+                    + " instead."
+                )
+            self._subsample = subsample
+            subsample_indices, _, subsample_representatives = ms.close_subsample(
+                subsample
+            )
+            X = X.copy()
+            if metric == "precomputed":
+                X = X[subsample_indices, :][:, subsample_indices]
+            else:
+                X = X[subsample_indices, :]
+            self._subsample_representatives = subsample_representatives
+
+            # compute measure for subsample
+            new_measure = np.zeros(subsample)
+            for i, _ in enumerate(self._subsample_representatives):
+                new_measure[self._subsample_representatives[i]] += measure[i]
+            measure = new_measure
+
+        # if metric is minkowski but no p was passed, assume p = 2
+        if metric == "minkowski" and "p" not in kwargs:
+            kwargs["p"] = 2
+
         # if no n_neighbors for fitting mpspace was passed, compute a reasonable one
         if n_neighbors == "auto":
             if X.shape[0] < 100:
-                self._n_neighbors = X.shape[0]
+                n_neighbors = X.shape[0]
             else:
-                self._n_neighbors = min(int(np.log10(X.shape[0])) * 100, X.shape[0])
+                n_neighbors = min(int(np.log10(X.shape[0])) * 100, X.shape[0])
         elif n_neighbors == "all":
-            self._n_neighbors = X.shape[0]
+            n_neighbors = X.shape[0]
         elif type(n_neighbors) == int and n_neighbors >= 1:
-            self._n_neighbors = min(n_neighbors, X.shape[0])
+            n_neighbors = min(n_neighbors, X.shape[0])
         else:
             raise ValueError(
                 "n_neighbors must be either auto, all, or a positive integer."
             )
         # keep max_k (normalized n_neighbors)
-        self._maxk = self._n_neighbors / X.shape[0]
+        self._maxk = n_neighbors / X.shape[0]
 
         # construct the filtration
         self._mpspace = _MetricProbabilitySpace(
-            X, metric, measure, self._n_neighbors, leaf_size, **kwargs
+            X, metric, measure, n_neighbors, leaf_size, **kwargs
         )
 
         self._bifiltration = _RipsBifiltration(
@@ -289,6 +322,13 @@ class Persistable:
             cl = self._mpspace.propagate_labels(
                 cl, n_iterations_propagate_labels, n_neighbors_propagate_labels
             )
+
+        if self._subsample is not None:
+            new_cl = np.full(self._subsample_representatives.shape[0], -1)
+            for i, _ in enumerate(self._subsample_representatives):
+                new_cl[i] = cl[self._subsample_representatives[i]]
+            cl = new_cl
+
         return cl
 
     def _find_end(self):
@@ -777,9 +817,13 @@ class _MetricSpace:
         self._leaf_size = leaf_size
         if metric in KDTree.valid_metrics + BallTree.valid_metrics:
             if metric in KDTree.valid_metrics:
-                self._tree = KDTree(X, metric=metric, leaf_size=self._leaf_size, **kwargs)
+                self._tree = KDTree(
+                    X, metric=metric, leaf_size=self._leaf_size, **kwargs
+                )
             elif metric in BallTree.valid_metrics:
-                self._tree = BallTree(X, metric=metric, leaf_size=self._leaf_size, **kwargs)
+                self._tree = BallTree(
+                    X, metric=metric, leaf_size=self._leaf_size, **kwargs
+                )
 
             self._dist_metric = DistanceMetric.get_metric(self._metric, **self._kwargs)
         elif metric == "precomputed":
@@ -942,52 +986,36 @@ class _MetricSpace:
         return new_labels
 
     def close_subsample(self, subsample_size, seed=0):
-        """ Returns the indices of a subsample of the given size that is close \
-            in the Hausdorff distance """
-        
+        """ Returns a pair of arrays with the first array containing the indices \
+            of a subsample of the given size that is close in the Hausdorff distance \
+            and the second array containing the subsequent covering radii """
+
         np.random.seed(seed)
-        random_start = np.random.randint(0,self.size())
-        print(random_start)
+        random_start = np.random.randint(0, self.size())
 
         if self._metric in KDTree.valid_metrics + BallTree.valid_metrics:
             X = self._points
             if not X.flags["C_CONTIGUOUS"]:
                 X = np.array(X, dtype=np.double, order="C")
-            return close_subsample_fast_metric(subsample_size, X, self._dist_metric, random_start=random_start)
+            return close_subsample_fast_metric(
+                subsample_size, X, self._dist_metric, random_start=random_start
+            )
         elif self._metric == "precomputed":
             dist_mat = self._dist_mat
             if not dist_mat.flags["C_CONTIGUOUS"]:
                 dist_mat = np.array(dist_mat, dtype=np.double, order="C")
-            return close_subsample_distance_matrix(subsample_size, dist_mat, random_start=random_start)
+            return close_subsample_distance_matrix(
+                subsample_size, dist_mat, random_start=random_start
+            )
         else:
             raise ValueError("Metric given is not supported.")
-
-
-        #dist_to_all = lambda i : self.distance(i, range(self.size()) )
-
-        #idx_perm = np.zeros(subsample_size, dtype=np.int64)
-        #lambdas = np.zeros(subsample_size)
-
-        ## TODO: do random
-        #ds = dist_to_all(0)
-
-        #dperm2all = [ds]
-        #for i in range(1, subsample_size):
-        #    idx = np.argmax(ds)
-        #    idx_perm[i] = idx
-        #    lambdas[i - 1] = ds[idx]
-        #    dperm2all.append(dist_to_all(idx))
-        #    ds = np.minimum(ds, dperm2all[-1])
-        #lambdas[-1] = np.max(ds)
-        #dperm2all = np.array(dperm2all)
-        #return (idx_perm, lambdas, dperm2all)
 
 
 # TODO:
 # rips bifiltration should take a persistent metric space as input.
 # examples of persistent metric spaces are the kernel filtration induced by a
 # metric probability space, as well as a metric space together with a function
-#class _PersistentMetricSpace:
+# class _PersistentMetricSpace:
 
 
 class _MetricProbabilitySpace(_MetricSpace):

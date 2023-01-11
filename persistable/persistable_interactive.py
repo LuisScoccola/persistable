@@ -272,7 +272,7 @@ class PersistableInteractive:
         default_granularity_ccf = 100
         default_granularity_ri = 20
         default_granularity_pv = 40
-        default_num_jobs = 4
+        default_num_jobs = 1
         default_max_dim = 15
         default_max_vines = 15
         min_granularity = 2

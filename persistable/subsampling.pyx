@@ -30,15 +30,16 @@ cpdef close_subsample_distance_matrix(
     cdef np.int64_t[:] idx_perm_view = idx_perm
     radii = np.zeros(subsample_size)
     cdef np.double_t[:] radii_view = radii
+    representatives = np.zeros(dim, dtype=np.int64)
+    cdef np.int64_t[:] representatives_view = representatives
 
     cdef np.double_t[:] ds = np.full(dim, np.inf)
 
     idx = random_start
     idx_perm_view[0] = idx
     for j in range(0, dim):
-        val1 = ds[j]
-        val2 = dist_mat[idx,j]
-        ds[j] = min(val1, val2)
+        ds[j] = dist_mat[idx,j]
+        representatives_view[j] = 0
 
     for i in range(1, subsample_size):
         idx = np.argmax(ds)
@@ -47,11 +48,15 @@ cpdef close_subsample_distance_matrix(
         for j in range(0, dim):
             val1 = ds[j]
             val2 = dist_mat[idx,j]
-            ds[j] = min(val1, val2)
+            if val1 < val2:
+                ds[j] = val1
+            else:
+                ds[j] = val2
+                representatives_view[j] = i
 
     radii_view[-1] = np.max(ds)
 
-    return idx_perm, radii
+    return idx_perm, radii, representatives
 
 
 cpdef close_subsample_fast_metric(
@@ -79,17 +84,19 @@ cpdef close_subsample_fast_metric(
     cdef np.int64_t[:] idx_perm_view = idx_perm
     radii = np.zeros(subsample_size)
     cdef np.double_t[:] radii_view = radii
+    representatives = np.zeros(dim, dtype=np.int64)
+    cdef np.int64_t[:] representatives_view = representatives
 
     cdef np.double_t[:] ds = np.full(dim, np.inf)
 
     idx = random_start
     idx_perm_view[0] = idx
+
     for j in range(0, dim):
-        val1 = ds[j]
-        val2 = dist_metric.dist(&raw_data_ptr[num_features * idx],
+        ds[j] = dist_metric.dist(&raw_data_ptr[num_features * idx],
                                  &raw_data_ptr[num_features * j],
                                  num_features)
-        ds[j] = min(val1, val2)
+        representatives_view[j] = 0
 
     for i in range(1, subsample_size):
         idx = np.argmax(ds)
@@ -100,9 +107,12 @@ cpdef close_subsample_fast_metric(
             val2 = dist_metric.dist(&raw_data_ptr[num_features * idx],
                                      &raw_data_ptr[num_features * j],
                                      num_features)
-            ds[j] = min(val1, val2)
+            if val1 < val2:
+                ds[j] = val1
+            else:
+                ds[j] = val2
+                representatives_view[j] = i
 
     radii_view[-1] = np.max(ds)
 
-    return idx_perm, radii
-
+    return idx_perm, radii, representatives
