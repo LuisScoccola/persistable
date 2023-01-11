@@ -123,7 +123,7 @@ class Persistable:
                 raise ValueError("subsample must be either None or an integer.")
             ms = _MetricSpace(X, metric, **kwargs)
             if subsample >= X.shape[0]:
-                subsample = X.shape[0] / 10
+                subsample = int(X.shape[0] / 4)
                 warnings.warn(
                     "subsample is greater than or equal to number of datapoints, using "
                     + str(subsample)
