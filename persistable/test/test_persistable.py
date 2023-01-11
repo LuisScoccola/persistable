@@ -223,7 +223,7 @@ class TestRipsBifiltration(unittest.TestCase):
                 [4, 4, 2, 2, 1, 1, 1, 1],
             ]
         ).T
-        ss, ks, hs, _ = p._bifiltration.hilbert_function_on_grid(0, 4, 1, 0, granularity=8)
+        ss, ks, hs, _ = p._bifiltration.hilbert_function_on_regular_grid(0, 4, 1, 0, granularity=8)
 
         np.testing.assert_almost_equal(ss, np.array(res_ss))
         np.testing.assert_almost_equal(ks, np.array(res_ks))
@@ -285,6 +285,10 @@ class TestRipsBifiltration(unittest.TestCase):
         np.testing.assert_almost_equal(
             np.array([[0.0, 0.1], [0.0, 0.1]]),
             bf.lambda_linkage([1.3, 0.4], [1.3, 0.3]).persistence_diagram(),
+        )
+        np.testing.assert_almost_equal(
+            np.array([[0.0, 0.1], [0.0, 0.1]]),
+            bf.lambda_linkage([1.5, 0.4], [1.5, 0.3]).persistence_diagram(),
         )
         np.testing.assert_almost_equal(
             np.array([[0.0, 0.1], [0.0, 0.1]]),

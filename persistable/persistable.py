@@ -181,14 +181,14 @@ class Persistable:
             i.e., points deemed not to belong to any cluster by the algorithm.
 
         """
-        k = n_neighbors / self._mpspace._size
+        k = n_neighbors / self._mpspace.size()
         default_percentile = 0.95
         s = self._bifiltration.connection_radius(default_percentile) * 2
 
         hc = self._bifiltration.lambda_linkage([0, k], [s, 0])
         pd = hc.persistence_diagram()
         if pd.shape[0] == 0:
-            return np.full(self._mpspace._size, -1)
+            return np.full(self._mpspace.size(), -1)
 
         def _prominences(bd):
             return np.sort(np.abs(bd[:, 0] - bd[:, 1]))[::-1]
@@ -281,7 +281,7 @@ class Persistable:
             threshold = (spers[-n_clusters] + spers[-(n_clusters + 1)]) / 2
         cl = hc.persistence_based_flattening(threshold)
         if propagate_labels:
-            cl = self._mpspace.propagate_labels(
+            cl = self._mpspace._mspace.propagate_labels(
                 cl, n_iterations_propagate_labels, n_neighbors_propagate_labels
             )
         return cl
@@ -298,14 +298,14 @@ class Persistable:
         granularity,
         n_jobs=1,
     ):
-        return self._bifiltration.hilbert_function_on_grid(
+        return self._bifiltration.hilbert_function_on_regular_grid(
             min_s, max_s, max_k, min_k, granularity, n_jobs=n_jobs
         )
 
     def _rank_invariant(
         self, min_s, max_s, max_k, min_k, granularity, reduced=False, n_jobs=1
     ):
-        return self._bifiltration.rank_invariant_on_grid(
+        return self._bifiltration.rank_invariant_on_regular_grid(
             min_s, max_s, max_k, min_k, granularity, reduced=reduced, n_jobs=n_jobs
         )
 
@@ -313,7 +313,7 @@ class Persistable:
         self, start_end1, start_end2, n_parameters, reduced=False, n_jobs=1
     ):
         return self._bifiltration.linear_vineyard(
-            start_end1, start_end2, n_parameters, reduced=False, n_jobs=1
+            start_end1, start_end2, n_parameters, reduced=reduced, n_jobs=n_jobs
         )
 
 
@@ -335,7 +335,7 @@ class _RipsBifiltration:
                 i_indices_and_finished_at_last_index.append(
                     lazy_intersection(
                         self._mpspace._kernel_estimate[p],
-                        self._mpspace._nn_distance[p],
+                        self._mpspace._mspace._nn_distance[p],
                         s_intercept,
                         k_intercept,
                     )
@@ -363,9 +363,9 @@ class _RipsBifiltration:
                     "Don't have enough neighbors to properly compute core scale, or point takes too long to appear."
                 )
             op = lambda p, i: np.where(
-                k_to_s(self._mpspace._kernel_estimate[p, i - 1]) <= self._mpspace._nn_distance[p, i],
+                k_to_s(self._mpspace._kernel_estimate[p, i - 1]) <= self._mpspace._mspace._nn_distance[p, i],
                 k_to_s(self._mpspace._kernel_estimate[p, i - 1]),
-                self._mpspace._nn_distance[p, i],
+                self._mpspace._mspace._nn_distance[p, i],
             )
             return np.where(i_indices == 0, 0, op(point_index, i_indices))
         else:
@@ -374,7 +374,7 @@ class _RipsBifiltration:
                 idx = np.searchsorted(
                     self._mpspace._kernel_estimate[p], k_intercept, side="left"
                 )
-                if idx == self._mpspace._nn_distance[p].shape[0]:
+                if idx == self._mpspace._mspace._nn_distance[p].shape[0]:
                     idx -= 1
                 i_indices.append(idx)
             i_indices = np.array(i_indices)
@@ -397,7 +397,7 @@ class _RipsBifiltration:
             #        warnings.warn(
             #            "Don't have enough neighbors to properly compute core scale."
             #        )
-            return self._mpspace._nn_distance[(point_index, i_indices)]
+            return self._mpspace._mspace._nn_distance[(point_index, i_indices)]
 
     def find_end(self, tolerance=1e-4, fast=False):
         if fast:
@@ -445,57 +445,20 @@ class _RipsBifiltration:
         if k_end > k_start:
             raise ValueError("Parameters do not give a monotonic line.")
 
-        indices = np.arange(self._mpspace._size)
+        indices = np.arange(self._mpspace.size())
         k_births = self._mpspace.density_estimate(indices, s_intercept, max_density=k_start)
-        # must add 1 otherwise the edges (below) are treated as not there by mst routine
-        k_births = k_start - np.maximum(k_end, np.minimum(k_start, k_births)) + 1
+        # clip
+        k_births = np.maximum(k_end, np.minimum(k_start, k_births))
+        # make it covariant
+        k_births = k_start - k_births
 
-        # metric tree case
-        if self._mpspace._metric in KDTree.valid_metrics + BallTree.valid_metrics:
-            s_neighbors = self._mpspace._tree.query_radius(self._mpspace._points, s_intercept)
-        # dense distance matrix case
-        else:
-            s_neighbors = []
-            for i in range(self._mpspace._size):
-                s_neighbors.append(np.argwhere(self._mpspace._dist_mat[i] <= s_intercept)[:, 0])
+        res_hierarchical_clustering = self._mpspace._mspace.hierarchical_clustering_filtered_rips_graph(k_births, s_intercept)
 
-        edges = []
-        entries = []
-        for i in range(self._mpspace._size):
-            for j in s_neighbors[i]:
-                if j > i:
-                    edges.append([i, j])
-                    entries.append(max(k_births[i], k_births[j]))
-        matrix_entries = np.array(entries)
-        edges = np.array(edges, dtype=int)
-        if len(edges) > 0:
-            graph = csr_matrix(
-                (matrix_entries, (edges[:, 0], edges[:, 1])), (self._mpspace._size, self._mpspace._size)
-            )
-
-            mst = sparse_matrix_minimum_spanning_tree(graph)
-            Is, Js = mst.nonzero()
-            # we now undo the adding 1
-            vals = np.array(mst[Is, Js])[0] - 1
-            sort_indices = np.argsort(vals)
-            Is = Is[sort_indices]
-            Js = Js[sort_indices]
-            vals = vals[sort_indices]
-            merges = np.zeros((vals.shape[0], 2), dtype=int)
-            merges[:, 0] = Is
-            merges[:, 1] = Js
-            merges_heights = vals
-        else:
-            merges = np.array([], dtype=int)
-            merges_heights = np.array([])
         hc_start = 0
         hc_end = k_start - k_end
-        # we now undo the adding 1
-        core_scales = k_births - 1
+        res_hierarchical_clustering.clip(hc_start, hc_end)
 
-        return _HierarchicalClustering(
-            core_scales, merges, merges_heights, hc_start, hc_end
-        )
+        return res_hierarchical_clustering
 
     def _lambda_linkage_skew(self, start, end):
         def _startend_to_intercepts(start, end):
@@ -510,55 +473,19 @@ class _RipsBifiltration:
 
         hc_start = start[0]
         hc_end = end[0]
-        indices = np.arange(self._mpspace._size)
+        indices = np.arange(self._mpspace.size())
         s_intercept, k_intercept = _startend_to_intercepts(start, end)
         max_k = start[1]
         core_distances = self._core_distance(indices, s_intercept, k_intercept, max_k)
+
         core_distances = np.minimum(hc_end, core_distances)
         core_distances = np.maximum(hc_start, core_distances)
-        if self._mpspace._metric in KDTree.valid_metrics:
-            if self._mpspace._dimension > self._mpspace._MAX_DIM_USE_BORUVKA:
-                X = self._mpspace._points
-                if not X.flags["C_CONTIGUOUS"]:
-                    X = np.array(X, dtype=np.double, order="C")
-                dist_metric = DistanceMetric.get_metric(self._mpspace._metric, **self._mpspace._kwargs)
-                sl = mst_linkage_core_vector(X, core_distances, dist_metric)
-            else:
-                sl = KDTreeBoruvkaAlgorithm(
-                    self._mpspace._tree,
-                    core_distances,
-                    self._mpspace._nn_indices,
-                    leaf_size=self._mpspace._leaf_size // 3,
-                    metric=self._mpspace._metric,
-                    **self._mpspace._kwargs
-                ).spanning_tree()
-        elif self._mpspace._metric in BallTree.valid_metrics:
-            if self._mpspace._dimension > self._mpspace._MAX_DIM_USE_BORUVKA:
-                X = self._mpspace._points
-                if not X.flags["C_CONTIGUOUS"]:
-                    X = np.array(X, dtype=np.double, order="C")
-                dist_metric = DistanceMetric.get_metric(self._mpspace._metric, **self._mpspace._kwargs)
-                sl = mst_linkage_core_vector(X, core_distances, dist_metric)
-            else:
-                sl = BallTreeBoruvkaAlgorithm(
-                    self._mpspace._tree,
-                    core_distances,
-                    self._mpspace._nn_indices,
-                    leaf_size=self._mpspace._leaf_size // 3,
-                    metric=self._mpspace._metric,
-                    **self._mpspace._kwargs
-                ).spanning_tree()
-        else:
-            sl = stepwise_dendrogram_with_core_distances(
-                self._mpspace._size, self._mpspace._dist_mat, core_distances
-            )
-        merges = sl[:, 0:2].astype(int)
-        # label(merges, self._size, merges.shape[0])
-        merges_heights = np.minimum(hc_end, sl[:, 2])
-        merges_heights = np.maximum(hc_start, sl[:, 2])
-        return _HierarchicalClustering(
-            core_distances, merges, merges_heights, hc_start, hc_end
-        )
+
+        single_linkage_hc = self._mpspace._mspace.generalized_single_linkage(core_distances)
+
+        single_linkage_hc.clip(hc_start, hc_end)
+
+        return single_linkage_hc
 
     def lambda_linkage(self, start, end):
         if start[0] > end[0] or start[1] < end[1]:
@@ -616,13 +543,21 @@ class _RipsBifiltration:
         return Vineyard(startends, pds)
 
     def _rank_invariant(self, ss, ks, reduced=False, n_jobs=1):
+        # go on one more step to compute rank invariant at the end of the grid
+        ss = list(ss)
+        ks = list(ks)
+        ss.append(ss[-1] + _TOL)
+        ks.append(ks[-1] - _TOL)
         n_s = len(ss)
         n_k = len(ks)
         ks = np.array(ks)
         startends_horizontal = [[[ss[0], k], [ss[-1], k]] for k in ks]
         startends_vertical = [[[s, ks[0]], [s, ks[-1]]] for s in ss]
         startends = startends_horizontal + startends_vertical
-        run_in_parallel = lambda startend: self.lambda_linkage(startend[0], startend[1])
+
+        def run_in_parallel(startend):
+            return self.lambda_linkage(startend[0], startend[1])
+
         hcs = parallel_computation(
             run_in_parallel,
             startends,
@@ -634,6 +569,7 @@ class _RipsBifiltration:
         for hc in hcs_horizontal:
             hc.snap_to_grid(ss)
         hcs_vertical = hcs[n_k:]
+        np.set_printoptions(precision=30)
         for hc in hcs_vertical:
             hc.snap_to_grid(ks[0] - ks)
 
@@ -705,9 +641,11 @@ class _RipsBifiltration:
                     for i in range(b, s_index + 1):
                         for j in range(s_index, d):
                             ri[i, k_index, s_index, j - s_index + k_index] += 1
+
+        ri = ri[:-1,:,:,:][:,:-1,:,:][:,:,:-1,:][:,:,:,:-1]
         return ri
 
-    def rank_invariant_on_grid(
+    def rank_invariant_on_regular_grid(
         self, min_s, max_s, max_k, min_k, granularity, reduced=False, n_jobs=1
     ):
         if min_k >= max_k:
@@ -737,8 +675,8 @@ class _RipsBifiltration:
     def _hilbert_function(self, ss, ks, reduced=False, n_jobs=1):
         n_s = len(ss)
         n_k = len(ks)
-        # go on one more step to compute the Hilbert function at the last point
         ss = list(ss)
+        # go on one more step to compute the Hilbert function at the last point
         ss.append(ss[-1] + _TOL)
         startends = [[[ss[0], k], [ss[-1], k]] for k in ks]
         pds = self.lambda_linkage_vineyard(startends, reduced=reduced, n_jobs=n_jobs)
@@ -751,7 +689,7 @@ class _RipsBifiltration:
                 hf[start:end, i] += 1
         return hf
 
-    def hilbert_function_on_grid(
+    def hilbert_function_on_regular_grid(
         self,
         min_s,
         max_s,
@@ -784,15 +722,12 @@ class _RipsBifiltration:
         return ss, ks, hf, signed_betti(hf)
 
 
-
-class _MetricProbabilitySpace:
-    """Implements a finite metric probability space that can compute its \
-       kernel density estimates """
+class _MetricSpace:
 
     _MAX_DIM_USE_BORUVKA = 60
 
     def __init__(
-        self, X, metric, measure, n_neighbors, leaf_size=40, debug=False, threading=False, **kwargs
+        self, X, metric, n_neighbors, leaf_size=40, debug=False, threading=False, **kwargs
     ):
         # meta variables
         self._threading = threading
@@ -803,25 +738,19 @@ class _MetricProbabilitySpace:
 
         # default values before fitting
         self._fitted_nn = False
-        self._fitted_density_estimates = False
         self._nn_distance = None
         self._nn_indices = None
-        self._kernel_estimate = None
         self._n_neighbors = None
-        self._maxs = None
-        self._measure = None
         self._size = None
         self._dimension = None
         self._points = None
         self._tree = None
         self._dist_mat = None
 
-        self._fit_point_cloud(X, metric, measure, leaf_size, **kwargs)
-        self._fit_nn_and_density_estimates(n_neighbors)
+        self._fit_metric(X, metric, leaf_size, **kwargs)
+        self._fit_nn(n_neighbors)
 
-    def _fit_point_cloud(self, X, metric, measure, leaf_size, **kwargs):
-        # save measure
-        self._measure = measure
+    def _fit_metric(self, X, metric, leaf_size, **kwargs):
 
         # save point cloud
         self._size = X.shape[0]
@@ -843,8 +772,7 @@ class _MetricProbabilitySpace:
         else:
             raise ValueError("Metric given is not supported.")
 
-    def _fit_nn_and_density_estimates(self, n_neighbors):
-        # fit nearest neighbors
+    def _fit_nn(self, n_neighbors):
         self._n_neighbors = n_neighbors
         if self._metric in BallTree.valid_metrics + KDTree.valid_metrics:
             k_neighbors = self._tree.query(
@@ -871,26 +799,104 @@ class _MetricProbabilitySpace:
         self._nn_distance = np.array(_nn_distance)
         self._fitted_nn = True
 
-        # fit density estimate
-        self._fitted_density_estimates = True
-        self._kernel_estimate = np.cumsum(self._measure[self._nn_indices], axis=1)
+    def generalized_single_linkage(self, core_distances):
+        if self._metric in KDTree.valid_metrics:
+            if self._dimension > self._MAX_DIM_USE_BORUVKA:
+                X = self._points
+                if not X.flags["C_CONTIGUOUS"]:
+                    X = np.array(X, dtype=np.double, order="C")
+                dist_metric = DistanceMetric.get_metric(self._metric, **self._kwargs)
+                sl = mst_linkage_core_vector(X, core_distances, dist_metric)
+            else:
+                sl = KDTreeBoruvkaAlgorithm(
+                    self._tree,
+                    core_distances,
+                    self._nn_indices,
+                    leaf_size=self._leaf_size // 3,
+                    metric=self._metric,
+                    **self._kwargs
+                ).spanning_tree()
+        elif self._metric in BallTree.valid_metrics:
+            if self._dimension > self._MAX_DIM_USE_BORUVKA:
+                X = self._points
+                if not X.flags["C_CONTIGUOUS"]:
+                    X = np.array(X, dtype=np.double, order="C")
+                dist_metric = DistanceMetric.get_metric(self._metric, **self._kwargs)
+                sl = mst_linkage_core_vector(X, core_distances, dist_metric)
+            else:
+                sl = BallTreeBoruvkaAlgorithm(
+                    self._tree,
+                    core_distances,
+                    self._nn_indices,
+                    leaf_size=self._leaf_size // 3,
+                    metric=self._metric,
+                    **self._kwargs
+                ).spanning_tree()
+        else:
+            sl = stepwise_dendrogram_with_core_distances(
+                self.size(), self._dist_mat, core_distances
+            )
+        merges = sl[:, 0:2].astype(int)
+        merges_heights = sl[:, 2]
 
-        # set the max k for which we have enough neighbors
-        self._maxk = self._n_neighbors / self._size
+        return _HierarchicalClustering(
+            core_distances, merges, merges_heights, -np.inf, np.inf
+        )
 
-    def density_estimate(self, point_index, radius, max_density=1):
-        """ Given a list of point indices and a radius, return the (unnormalized) \
-            kernel density estimate at those points and at that radius """
-        density_estimates = []
-        out_of_range = False
-        for p in point_index:
-            if self._kernel_estimate[p, -1] < max_density:
-                out_of_range = True
-            neighbor_idx = np.searchsorted(self._nn_distance[p], radius, side="right")
-            density_estimates.append(self._kernel_estimate[p, neighbor_idx - 1])
-        if out_of_range:
-            warnings.warn("Don't have enough neighbors to properly compute core scale.")
-        return np.array(density_estimates)
+    def hierarchical_clustering_filtered_rips_graph(self, k_births, rips_radius):
+        shift = min(k_births) + 1
+        # must shift to strictly positive births (sparse matrix mst routine treats
+        # edges with zero and very small weight as not there (i.e., as having infinite weight))
+        k_births = k_births + shift
+
+        # metric tree case
+        if self._metric in KDTree.valid_metrics + BallTree.valid_metrics:
+            s_neighbors = self._tree.query_radius(self._points, rips_radius)
+        # dense distance matrix case
+        elif self._metric == "precomputed":
+            s_neighbors = []
+            for i in range(self.size()):
+                s_neighbors.append(np.argwhere(self._dist_mat[i] <= rips_radius)[:, 0])
+        else:
+            raise ValueError("Metric given is not supported.")
+
+
+        edges = []
+        entries = []
+        for i in range(self.size()):
+            for j in s_neighbors[i]:
+                if j > i:
+                    edges.append([i, j])
+                    entries.append(max(k_births[i], k_births[j]))
+        matrix_entries = np.array(entries)
+        edges = np.array(edges, dtype=int)
+        if len(edges) > 0:
+            graph = csr_matrix(
+                (matrix_entries, (edges[:, 0], edges[:, 1])), (self.size(), self.size())
+            )
+
+            mst = sparse_matrix_minimum_spanning_tree(graph)
+            Is, Js = mst.nonzero()
+            # we now undo the shift
+            vals = np.array(mst[Is, Js])[0] - shift
+            sort_indices = np.argsort(vals)
+            Is = Is[sort_indices]
+            Js = Js[sort_indices]
+            vals = vals[sort_indices]
+            merges = np.zeros((vals.shape[0], 2), dtype=int)
+            merges[:, 0] = Is
+            merges[:, 1] = Js
+            merges_heights = vals
+        else:
+            merges = np.array([], dtype=int)
+            merges_heights = np.array([])
+
+        # undo the shift
+        core_scales = k_births - shift
+
+        return _HierarchicalClustering(
+            core_scales, merges, merges_heights, -np.inf, np.inf
+        )
 
     def propagate_labels(self, labels, n_iterations, n_neighbors):
         old_labels = labels
@@ -912,8 +918,66 @@ class _MetricProbabilitySpace:
                 break
         return new_labels
 
+    def size(self):
+        return self._size
+
+
+class _MetricProbabilitySpace:
+    """Implements a finite metric probability space that can compute its \
+       kernel density estimates """
+
+    _MAX_DIM_USE_BORUVKA = 60
+
+    def __init__(
+        self, X, metric, measure, n_neighbors, leaf_size=40, debug=False, threading=False, **kwargs
+    ):
+        # meta variables
+        self._threading = threading
+        self._debug = debug
+
+        # compute underlying metric space
+        self._mspace = _MetricSpace(X, metric, n_neighbors, leaf_size, debug=debug, threading=threading, **kwargs)
+
+        # default values before fitting
+        self._fitted_density_estimates = False
+        self._kernel_estimate = None
+        self._maxs = None
+        self._measure = None
+
+        self._fit(measure)
+
+    def _fit(self, measure):
+
+        # save measure
+        self._measure = measure
+
+        # fit density estimate
+        self._fitted_density_estimates = True
+        self._kernel_estimate = np.cumsum(self._measure[self._mspace._nn_indices], axis=1)
+
+        # set the max k for which we have enough neighbors
+        self._maxk = self._mspace._n_neighbors / self._mspace._size
+
+    def density_estimate(self, point_index, radius, max_density=1):
+        """ Given a list of point indices and a radius, return the (unnormalized) \
+            kernel density estimate at those points and at that radius """
+        density_estimates = []
+        out_of_range = False
+        for p in point_index:
+            if self._kernel_estimate[p, -1] < max_density:
+                out_of_range = True
+            neighbor_idx = np.searchsorted(self._mspace._nn_distance[p], radius, side="right")
+            density_estimates.append(self._kernel_estimate[p, neighbor_idx - 1])
+        if out_of_range:
+            warnings.warn("Don't have enough neighbors to properly compute core scale.")
+        return np.array(density_estimates)
+
+    def size(self):
+        return self._mspace.size()
+
 
 class _HierarchicalClustering:
+    """ Implements a covariant hierarchical clustering """
     def __init__(self, heights, merges, merges_heights, start, end):
         # assumes heights and merges_heights are between start and end
         self._merges = np.array(merges, dtype=int)
@@ -923,8 +987,9 @@ class _HierarchicalClustering:
         self._end = end
         # persistence_diagram_h0 will fail if it receives an empty array
         if self._merges.shape[0] == 0:
+            # we make the first (zeroth) element merge with itself as soon as it is born
             self._merges = np.array([[0, 0]], dtype=int)
-            self._merges_heights = np.array([self._end], dtype=float)
+            self._merges_heights = np.array([self._heights[0]], dtype=float)
 
     def snap_to_grid(self, grid):
         def _snap_array(grid, arr):
@@ -939,6 +1004,16 @@ class _HierarchicalClustering:
         self._merges_heights = _snap_array(grid, self._merges_heights)
         self._heights = _snap_array(grid, self._heights)
         self._start, self._end = _snap_array(grid, np.array([self._start, self._end]))
+
+    def clip(self, start, end):
+        assert start <= end
+
+        self._heights = np.minimum(self._heights, end)
+        self._heights = np.maximum(self._heights, start)
+        self._merges_heights = np.minimum(self._merges_heights, end)
+        self._merges_heights = np.maximum(self._merges_heights, start)
+        self._start = start
+        self._end = end
 
     def persistence_based_flattening(self, threshold):
         end = self._end
@@ -1054,10 +1129,10 @@ class _HierarchicalClustering:
         return res
 
     def persistence_diagram(self, reduced=False, tol=_TOL):
-        # need to cast explicitly to int64 for windows compatibility
         pd = persistence_diagram_h0(
             self._end,
             self._heights,
+            # need to cast explicitly to int64 for windows compatibility
             np.array(self._merges, dtype=np.int64),
             self._merges_heights,
         )
