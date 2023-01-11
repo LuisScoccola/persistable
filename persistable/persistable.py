@@ -135,15 +135,19 @@ class Persistable:
 
         # construct the filtration
         self._mpspace = _MetricProbabilitySpace(
-            X, metric, measure, self._n_neighbors, leaf_size, debug=debug, threading=threading, **kwargs
+            X, metric, measure, self._n_neighbors, leaf_size, **kwargs
         )
 
-        self._bifiltration = _RipsBifiltration(self._mpspace)
+        self._bifiltration = _RipsBifiltration(
+            self._mpspace,
+            debug=debug,
+            threading=threading,
+        )
 
     def quick_cluster(
         self,
         n_neighbors: int = 30,
-        n_clusters_range=[3, 15],
+        n_clusters_range=np.array([3, 15]),
         propagate_labels=False,
         n_iterations_propagate_labels=30,
         n_neighbors_propagate_labels=5,
@@ -281,7 +285,7 @@ class Persistable:
             threshold = (spers[-n_clusters] + spers[-(n_clusters + 1)]) / 2
         cl = hc.persistence_based_flattening(threshold)
         if propagate_labels:
-            cl = self._mpspace._mspace.propagate_labels(
+            cl = self._mpspace.propagate_labels(
                 cl, n_iterations_propagate_labels, n_neighbors_propagate_labels
             )
         return cl
@@ -296,10 +300,11 @@ class Persistable:
         max_k,
         min_k,
         granularity,
+        reduced=False,
         n_jobs=1,
     ):
         return self._bifiltration.hilbert_function_on_regular_grid(
-            min_s, max_s, max_k, min_k, granularity, n_jobs=n_jobs
+            min_s, max_s, max_k, min_k, granularity, reduced=reduced, n_jobs=n_jobs
         )
 
     def _rank_invariant(
@@ -318,13 +323,16 @@ class Persistable:
 
 
 class _RipsBifiltration:
-
-    def __init__(
-        self, mpspace
-    ):
+    def __init__(self, mpspace, debug=False, threading=False):
+        self._debug = debug
+        self._threading = threading
         self._mpspace = mpspace
 
     def _core_distance(self, point_index, s_intercept, k_intercept, max_k=None):
+
+        kernel_estimate = self._mpspace.kernel_estimate()
+        nn_distance = self._mpspace.nn_distance()
+
         max_k = k_intercept if max_k is None else max_k
         if s_intercept != np.inf:
             i_indices_and_finished_at_last_index = []
@@ -334,14 +342,14 @@ class _RipsBifiltration:
             for p in point_index:
                 i_indices_and_finished_at_last_index.append(
                     lazy_intersection(
-                        self._mpspace._kernel_estimate[p],
-                        self._mpspace._mspace._nn_distance[p],
+                        kernel_estimate[p],
+                        nn_distance[p],
                         s_intercept,
                         k_intercept,
                     )
                 )
                 max_k_larger_last_kernel_estimate.append(
-                    (self._mpspace._kernel_estimate[p, -1] < max_k)
+                    (kernel_estimate[p, -1] < max_k)
                 )
             max_k_larger_last_kernel_estimate = np.array(
                 max_k_larger_last_kernel_estimate
@@ -362,19 +370,20 @@ class _RipsBifiltration:
                 warnings.warn(
                     "Don't have enough neighbors to properly compute core scale, or point takes too long to appear."
                 )
-            op = lambda p, i: np.where(
-                k_to_s(self._mpspace._kernel_estimate[p, i - 1]) <= self._mpspace._mspace._nn_distance[p, i],
-                k_to_s(self._mpspace._kernel_estimate[p, i - 1]),
-                self._mpspace._mspace._nn_distance[p, i],
-            )
+
+            def op(p, i):
+                return np.where(
+                    k_to_s(kernel_estimate[p, i - 1]) <= nn_distance[p, i],
+                    k_to_s(kernel_estimate[p, i - 1]),
+                    nn_distance[p, i],
+                )
+
             return np.where(i_indices == 0, 0, op(point_index, i_indices))
         else:
             i_indices = []
             for p in point_index:
-                idx = np.searchsorted(
-                    self._mpspace._kernel_estimate[p], k_intercept, side="left"
-                )
-                if idx == self._mpspace._mspace._nn_distance[p].shape[0]:
+                idx = np.searchsorted(kernel_estimate[p], k_intercept, side="left")
+                if idx == nn_distance[p].shape[0]:
                     idx -= 1
                 i_indices.append(idx)
             i_indices = np.array(i_indices)
@@ -397,18 +406,20 @@ class _RipsBifiltration:
             #        warnings.warn(
             #            "Don't have enough neighbors to properly compute core scale."
             #        )
-            return self._mpspace._mspace._nn_distance[(point_index, i_indices)]
+            return nn_distance[(point_index, i_indices)]
 
     def find_end(self, tolerance=1e-4, fast=False):
+        maxk = self._mpspace.max_fitted_density()
+
         if fast:
             default_percentile = 0.95
-            return self.connection_radius(default_percentile) * 4, self._mpspace._maxk
+            return self.connection_radius(default_percentile) * 4, maxk
 
         def pers_diag(k):
             return self.lambda_linkage([0, k], [np.infty, k]).persistence_diagram()
 
         lower_bound = 0
-        upper_bound = self._mpspace._maxk
+        upper_bound = maxk
 
         i = 0
         while True:
@@ -425,13 +436,13 @@ class _RipsBifiltration:
                 )
             # persistence diagram has more than one class
             elif pd.shape[0] > 1:
-                lower_bound, upper_bound = current_k, upper_bound
-                if np.abs(current_k - self._mpspace._maxk) < _TOL:
+                lower_bound = current_k
+                if np.abs(current_k - maxk) < _TOL:
                     pd = pers_diag(lower_bound)
                     return [np.max(pd[pd[:, 1] != np.infty][:, 1]), current_k]
             # persistence diagram has exactly one class
             else:
-                lower_bound, upper_bound = lower_bound, current_k
+                upper_bound = current_k
 
             if np.abs(lower_bound - upper_bound) < tolerance:
                 pd = pers_diag(lower_bound)
@@ -439,20 +450,26 @@ class _RipsBifiltration:
 
     def connection_radius(self, percentiles=1):
         hc = self.lambda_linkage([0, 0], [np.infty, 0])
-        return np.quantile(hc._merges_heights, percentiles)
+        return np.quantile(hc.merges_heights(), percentiles)
 
     def _lambda_linkage_vertical(self, s_intercept, k_start, k_end):
         if k_end > k_start:
             raise ValueError("Parameters do not give a monotonic line.")
 
         indices = np.arange(self._mpspace.size())
-        k_births = self._mpspace.density_estimate(indices, s_intercept, max_density=k_start)
+        k_births = self._mpspace.density_estimate(
+            indices, s_intercept, max_density=k_start
+        )
         # clip
         k_births = np.maximum(k_end, np.minimum(k_start, k_births))
         # make it covariant
         k_births = k_start - k_births
 
-        res_hierarchical_clustering = self._mpspace._mspace.hierarchical_clustering_filtered_rips_graph(k_births, s_intercept)
+        res_hierarchical_clustering = (
+            self._mpspace.hierarchical_clustering_filtered_rips_graph(
+                k_births, s_intercept
+            )
+        )
 
         hc_start = 0
         hc_end = k_start - k_end
@@ -481,7 +498,7 @@ class _RipsBifiltration:
         core_distances = np.minimum(hc_end, core_distances)
         core_distances = np.maximum(hc_start, core_distances)
 
-        single_linkage_hc = self._mpspace._mspace.generalized_single_linkage(core_distances)
+        single_linkage_hc = self._mpspace.generalized_single_linkage(core_distances)
 
         single_linkage_hc.clip(hc_start, hc_end)
 
@@ -508,8 +525,8 @@ class _RipsBifiltration:
             run_in_parallel,
             startends,
             n_jobs,
-            debug=self._mpspace._debug,
-            threading=self._mpspace._threading,
+            debug=self._debug,
+            threading=self._threading,
         )
 
     def linear_vineyard(
@@ -562,8 +579,8 @@ class _RipsBifiltration:
             run_in_parallel,
             startends,
             n_jobs,
-            debug=self._mpspace._debug,
-            threading=self._mpspace._threading,
+            debug=self._debug,
+            threading=self._threading,
         )
         hcs_horizontal = hcs[:n_k]
         for hc in hcs_horizontal:
@@ -625,8 +642,8 @@ class _RipsBifiltration:
             _pd_spliced_hc,
             indices,
             n_jobs,
-            debug=self._mpspace._debug,
-            threading=self._mpspace._threading,
+            debug=self._debug,
+            threading=self._threading,
         )
         pds = [[indices[i][0], indices[i][1], pds[i]] for i in range(len(indices))]
 
@@ -642,7 +659,7 @@ class _RipsBifiltration:
                         for j in range(s_index, d):
                             ri[i, k_index, s_index, j - s_index + k_index] += 1
 
-        ri = ri[:-1,:,:,:][:,:-1,:,:][:,:,:-1,:][:,:,:,:-1]
+        ri = ri[:-1, :, :, :][:, :-1, :, :][:, :, :-1, :][:, :, :, :-1]
         return ri
 
     def rank_invariant_on_regular_grid(
@@ -652,8 +669,8 @@ class _RipsBifiltration:
             raise ValueError("min_k must be smaller than max_k.")
         if min_s >= max_s:
             raise ValueError("min_s must be smaller than max_s.")
-        if max_k > self._mpspace._maxk:
-            max_k = min(max_k, self._mpspace._maxk)
+        if max_k > self._mpspace.max_fitted_density():
+            max_k = min(max_k, self._mpspace.max_fitted_density())
             warnings.warn(
                 "Not enough neighbors to compute chosen max density threshold, using "
                 + str(max_k)
@@ -703,8 +720,8 @@ class _RipsBifiltration:
             raise ValueError("min_k must be smaller than max_k.")
         if min_s >= max_s:
             raise ValueError("min_s must be smaller than max_s.")
-        if max_k > self._mpspace._maxk:
-            max_k = min(max_k, self._mpspace._maxk)
+        if max_k > self._mpspace.max_fitted_density():
+            max_k = min(max_k, self._mpspace.max_fitted_density())
             warnings.warn(
                 "Not enough neighbors to compute chosen max density threshold, using "
                 + str(max_k)
@@ -718,7 +735,7 @@ class _RipsBifiltration:
 
         ss = np.linspace(min_s, max_s, granularity)
         ks = np.linspace(min_k, max_k, granularity)[::-1]
-        hf = self._hilbert_function(ss, ks, n_jobs=n_jobs)
+        hf = self._hilbert_function(ss, ks, reduced=reduced, n_jobs=n_jobs)
         return ss, ks, hf, signed_betti(hf)
 
 
@@ -726,13 +743,7 @@ class _MetricSpace:
 
     _MAX_DIM_USE_BORUVKA = 60
 
-    def __init__(
-        self, X, metric, n_neighbors, leaf_size=40, debug=False, threading=False, **kwargs
-    ):
-        # meta variables
-        self._threading = threading
-        self._debug = debug
-
+    def __init__(self, X, metric, leaf_size=40, **kwargs):
         # save extra arguments for metric
         self._kwargs = kwargs
 
@@ -741,6 +752,7 @@ class _MetricSpace:
         self._nn_distance = None
         self._nn_indices = None
         self._n_neighbors = None
+        self._maxs = None
         self._size = None
         self._dimension = None
         self._points = None
@@ -748,7 +760,6 @@ class _MetricSpace:
         self._dist_mat = None
 
         self._fit_metric(X, metric, leaf_size, **kwargs)
-        self._fit_nn(n_neighbors)
 
     def _fit_metric(self, X, metric, leaf_size, **kwargs):
 
@@ -795,9 +806,10 @@ class _MetricSpace:
             _nn_distance = self._dist_mat[
                 np.arange(len(self._dist_mat)), neighbors.transpose()
             ].transpose()
+        self._fitted_nn = True
+
         self._nn_indices = np.array(neighbors, dtype=np.int_)
         self._nn_distance = np.array(_nn_distance)
-        self._fitted_nn = True
 
     def generalized_single_linkage(self, core_distances):
         if self._metric in KDTree.valid_metrics:
@@ -860,7 +872,6 @@ class _MetricSpace:
         else:
             raise ValueError("Metric given is not supported.")
 
-
         edges = []
         entries = []
         for i in range(self.size()):
@@ -922,27 +933,23 @@ class _MetricSpace:
         return self._size
 
 
-class _MetricProbabilitySpace:
+class _MetricProbabilitySpace(_MetricSpace):
     """Implements a finite metric probability space that can compute its \
        kernel density estimates """
 
     _MAX_DIM_USE_BORUVKA = 60
 
-    def __init__(
-        self, X, metric, measure, n_neighbors, leaf_size=40, debug=False, threading=False, **kwargs
-    ):
-        # meta variables
-        self._threading = threading
-        self._debug = debug
+    def __init__(self, X, metric, measure, n_neighbors, leaf_size=40, **kwargs):
+        _MetricSpace.__init__(self, X, metric, leaf_size, **kwargs)
 
-        # compute underlying metric space
-        self._mspace = _MetricSpace(X, metric, n_neighbors, leaf_size, debug=debug, threading=threading, **kwargs)
+        # fit metric space nearest neighbors
+        self._fit_nn(n_neighbors)
 
         # default values before fitting
         self._fitted_density_estimates = False
         self._kernel_estimate = None
-        self._maxs = None
         self._measure = None
+        self._maxk = None
 
         self._fit(measure)
 
@@ -953,10 +960,10 @@ class _MetricProbabilitySpace:
 
         # fit density estimate
         self._fitted_density_estimates = True
-        self._kernel_estimate = np.cumsum(self._measure[self._mspace._nn_indices], axis=1)
+        self._kernel_estimate = np.cumsum(self._measure[self._nn_indices], axis=1)
 
         # set the max k for which we have enough neighbors
-        self._maxk = self._mspace._n_neighbors / self._mspace._size
+        self._maxk = self._n_neighbors / self._size
 
     def density_estimate(self, point_index, radius, max_density=1):
         """ Given a list of point indices and a radius, return the (unnormalized) \
@@ -966,18 +973,25 @@ class _MetricProbabilitySpace:
         for p in point_index:
             if self._kernel_estimate[p, -1] < max_density:
                 out_of_range = True
-            neighbor_idx = np.searchsorted(self._mspace._nn_distance[p], radius, side="right")
+            neighbor_idx = np.searchsorted(self._nn_distance[p], radius, side="right")
             density_estimates.append(self._kernel_estimate[p, neighbor_idx - 1])
         if out_of_range:
             warnings.warn("Don't have enough neighbors to properly compute core scale.")
         return np.array(density_estimates)
 
-    def size(self):
-        return self._mspace.size()
+    def kernel_estimate(self):
+        return self._kernel_estimate
+
+    def nn_distance(self):
+        return self._nn_distance
+
+    def max_fitted_density(self):
+        return self._maxk
 
 
 class _HierarchicalClustering:
-    """ Implements a covariant hierarchical clustering """
+    """Implements a covariant hierarchical clustering"""
+
     def __init__(self, heights, merges, merges_heights, start, end):
         # assumes heights and merges_heights are between start and end
         self._merges = np.array(merges, dtype=int)
@@ -990,6 +1004,9 @@ class _HierarchicalClustering:
             # we make the first (zeroth) element merge with itself as soon as it is born
             self._merges = np.array([[0, 0]], dtype=int)
             self._merges_heights = np.array([self._heights[0]], dtype=float)
+
+    def merges_heights(self):
+        return self._merges_heights
 
     def snap_to_grid(self, grid):
         def _snap_array(grid, arr):
