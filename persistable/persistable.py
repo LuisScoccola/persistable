@@ -1036,8 +1036,6 @@ class _MetricProbabilitySpace(_MetricSpace):
     """Implements a finite metric probability space that can compute its \
        kernel density estimates """
 
-    _MAX_DIM_USE_BORUVKA = 60
-
     def __init__(self, X, metric, measure, n_neighbors, leaf_size=40, **kwargs):
         _MetricSpace.__init__(self, X, metric, leaf_size, **kwargs)
 
