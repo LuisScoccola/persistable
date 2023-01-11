@@ -180,7 +180,7 @@ class Persistable:
             X, metric, measure, n_neighbors, leaf_size, **kwargs
         )
 
-        self._bifiltration = _RipsBifiltration(
+        self._bifiltration = _DegreeRipsBifiltration(
             self._mpspace,
             debug=debug,
             threading=threading,
@@ -371,7 +371,7 @@ class Persistable:
         )
 
 
-class _RipsBifiltration:
+class _DegreeRipsBifiltration:
     def __init__(self, mpspace, debug=False, threading=False):
         self._debug = debug
         self._threading = threading
@@ -481,7 +481,7 @@ class _RipsBifiltration:
             #    raise Exception("End not found! Try setting auto_find_end_hierachical_clustering to False.")
             if pd.shape[0] == 0:
                 raise Exception(
-                    "Empty persistence diagram found when trying to find end of metric measure space."
+                    "Empty persistence diagram found when trying to find end of bifiltration."
                 )
             # persistence diagram has more than one class
             elif pd.shape[0] > 1:
@@ -1024,6 +1024,12 @@ class _MetricSpace:
 # examples of persistent metric spaces are the kernel filtration induced by a
 # metric probability space, as well as a metric space together with a function
 # class _PersistentMetricSpace:
+
+
+class _FilteredMetricSpace(_MetricSpace):
+    def __init__(self, X, metric, filter_function, leaf_size=40, **kwargs):
+        _MetricSpace.__init__(self, X, metric, leaf_size, **kwargs)
+        self._filter_function = filter_function
 
 
 class _MetricProbabilitySpace(_MetricSpace):

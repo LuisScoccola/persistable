@@ -12,7 +12,7 @@ from sklearn.datasets import make_blobs
 import numpy as np
 
 
-class TestRipsBifiltration(unittest.TestCase):
+class TestDegreeRipsBifiltration(unittest.TestCase):
     def setUp(self):
         np.random.seed(0)
         self._n = 25
