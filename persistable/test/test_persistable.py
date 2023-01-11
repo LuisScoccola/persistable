@@ -3,11 +3,12 @@
 
 import unittest
 from persistable import Persistable
-from persistable.persistable import _HierarchicalClustering
+from persistable.persistable import _HierarchicalClustering, _MetricSpace
 from persistable.signed_betti_numbers import signed_betti
 from scipy.spatial import distance_matrix
 from scipy.spatial.distance import cdist
 from sklearn import datasets
+from sklearn.datasets import make_blobs
 import numpy as np
 
 
@@ -348,6 +349,21 @@ class TestRipsBifiltration(unittest.TestCase):
                             2 if i < 2 and j < 2 and i_ < 2 and j_ < 2 else 1
                         )
         np.testing.assert_almost_equal(ri, res)
+
+
+class TestMetricSpace(unittest.TestCase):
+    def test_subsampling(self):
+        """ Check that subsampling with fast metric produces the same \
+            subsample as subsampling with distance matrix """
+    X = make_blobs(n_samples=1000, n_features=2, centers=3, random_state=6, cluster_std=1.5)[0]
+    dm = distance_matrix(X, X, p=2)
+    ms = _MetricSpace(dm, "precomputed")
+    Y, radii = ms.close_subsample(100, seed=0)
+
+    ms2 = _MetricSpace(X, metric="minkowski")
+    Y2, radii2 = ms2.close_subsample(100, seed=0)
+
+    np.testing.assert_array_equal(Y,Y2)
 
 
 class TestHierarchicalClustering(unittest.TestCase):

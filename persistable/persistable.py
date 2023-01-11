@@ -10,7 +10,7 @@ from .borrowed.prim_mst import mst_linkage_core_vector
 from .borrowed.dense_mst import stepwise_dendrogram_with_core_distances
 from .borrowed.dist_metrics import DistanceMetric
 from .auxiliary import lazy_intersection
-from .subsampling import close_subsample_fast_metric
+from .subsampling import close_subsample_fast_metric, close_subsample_distance_matrix
 from .persistence_diagram_h0 import persistence_diagram_h0
 from .signed_betti_numbers import (
     signed_betti,
@@ -945,12 +945,23 @@ class _MetricSpace:
         """ Returns the indices of a subsample of the given size that is close \
             in the Hausdorff distance """
         
-        random_start = 0
-        X = self._points
-        if not X.flags["C_CONTIGUOUS"]:
-            X = np.array(X, dtype=np.double, order="C")
+        np.random.seed(seed)
+        random_start = np.random.randint(0,self.size())
+        print(random_start)
 
-        return close_subsample_fast_metric(subsample_size, X, self._dist_metric, random_start=random_start)
+        if self._metric in KDTree.valid_metrics + BallTree.valid_metrics:
+            X = self._points
+            if not X.flags["C_CONTIGUOUS"]:
+                X = np.array(X, dtype=np.double, order="C")
+            return close_subsample_fast_metric(subsample_size, X, self._dist_metric, random_start=random_start)
+        elif self._metric == "precomputed":
+            dist_mat = self._dist_mat
+            if not dist_mat.flags["C_CONTIGUOUS"]:
+                dist_mat = np.array(dist_mat, dtype=np.double, order="C")
+            return close_subsample_distance_matrix(subsample_size, dist_mat, random_start=random_start)
+        else:
+            raise ValueError("Metric given is not supported.")
+
 
         #dist_to_all = lambda i : self.distance(i, range(self.size()) )
 
