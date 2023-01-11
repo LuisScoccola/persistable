@@ -998,7 +998,7 @@ class _HierarchicalClustering:
             res[arr <= grid[0]] = 0
             for i in range(len(grid) - 1):
                 res[(arr <= grid[i + 1]) & (arr > grid[i])] = i + 1
-            res[arr > grid[-1]] = len(grid)
+            res[arr > grid[-1]] = len(grid) - 1
             return res
 
         self._merges_heights = _snap_array(grid, self._merges_heights)
