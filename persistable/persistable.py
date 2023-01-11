@@ -10,6 +10,7 @@ from .borrowed.prim_mst import mst_linkage_core_vector
 from .borrowed.dense_mst import stepwise_dendrogram_with_core_distances
 from .borrowed.dist_metrics import DistanceMetric
 from .auxiliary import lazy_intersection
+from .subsampling import close_subsample_fast_metric
 from .persistence_diagram_h0 import persistence_diagram_h0
 from .signed_betti_numbers import (
     signed_betti,
@@ -758,11 +759,11 @@ class _MetricSpace:
         self._points = None
         self._tree = None
         self._dist_mat = None
+        self._dist_metric = None
 
         self._fit_metric(X, metric, leaf_size, **kwargs)
 
     def _fit_metric(self, X, metric, leaf_size, **kwargs):
-
         # save point cloud
         self._size = X.shape[0]
         self._dimension = X.shape[1]
@@ -774,12 +775,16 @@ class _MetricSpace:
         # save metric and spatial tree
         self._metric = metric
         self._leaf_size = leaf_size
-        if metric in KDTree.valid_metrics:
-            self._tree = KDTree(X, metric=metric, leaf_size=self._leaf_size, **kwargs)
-        elif metric in BallTree.valid_metrics:
-            self._tree = BallTree(X, metric=metric, leaf_size=self._leaf_size, **kwargs)
+        if metric in KDTree.valid_metrics + BallTree.valid_metrics:
+            if metric in KDTree.valid_metrics:
+                self._tree = KDTree(X, metric=metric, leaf_size=self._leaf_size, **kwargs)
+            elif metric in BallTree.valid_metrics:
+                self._tree = BallTree(X, metric=metric, leaf_size=self._leaf_size, **kwargs)
+
+            self._dist_metric = DistanceMetric.get_metric(self._metric, **self._kwargs)
         elif metric == "precomputed":
             self._dist_mat = np.array(X)
+            self._dist_metric = self._dist_mat
         else:
             raise ValueError("Metric given is not supported.")
 
@@ -811,14 +816,22 @@ class _MetricSpace:
         self._nn_indices = np.array(neighbors, dtype=np.int_)
         self._nn_distance = np.array(_nn_distance)
 
+    ####def distance(self, i,j):
+    ####    if self._metric in KDTree.valid_metrics + BallTree.valid_metrics:
+    ####        return self._dist_metric.dist(self._points[i], self._points[j], self._dimension)
+    ####    else:
+    ####        return self._dist_mat[i,j]
+
+    def size(self):
+        return self._size
+
     def generalized_single_linkage(self, core_distances):
         if self._metric in KDTree.valid_metrics:
             if self._dimension > self._MAX_DIM_USE_BORUVKA:
                 X = self._points
                 if not X.flags["C_CONTIGUOUS"]:
                     X = np.array(X, dtype=np.double, order="C")
-                dist_metric = DistanceMetric.get_metric(self._metric, **self._kwargs)
-                sl = mst_linkage_core_vector(X, core_distances, dist_metric)
+                sl = mst_linkage_core_vector(X, core_distances, self._dist_metric)
             else:
                 sl = KDTreeBoruvkaAlgorithm(
                     self._tree,
@@ -833,8 +846,7 @@ class _MetricSpace:
                 X = self._points
                 if not X.flags["C_CONTIGUOUS"]:
                     X = np.array(X, dtype=np.double, order="C")
-                dist_metric = DistanceMetric.get_metric(self._metric, **self._kwargs)
-                sl = mst_linkage_core_vector(X, core_distances, dist_metric)
+                sl = mst_linkage_core_vector(X, core_distances, self._dist_metric)
             else:
                 sl = BallTreeBoruvkaAlgorithm(
                     self._tree,
@@ -929,8 +941,35 @@ class _MetricSpace:
                 break
         return new_labels
 
-    def size(self):
-        return self._size
+    def close_subsample(self, subsample_size, seed=0):
+        """ Returns the indices of a subsample of the given size that is close \
+            in the Hausdorff distance """
+        
+        random_start = 0
+        X = self._points
+        if not X.flags["C_CONTIGUOUS"]:
+            X = np.array(X, dtype=np.double, order="C")
+
+        return close_subsample_fast_metric(subsample_size, X, self._dist_metric, random_start=random_start)
+
+        #dist_to_all = lambda i : self.distance(i, range(self.size()) )
+
+        #idx_perm = np.zeros(subsample_size, dtype=np.int64)
+        #lambdas = np.zeros(subsample_size)
+
+        ## TODO: do random
+        #ds = dist_to_all(0)
+
+        #dperm2all = [ds]
+        #for i in range(1, subsample_size):
+        #    idx = np.argmax(ds)
+        #    idx_perm[i] = idx
+        #    lambdas[i - 1] = ds[idx]
+        #    dperm2all.append(dist_to_all(idx))
+        #    ds = np.minimum(ds, dperm2all[-1])
+        #lambdas[-1] = np.max(ds)
+        #dperm2all = np.array(dperm2all)
+        #return (idx_perm, lambdas, dperm2all)
 
 
 # TODO:
