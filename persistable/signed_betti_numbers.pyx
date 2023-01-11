@@ -3,6 +3,9 @@
 # cython: wraparound=False
 # cython: initializedcheck=False
 
+# Authors: Luis Scoccola
+# License: 3-clause BSD
+
 import itertools
 cimport numpy as np
 import numpy as np
