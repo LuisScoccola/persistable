@@ -70,19 +70,6 @@ class TestDegreeRipsBifiltration(unittest.TestCase):
         res = np.array([1, 1, 1, 2])
         np.testing.assert_almost_equal(bf._core_distance(np.arange(n), s0, k0), res)
 
-    #def test_core_distances_nonuniform_measure(self):
-    #    """ Check that the _core_distance method returns the correct answer \
-    #        when the measure is not uniform """
-    #    n = 4
-    #    X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
-    #    p = Persistable(X)
-    #    mps = p._mpspace
-
-    #    s0 = 2
-    #    k0 = 0.5
-    #    res = np.array([1, 1, 1, 1])
-    #    np.testing.assert_almost_equal(mps._core_distance(np.arange(n), s0, k0), res)
-
     def test_same_core_distances(self):
         """ Check that the _core_distance method returns the same answer \
             when using a precomputed distance and a Minkowski distance """
@@ -229,8 +216,6 @@ class TestDegreeRipsBifiltration(unittest.TestCase):
         np.testing.assert_almost_equal(ss, np.array(res_ss))
         np.testing.assert_almost_equal(ks, np.array(res_ks))
         np.testing.assert_almost_equal(hs, res)
-
-
 
     def test_vertical_slice(self):
         """ Check that the persistence diagram of lambda_linkage is correct \
