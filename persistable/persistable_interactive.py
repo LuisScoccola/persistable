@@ -173,6 +173,17 @@ class PersistableInteractive:
 
         background_callback_manager = DiskcacheManager()
 
+        def suppress_warnings(app):
+            import logging
+            app.logger.setLevel(logging.WARNING)
+            logging.getLogger("werkzeug").setLevel(logging.ERROR)
+            def secho(text, file=None, nl=None, err=None, color=None, **styles):
+                pass
+            def echo(text, file=None, nl=None, err=None, color=None, **styles):
+                pass
+            click.echo = echo
+            click.secho = secho
+
         if inline == True:
 
             self._app = JupyterDash(
@@ -183,9 +194,9 @@ class PersistableInteractive:
             self._layout_gui()
             self._register_callbacks(self._persistable, self._debug)
 
-            #import logging
-            #self._app.logger.setLevel(logging.WARNING)
-            #logging.getLogger("werkzeug").setLevel(logging.ERROR)
+            if not debug:
+                suppress_warnings(self._app)
+
             self._app.run_server(port=port, mode="inline", debug=debug)
         else:
             self._app = dash.Dash(
@@ -196,19 +207,12 @@ class PersistableInteractive:
             self._layout_gui()
             self._register_callbacks(self._persistable, self._debug)
 
+            if not debug:
+                suppress_warnings(self._app)
+
             def run():
                 self._app.run_server(port=port, debug=debug, use_reloader=False)
 
-            if not debug:
-                import logging
-                self._app.logger.setLevel(logging.WARNING)
-                logging.getLogger("werkzeug").setLevel(logging.ERROR)
-                def secho(text, file=None, nl=None, err=None, color=None, **styles):
-                    pass
-                def echo(text, file=None, nl=None, err=None, color=None, **styles):
-                    pass
-                click.echo = echo
-                click.secho = secho
             self._thread = threading.Thread(target=run)
             self._thread.daemon = True
             self._thread.start()
