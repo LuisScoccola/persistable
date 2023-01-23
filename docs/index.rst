@@ -16,9 +16,8 @@ Installing
 Make sure you are using Python 3.
 Installation through PyPI is coming soon.
 
-```bash
-pip install git+https://github.com/LuisScoccola/persistable.git
-```
+.. code:: bash
+    pip install git+https://github.com/LuisScoccola/persistable.git
 
 Persistable depends on the following python packages:
 `numpy`, `scipy`, `scikit-learn`, `cython`, `plotly`, `dash`, `jupyter_dash`, `diskcache`, `multiprocess`, `psutil`.
