@@ -17,6 +17,7 @@ Make sure you are using Python 3.
 Installation through PyPI is coming soon.
 
 .. code-block::
+
     pip install git+https://github.com/LuisScoccola/persistable.git
 
 Persistable depends on the following python packages:
