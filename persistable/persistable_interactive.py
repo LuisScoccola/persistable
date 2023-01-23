@@ -183,9 +183,17 @@ class PersistableInteractive:
             self._layout_gui()
             self._register_callbacks(self._persistable, self._debug)
 
-            #import logging
-            #self._app.logger.setLevel(logging.WARNING)
-            #logging.getLogger("werkzeug").setLevel(logging.ERROR)
+            if not debug:
+                import logging
+                self._app.logger.setLevel(logging.WARNING)
+                logging.getLogger("werkzeug").setLevel(logging.ERROR)
+                def secho(text, file=None, nl=None, err=None, color=None, **styles):
+                    pass
+                def echo(text, file=None, nl=None, err=None, color=None, **styles):
+                    pass
+                click.echo = echo
+                click.secho = secho
+
             self._app.run_server(port=port, mode="inline", debug=debug)
         else:
             self._app = dash.Dash(
