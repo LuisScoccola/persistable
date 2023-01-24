@@ -78,6 +78,9 @@ Persistable depends on the following python packages:
 
 You can find the documentation at [persistable.readthedocs.io](https://persistable.readthedocs.io/).
 If you have further questions, please [open an issue](https://github.com/LuisScoccola/persistable/issues/new) and we will do our best to help you.
+Please include as much information as possible, including your system's information, warnings, logs, screenshots, and anything else you think may be of use.
+If you do not wish to open an issue, you are also welcome to contact [Luis Scoccola](https://luisscoccola.github.io/) directly.
+Please be patient if it takes us a bit to get back to you.
 
 
 ## Experimental features
@@ -93,7 +96,7 @@ pip install git+https://github.com/LuisScoccola/persistable.git@experimental
 ## Running the tests
 
 You can run the tests by running the following commands from the root directory of a clone of this repository.
-If a test fails, please [report a bug](https://github.com/LuisScoccola/persistable/issues/new).
+If a test fails, please [report a bug](https://github.com/LuisScoccola/persistable/issues/new), trying to include as much information as possible, including your system's information, warnings, logs, screenshots, and anything else you think may be of use.
 
 ```bash
 pip install pytest playwright pytest-playwright
