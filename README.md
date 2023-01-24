@@ -75,6 +75,9 @@ Installation through PyPI is coming soon.
 pip install git+https://github.com/LuisScoccola/persistable.git
 ```
 
+Persistable depends on the following python packages:
+`numpy`, `scipy`, `scikit-learn`, `cython`, `plotly`, `dash`, `jupyter_dash`, `diskcache`, `multiprocess`, `psutil`.
+
 ## Experimental features
 
 Check the `experimental` branch for more advanced features.
