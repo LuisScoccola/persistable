@@ -15,11 +15,6 @@ Persistable's interactive mode lets you visualize multi-scale and multi-density 
 This is used to guide the choice of parameters that lead to the final clustering.
 
 
-## Documentation
-
-You can find the documentation at [persistable.readthedocs.io](https://persistable.readthedocs.io/).
-
-
 ## Usage
 
 Here is a brief outline of the main functionality; see the [documentation](https://persistable.readthedocs.io/) for details, including the [API reference](https://persistable.readthedocs.io/en/latest/api.html).
@@ -78,6 +73,16 @@ pip install git+https://github.com/LuisScoccola/persistable.git
 Persistable depends on the following python packages:
 `numpy`, `scipy`, `scikit-learn`, `cython`, `plotly`, `dash`, `jupyter_dash`, `diskcache`, `multiprocess`, `psutil`.
 
+
+## Documentation and support
+
+You can find the documentation at [persistable.readthedocs.io](https://persistable.readthedocs.io/).
+If you have further questions, please [open an issue](https://github.com/LuisScoccola/persistable/issues/new) and we will do our best to help you.
+Please include as much information as possible, including your system's information, warnings, logs, screenshots, and anything else you think may be of use.
+If you do not wish to open an issue, you are also welcome to contact [Luis Scoccola](https://luisscoccola.github.io/) directly.
+Please be patient if it takes us a bit to get back to you.
+
+
 ## Experimental features
 
 Check the `experimental` branch for more advanced features.
@@ -87,10 +92,11 @@ You can install from that branch by running
 pip install git+https://github.com/LuisScoccola/persistable.git@experimental
 ```
 
+
 ## Running the tests
 
 You can run the tests by running the following commands from the root directory of a clone of this repository.
-If a test fails, please [report a bug](https://github.com/LuisScoccola/persistable/issues).
+If a test fails, please [report a bug](https://github.com/LuisScoccola/persistable/issues/new), trying to include as much information as possible, including your system's information, warnings, logs, screenshots, and anything else you think may be of use.
 
 ```bash
 pip install pytest playwright pytest-playwright
@@ -144,4 +150,4 @@ You may want to contact [Luis Scoccola](https://luisscoccola.github.io/) first, 
 
 ## License
 
-The software is published under the 3-clause BSD license.
+This software is published under the 3-clause BSD license.
