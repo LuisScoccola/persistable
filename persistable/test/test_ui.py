@@ -56,7 +56,7 @@ def pv_parameter_selection_radio_on_locator(page):
 
 
 def pv_export_parameters_button_locator(page):
-    return page.locator("button#export-parameters-")
+    return page.locator("button#export-parameters-button-pv-")
 
 
 def pv_details_locator(page):
@@ -95,7 +95,7 @@ def pv_prominence_label_locator(page):
 
 
 def pv_parameter_selection_locator(page):
-    return page.locator("div#pv-plot-controls-div- div#parameter-selection-div-")
+    return page.locator("div#pv-plot-controls-div- div#parameter-selection-div-pv-")
 
 
 def test_app_title(page: Page):
