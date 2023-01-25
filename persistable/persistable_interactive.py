@@ -36,6 +36,10 @@ BaseLongCallbackManager.hash_function = monkeypatched_hash_function
 ###
 
 
+X_START_LINE = "x-start-line-"
+Y_START_LINE = "y-start-line-"
+X_END_LINE = "x-end-line-"
+Y_END_LINE = "y-end-line-"
 X_START_FIRST_LINE = "x-start-first-line-"
 Y_START_FIRST_LINE = "y-start-first-line-"
 X_END_FIRST_LINE = "x-end-first-line-"
@@ -84,6 +88,7 @@ CCF_DETAILS = "ccf-details-"
 CCF_EXTRAS = "ccf-extras-"
 PV_PANEL = "pv-panel-"
 PV_DETAILS = "pv-details-"
+PD_DETAILS = "pd-details-"
 PV_PLOT_CONTROLS_DIV = "pv-plot-controls-div-"
 PD_PANEL = "pd-panel-"
 LOG = "log-"
@@ -93,6 +98,8 @@ INPUT_MAX_VINES = "input-max-vines-"
 INPUT_PROM_VIN_SCALE = "input-prom-vin-scale-"
 COMPUTE_PV_BUTTON = "compute-pv-button-"
 STOP_COMPUTE_PV_BUTTON = "stop-compute-pv-button-"
+COMPUTE_PD_BUTTON = "compute-pd-button-"
+STOP_COMPUTE_PD_BUTTON = "stop-compute-pd-button-"
 PV_PLOT = "pv-plot-"
 PD_PLOT = "pd-plot-"
 STORED_PV_DRAWING = "stored-pv-drawing-"
@@ -921,6 +928,99 @@ class PersistableInteractive:
             ),
         )
 
+        pd_inputs = (
+            html.Details(
+                id=PD_DETAILS,
+                children=[
+                    html.Summary("Inputs"),
+                    html.Div(
+                        className="parameters",
+                        children=[
+                            html.Div(
+                                className="parameter-double",
+                                children=[
+                                    html.Span(
+                                        className="name",
+                                        children="Line start x/y",
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=X_START_LINE,
+                                        type="number",
+                                        value=default_x_start_first_line,
+                                        min=0,
+                                        # step=default_s_step,
+                                        debounce=True,
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=Y_START_LINE,
+                                        type="number",
+                                        value=default_y_start_first_line,
+                                        min=0,
+                                        # step=default_k_step,
+                                        debounce=True,
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="parameter-double",
+                                children=[
+                                    html.Span(
+                                        className="name",
+                                        children="Line end x/y",
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=X_END_LINE,
+                                        type="number",
+                                        value=default_x_end_first_line,
+                                        min=0,
+                                        # step=default_s_step,
+                                        debounce=True,
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=Y_END_LINE,
+                                        type="number",
+                                        value=default_y_end_first_line,
+                                        min=0,
+                                        # step=default_k_step,
+                                        debounce=True,
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
+
+        pd_buttons = (
+            html.Div(
+                className="parameters",
+                children=[
+                    html.Div(
+                        className="large-buttons",
+                        children=[
+                            html.Button(
+                                "Compute",
+                                id=COMPUTE_PD_BUTTON,
+                                className="button1",
+                            ),
+                            html.Button(
+                                "Stop computation",
+                                id=STOP_COMPUTE_PD_BUTTON,
+                                className="button2",
+                                disabled=True,
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
+
+
         self._app.layout = html.Div(
             className="root",
             children=[
@@ -1042,7 +1142,7 @@ class PersistableInteractive:
                                                 html.H2("Persistence Diagram"),
                                                 html.Div(
                                                     className="parameters",
-                                                    # children=pd_inputs + pd_buttons,
+                                                    children=pd_inputs + pd_buttons,
                                                 ),
                                             ]
                                         ),
