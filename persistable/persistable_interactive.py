@@ -939,7 +939,7 @@ class PersistableInteractive:
                                 type="number",
                                 value=1,
                                 min=1,
-                                debounce=True,
+                                debounce=False,
                             ),
                             html.Span(
                                 className="name",
