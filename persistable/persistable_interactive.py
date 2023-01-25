@@ -1876,9 +1876,7 @@ class PersistableInteractive:
                     )
                 )
 
-                saved = json.loads(
-                    d[STORED_PARAMETERS_AND_PD_BY_PD + DATA]
-                )
+                saved = json.loads(d[STORED_PARAMETERS_AND_PD_BY_PD + DATA])
                 if len(saved) != 0:
                     saved_params, saved_pd = saved
 
@@ -1888,7 +1886,9 @@ class PersistableInteractive:
                     if (
                         np.allclose(
                             np.array([st_x, st_y, end_x, end_y]),
-                            np.array([saved_st_x, saved_st_y, saved_end_x, saved_end_y]),
+                            np.array(
+                                [saved_st_x, saved_st_y, saved_end_x, saved_end_y]
+                            ),
                         )
                         and len(saved_pd) != 0
                     ):
@@ -1935,11 +1935,11 @@ class PersistableInteractive:
                             q_end = np.array([q_end_x, q_end_y])
                             r_st = q_st + (i + 1) * tau
                             r_end = q_end + (i + 1) * tau
-                            color = (
-                                "rgba(34, 139, 34, 1)"
-                            )
+                            color = "rgba(34, 139, 34, 1)"
                             fig.add_trace(
-                                _draw_bar([r_st[0], r_end[0]], [r_st[1], r_end[1]], color)
+                                _draw_bar(
+                                    [r_st[0], r_end[0]], [r_st[1], r_end[1]], color
+                                )
                             )
 
             params = json.loads(d[PV_FIXED_PARAMETERS + DATA])
@@ -2368,6 +2368,80 @@ class PersistableInteractive:
 
             if debug:
                 print("Compute pd in background finished.")
+
+            return d
+
+        @dash_callback(
+            [
+                [STORED_PARAMETERS_AND_PD_BY_PD, DATA, IN],
+                [PD_PLOT, FIGURE, ST],
+            ],
+            [[PD_PLOT, FIGURE]],
+            False,
+        )
+        def draw_pd(d):
+            saved = json.loads(d[STORED_PARAMETERS_AND_PD_BY_PD + DATA])
+            if len(saved) != 0:
+                saved_params, saved_pd = saved
+
+                if len(saved_pd) != 0:
+                    saved_pd = np.array(saved_pd)
+
+                    start = min(saved_pd[:, 0])
+                    end = max(saved_pd[:, 1])
+
+                    fig = go.Figure(
+                        layout=go.Layout(
+                            xaxis=go.layout.XAxis(
+                                title="Birth",
+                                showticklabels=False,
+                                fixedrange=True,
+                                range=[start, end],
+                            ),
+                            yaxis=go.layout.YAxis(
+                                title="Death",
+                                showticklabels=False,
+                                fixedrange=True,
+                                range=[start, end],
+                            ),
+                        ),
+                    )
+
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[start, end, end],
+                            y=[start, start, end],
+                            fill="toself",
+                            fillcolor="grey",
+                            hoverinfo="skip",
+                            mode="none"
+                        )
+                    )
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[start, start, end],
+                            y=[start, end, end],
+                            fill="toself",
+                            fillcolor="white",
+                            hoverinfo="skip",
+                            mode="none"
+                        )
+                    )
+
+                    marker_size = 10
+                    fig.add_trace(
+                        go.Scatter(
+                            x=saved_pd[:, 0],
+                            y=saved_pd[:, 1],
+                            mode="markers",
+                            hoverinfo="skip",
+                            marker=dict(size=marker_size, color="green"),
+                        )
+                    )
+                    fig.update_layout(autosize=True)
+                    fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
+
+                    d[PD_PLOT + FIGURE] = fig
 
             return d
 
