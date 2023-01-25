@@ -109,7 +109,7 @@ STORED_PV_DRAWING = "stored-pv-drawing-"
 INPUT_GRANULARITY_PV = "input-granularity-pv-"
 INPUT_NUM_JOBS_PV = "input-num-jobs-pv-"
 INPUT_LINE = "input-line-"
-INPUT_GAP = "gap-"
+PV_INPUT_GAP = "pv-input-gap-"
 EXPORT_PARAMETERS_BUTTON = "export-parameters-"
 PV_FIXED_PARAMETERS = "fixed-parameters-"
 STORED_PD_BY_PV = "stored-pd-by-pv-"
@@ -960,7 +960,7 @@ class PersistableInteractive:
                             ),
                             dcc.Input(
                                 className=VALUE,
-                                id=INPUT_GAP,
+                                id=PV_INPUT_GAP,
                                 type="number",
                                 value=1,
                                 min=1,
@@ -1576,7 +1576,7 @@ class PersistableInteractive:
                 [PV_FIXED_PARAMETERS, DATA, IN],
                 [STORED_PD_BY_PV, DATA, ST],
                 [STORED_PARAMETERS_AND_PD_BY_PD, DATA, IN],
-                [INPUT_GAP, VALUE, ST],
+                [PV_INPUT_GAP, VALUE, ST],
                 [INPUT_DISPLAY_RI, VALUE, IN],
                 [INPUT_Y_COVARIANT, VALUE, IN],
                 [STORED_BETTI, DATA, ST],
@@ -2010,7 +2010,7 @@ class PersistableInteractive:
                         r_end = q_end + (i + 1) * tau
                         color = (
                             "rgba(34, 139, 34, 1)"
-                            if i < d[INPUT_GAP + VALUE]
+                            if i < d[PV_INPUT_GAP + VALUE]
                             else "rgba(34, 139, 34, 0.3)"
                         )
                         fig.add_trace(
@@ -2390,27 +2390,39 @@ class PersistableInteractive:
                     start = min(saved_pd[:, 0])
                     end = max(saved_pd[:, 1])
 
+                    bit_more = 1/100
+                    x_range = [start - (end - start) * bit_more, end]
+                    y_range = [start, end + (end - start) * bit_more]
+                    corner_1_x = x_range[0]
+                    corner_1_y = y_range[0]
+                    corner_2_x = x_range[1]
+                    corner_2_y = y_range[0]
+                    corner_3_x = x_range[1]
+                    corner_3_y = y_range[1]
+                    corner_4_x = x_range[0]
+                    corner_4_y = y_range[1]
+
                     fig = go.Figure(
                         layout=go.Layout(
                             xaxis=go.layout.XAxis(
                                 title="Birth",
                                 showticklabels=False,
                                 fixedrange=True,
-                                range=[start, end],
+                                range=x_range,
                             ),
                             yaxis=go.layout.YAxis(
                                 title="Death",
                                 showticklabels=False,
                                 fixedrange=True,
-                                range=[start, end],
+                                range=y_range,
                             ),
                         ),
                     )
 
                     fig.add_trace(
                         go.Scatter(
-                            x=[start, end, end],
-                            y=[start, start, end],
+                            x=[corner_1_x, corner_2_x, corner_3_x],
+                            y=[corner_1_y, corner_2_y, corner_3_y],
                             fill="toself",
                             fillcolor="grey",
                             hoverinfo="skip",
@@ -2419,8 +2431,8 @@ class PersistableInteractive:
                     )
                     fig.add_trace(
                         go.Scatter(
-                            x=[start, start, end],
-                            y=[start, end, end],
+                            x=[corner_1_x, corner_4_x, corner_3_x],
+                            y=[corner_1_y, corner_4_y, corner_3_y],
                             fill="toself",
                             fillcolor="white",
                             hoverinfo="skip",
@@ -2438,6 +2450,7 @@ class PersistableInteractive:
                             marker=dict(size=marker_size, color="green"),
                         )
                     )
+                    fig.update_layout(showlegend=False)
                     fig.update_layout(autosize=True)
                     fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
 
@@ -2452,7 +2465,7 @@ class PersistableInteractive:
                 [INPUT_PROM_VIN_SCALE, VALUE, IN],
                 [DISPLAY_PARAMETER_SELECTION, VALUE, IN],
                 [INPUT_LINE, VALUE, IN],
-                [INPUT_GAP, VALUE, IN],
+                [PV_INPUT_GAP, VALUE, IN],
             ],
             [[STORED_PV_DRAWING, DATA]],
             False,
@@ -2497,7 +2510,7 @@ class PersistableInteractive:
                     color = colors[i]
                     if (
                         d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On"
-                        and i + 1 == d[INPUT_GAP + VALUE]
+                        and i + 1 == d[PV_INPUT_GAP + VALUE]
                     ):
                         fig.add_trace(
                             go.Scatter(
@@ -2554,7 +2567,7 @@ class PersistableInteractive:
 
         @dash_callback(
             [
-                [INPUT_GAP, VALUE, IN],
+                [PV_INPUT_GAP, VALUE, IN],
                 [INPUT_LINE, VALUE, IN],
                 [STORED_PV, DATA, IN],
             ],
@@ -2572,7 +2585,7 @@ class PersistableInteractive:
             )
             line = vineyard._parameters[d[INPUT_LINE + VALUE] - 1]
             params = {
-                "n_clusters": d[INPUT_GAP + VALUE],
+                "n_clusters": d[PV_INPUT_GAP + VALUE],
                 "start": line[0],
                 "end": line[1],
             }
