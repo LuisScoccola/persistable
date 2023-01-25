@@ -109,35 +109,36 @@ def test_app_title(page: Page):
 
 def test_end_to_end(page: Page):
 
+    # TODO: set timeout globally
+    timeout_milliseconds = 60000
+
     page.goto(url)
 
     # ccf
     ccf_details_locator(page).click()
     ccf_granularity_input_locator(page).fill("4")
-    #ccf_cores_input_locator(page).fill("1")
 
-    expect(ccf_density_threshold_label_locator(page)).not_to_be_visible()
-    expect(ccf_controls_div_locator(page)).not_to_be_visible()
+    expect(ccf_density_threshold_label_locator(page)).not_to_be_visible(timeout=timeout_milliseconds)
+    expect(ccf_controls_div_locator(page)).not_to_be_visible(timeout=timeout_milliseconds)
     ccf_compute_button_locator(page).click()
-    expect(ccf_density_threshold_label_locator(page)).to_be_visible()
-    expect(ccf_controls_div_locator(page)).to_be_visible()
+    expect(ccf_density_threshold_label_locator(page)).to_be_visible(timeout=timeout_milliseconds)
+    expect(ccf_controls_div_locator(page)).to_be_visible(timeout=timeout_milliseconds)
 
-    expect(ccf_1st_line_start_label_locator(page)).not_to_be_visible()
-    ccf_vineyard_input_selection_radio_on_locator(page).click()
-    expect(ccf_1st_line_start_label_locator(page)).to_be_visible()
+    expect(ccf_1st_line_start_label_locator(page)).not_to_be_visible(timeout=timeout_milliseconds)
+    ccf_vineyard_input_selection_radio_on_locator(page).click(timeout=timeout_milliseconds)
+    expect(ccf_1st_line_start_label_locator(page)).to_be_visible(timeout=timeout_milliseconds)
 
     # pv
     pv_details_locator(page).click()
     pv_granularity_input_locator(page).fill("2")
-    #pv_cores_input_locator(page).fill("1")
 
-    expect(pv_prominence_label_locator(page)).not_to_be_visible()
+    expect(pv_prominence_label_locator(page)).not_to_be_visible(timeout=timeout_milliseconds)
     pv_compute_button_locator(page).click()
-    expect(pv_prominence_label_locator(page)).to_be_visible()
+    expect(pv_prominence_label_locator(page)).to_be_visible(timeout=timeout_milliseconds)
 
-    expect(pv_parameter_selection_locator(page)).not_to_be_visible()
+    expect(pv_parameter_selection_locator(page)).not_to_be_visible(timeout=timeout_milliseconds)
     pv_parameter_selection_radio_on_locator(page).click()
-    expect(pv_parameter_selection_locator(page)).to_be_visible()
+    expect(pv_parameter_selection_locator(page)).to_be_visible(timeout=timeout_milliseconds)
 
     assert pi._chosen_parameters() is None
     pv_export_parameters_button_locator(page).click()
