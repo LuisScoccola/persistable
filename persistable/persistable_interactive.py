@@ -1307,6 +1307,7 @@ class PersistableInteractive:
             background=False,
             running=None,
             cancel=None,
+            prevent_update_with_none_input=True
         ):
             def cs(l):
                 return l[0] + l[1]
@@ -1338,8 +1339,9 @@ class PersistableInteractive:
                 def callback_function(*argv):
                     d = {}
                     for n, arg in enumerate(argv):
-                        if arg is None:
-                            raise PreventUpdate
+                        if prevent_update_with_none_input:
+                            if arg is None:
+                                raise PreventUpdate
                         d[cs(inputs[n])] = arg
                     d = function(d)
                     return (
@@ -2402,7 +2404,7 @@ class PersistableInteractive:
                     out += traceback.format_exc()
                     d[STORED_PARAMETERS_AND_PD_BY_PD + DATA] = json.dumps([])
                     d[STORED_PD_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
-                    # d[EXPORT_PARAMETERS_BUTTON + DISABLED] = True
+                    d[EXPORT_PARAMETERS_BUTTON_PD + DISABLED] = True
                     d[PD_PLOT_CONTROLS_DIV + HIDDEN] = True
                     return d
 
@@ -2681,14 +2683,34 @@ class PersistableInteractive:
         @dash_callback(
             [
                 [EXPORT_PARAMETERS_BUTTON_PV, N_CLICKS, IN],
+                [EXPORT_PARAMETERS_BUTTON_PD, N_CLICKS, IN],
                 [PV_FIXED_PARAMETERS, DATA, ST],
+                [PD_INPUT_GAP, VALUE, ST],
+                [X_START_LINE, VALUE, ST],
+                [Y_START_LINE, VALUE, ST],
+                [X_END_LINE, VALUE, ST],
+                [Y_END_LINE, VALUE, ST],
             ],
             [[EXPORTED_PARAMETER, CHILDREN]],
             True,
+            prevent_update_with_none_input=False
         )
         def export_parameters(d):
+            if ctx.triggered_id == EXPORT_PARAMETERS_BUTTON_PV:
+                params = json.loads(d[PV_FIXED_PARAMETERS + DATA])
+            elif ctx.triggered_id == EXPORT_PARAMETERS_BUTTON_PD:
+                params = {
+                    "n_clusters": d[PD_INPUT_GAP + VALUE],
+                    "start": [d[X_START_LINE + VALUE], d[Y_START_LINE + VALUE]],
+                    "end": [d[X_END_LINE + VALUE], d[Y_END_LINE + VALUE]],
+                }
+            else:
+                raise Exception(
+                    "export_parameters was triggered by unknown id: " + str(ctx.triggered_id)
+                )
             self._parameters_sem.acquire()
-            self._parameters = json.loads(d[PV_FIXED_PARAMETERS + DATA])
+            self._parameters = params
             self._parameters_sem.release()
             d[EXPORTED_PARAMETER + CHILDREN] = json.dumps(self._parameters)
             return d
+ 
