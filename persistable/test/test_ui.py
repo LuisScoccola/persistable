@@ -51,7 +51,7 @@ def pv_compute_button_locator(page):
 
 def pv_parameter_selection_radio_on_locator(page):
     return page.locator(
-        "div#pv-plot-controls-div-.parameters div#display-parameter-selection- :text('On')"
+        "div#pv-plot-controls-div-.parameters div#display-parameter-selection-pv- :text('On')"
     )
 
 
