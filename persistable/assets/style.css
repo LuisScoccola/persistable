@@ -29,6 +29,20 @@ h3 {
     column-gap: 15px;
 }
 
+.horizontal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto;
+    column-gap: 15px;
+}
+
+.vertical-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 450px 1fr;
+    row-gap: 15px;
+}
+
 .parameters {
     display: flex;
     flex-direction: column;

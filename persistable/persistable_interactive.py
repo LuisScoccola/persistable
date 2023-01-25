@@ -45,7 +45,7 @@ Y_START_SECOND_LINE = "y-start-second-line-"
 X_END_SECOND_LINE = "x-end-second-line-"
 Y_END_SECOND_LINE = "y-end-second-line-"
 CCF_PLOT = "ccf-plot-"
-DISPLAY_LINES_SELECTION = "display-lines-selection-"
+INTERACTIVE_INPUTS_SELECTION = "interactive-inputs-selection-"
 ENDPOINT_SELECTION = "endpoint-selection-"
 STORED_CCF = "stored-ccf-"
 STORED_X_TICKS_CCF = "stored-x-ticks-ccf-"
@@ -82,8 +82,10 @@ INPUT_REDUCED_HOMOLOGY_RI = "input-reduced-homology-ri-"
 CCF_PLOT_CONTROLS_DIV = "ccf-plot-controls-div-"
 CCF_DETAILS = "ccf-details-"
 CCF_EXTRAS = "ccf-extras-"
+PV_PANEL = "pv-panel-"
 PV_DETAILS = "pv-details-"
 PV_PLOT_CONTROLS_DIV = "pv-plot-controls-div-"
+PD_PANEL = "pd-panel-"
 LOG = "log-"
 LOG_DIV = "log-div-"
 STORED_PV = "stored-pv-"
@@ -92,6 +94,7 @@ INPUT_PROM_VIN_SCALE = "input-prom-vin-scale-"
 COMPUTE_PV_BUTTON = "compute-pv-button-"
 STOP_COMPUTE_PV_BUTTON = "stop-compute-pv-button-"
 PV_PLOT = "pv-plot-"
+PD_PLOT = "pd-plot-"
 STORED_PV_DRAWING = "stored-pv-drawing-"
 INPUT_GRANULARITY_PV = "input-granularity-pv-"
 INPUT_NUM_JOBS_PV = "input-num-jobs-pv-"
@@ -463,12 +466,16 @@ class PersistableInteractive:
                                         children=[
                                             html.Span(
                                                 className="name",
-                                                children="Vineyard inputs selection",
+                                                children="Interactive inputs selection",
                                             ),
                                             dcc.RadioItems(
-                                                ["On", "Off"],
+                                                [
+                                                    "Off",
+                                                    "One-parameter slice",
+                                                    "Line family",
+                                                ],
                                                 "Off",
-                                                id=DISPLAY_LINES_SELECTION,
+                                                id=INTERACTIVE_INPUTS_SELECTION,
                                                 className=VALUE,
                                             ),
                                         ],
@@ -945,70 +952,126 @@ class PersistableInteractive:
                 #
                 html.Div(id=EXPORTED_PARAMETER, hidden=True),
                 html.Div(
-                    className="grid",
+                    className="horizontal-grid",
                     children=[
                         html.Div(
+                            className="vertical-grid",
                             children=[
-                                html.H2("Component Counting Function"),
+                                html.Div(
+                                    children=[
+                                        html.H2("Component Counting Function"),
+                                        html.Div(
+                                            className="parameters",
+                                            children=ccf_inputs + ccf_buttons,
+                                        ),
+                                    ]
+                                ),
+                                dcc.Graph(
+                                    id=CCF_PLOT,
+                                    className="graph",
+                                    figure=empty_figure(),
+                                    config={
+                                        "responsive": True,
+                                        "displayModeBar": False,
+                                        "modeBarButtonsToRemove": [
+                                            "toImage",
+                                            "pan",
+                                            "zoomIn",
+                                            "zoomOut",
+                                            "resetScale",
+                                            "lasso",
+                                            "select",
+                                        ],
+                                        "displaylogo": False,
+                                    },
+                                ),
                                 html.Div(
                                     className="parameters",
-                                    children=ccf_inputs + ccf_buttons,
+                                    children=ccf_parameter_selection + ccf_extras,
                                 ),
-                            ]
+                            ],
                         ),
                         html.Div(
                             children=[
-                                html.H2("Prominence Vineyard"),
                                 html.Div(
-                                    className="parameters",
-                                    children=pv_inputs + pv_buttons,
+                                    hidden=True,
+                                    id=PV_PANEL,
+                                    className="vertical-grid",
+                                    children=[
+                                        html.Div(
+                                            children=[
+                                                html.H2("Prominence Vineyard"),
+                                                html.Div(
+                                                    className="parameters",
+                                                    children=pv_inputs + pv_buttons,
+                                                ),
+                                            ]
+                                        ),
+                                        dcc.Graph(
+                                            id=PV_PLOT,
+                                            className="graph",
+                                            figure=empty_figure(),
+                                            config={
+                                                "responsive": True,
+                                                "displayModeBar": False,
+                                                "modeBarButtonsToRemove": [
+                                                    "toImage",
+                                                    "pan",
+                                                    "zoomIn",
+                                                    "zoomOut",
+                                                    "resetScale",
+                                                    "lasso",
+                                                    "select",
+                                                ],
+                                                "displaylogo": False,
+                                            },
+                                        ),
+                                        html.Div(
+                                            className="plot-tools",
+                                            children=pv_parameter_selection,
+                                        ),
+                                    ],
+                                ),
+                                html.Div(
+                                    hidden=True,
+                                    id=PD_PANEL,
+                                    className="vertical-grid",
+                                    children=[
+                                        html.Div(
+                                            children=[
+                                                html.H2("Persistence Diagram"),
+                                                html.Div(
+                                                    className="parameters",
+                                                    # children=pd_inputs + pd_buttons,
+                                                ),
+                                            ]
+                                        ),
+                                        dcc.Graph(
+                                            id=PD_PLOT,
+                                            className="graph",
+                                            figure=empty_figure(),
+                                            config={
+                                                "responsive": True,
+                                                "displayModeBar": False,
+                                                "modeBarButtonsToRemove": [
+                                                    "toImage",
+                                                    "pan",
+                                                    "zoomIn",
+                                                    "zoomOut",
+                                                    "resetScale",
+                                                    "lasso",
+                                                    "select",
+                                                ],
+                                                "displaylogo": False,
+                                            },
+                                        ),
+                                        html.Div(
+                                            className="plot-tools",
+                                            children=[],
+                                        ),
+                                    ],
                                 ),
                             ]
-                        ),
-                        dcc.Graph(
-                            id=CCF_PLOT,
-                            className="graph",
-                            figure=empty_figure(),
-                            config={
-                                "responsive": True,
-                                "displayModeBar": False,
-                                "modeBarButtonsToRemove": [
-                                    "toImage",
-                                    "pan",
-                                    "zoomIn",
-                                    "zoomOut",
-                                    "resetScale",
-                                    "lasso",
-                                    "select",
-                                ],
-                                "displaylogo": False,
-                            },
-                        ),
-                        dcc.Graph(
-                            id=PV_PLOT,
-                            className="graph",
-                            figure=empty_figure(),
-                            config={
-                                "responsive": True,
-                                "displayModeBar": False,
-                                "modeBarButtonsToRemove": [
-                                    "toImage",
-                                    "pan",
-                                    "zoomIn",
-                                    "zoomOut",
-                                    "resetScale",
-                                    "lasso",
-                                    "select",
-                                ],
-                                "displaylogo": False,
-                            },
-                        ),
-                        html.Div(
-                            className="parameters",
-                            children=ccf_parameter_selection + ccf_extras,
-                        ),
-                        html.Div(
-                            className="plot-tools", children=pv_parameter_selection
                         ),
                     ],
                 ),
@@ -1169,7 +1232,7 @@ class PersistableInteractive:
         @dash_callback(
             [
                 [CCF_PLOT, CLICKDATA, IN],
-                [DISPLAY_LINES_SELECTION, VALUE, ST],
+                [INTERACTIVE_INPUTS_SELECTION, VALUE, ST],
                 [ENDPOINT_SELECTION, VALUE, ST],
                 [X_START_FIRST_LINE, VALUE, ST],
                 [Y_START_FIRST_LINE, VALUE, ST],
@@ -1193,7 +1256,7 @@ class PersistableInteractive:
             True,
         )
         def on_ccf_click(d):
-            if d[DISPLAY_LINES_SELECTION + VALUE] == "On":
+            if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line family":
                 new_x, new_y = (
                     d[CCF_PLOT + CLICKDATA]["points"][0]["x"],
                     d[CCF_PLOT + CLICKDATA]["points"][0]["y"],
@@ -1213,13 +1276,23 @@ class PersistableInteractive:
             return d
 
         @dash_callback(
-            [[DISPLAY_LINES_SELECTION, VALUE, IN]], [[ENDPOINT_SELECTION_DIV, HIDDEN]]
+            [[INTERACTIVE_INPUTS_SELECTION, VALUE, IN]],
+            [[ENDPOINT_SELECTION_DIV, HIDDEN], [PD_PANEL, HIDDEN], [PV_PANEL, HIDDEN]],
         )
         def toggle_parameter_selection_ccf(d):
-            if d[DISPLAY_LINES_SELECTION + VALUE] == "On":
+            # TODO: abstract the following logic better
+            if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line family":
                 d[ENDPOINT_SELECTION_DIV + HIDDEN] = False
+                d[PV_PANEL + HIDDEN] = False
+                d[PD_PANEL + HIDDEN] = True
+            elif d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "One-parameter slice":
+                d[ENDPOINT_SELECTION_DIV + HIDDEN] = True
+                d[PV_PANEL + HIDDEN] = True
+                d[PD_PANEL + HIDDEN] = False
             else:
                 d[ENDPOINT_SELECTION_DIV + HIDDEN] = True
+                d[PV_PANEL + HIDDEN] = True
+                d[PD_PANEL + HIDDEN] = True
             return d
 
         @dash_callback(
@@ -1238,12 +1311,16 @@ class PersistableInteractive:
             y_ticks = np.array(json.loads(d[STORED_Y_TICKS_CCF + DATA]))
             delta_x_ccf = (x_ticks[1] - x_ticks[0]) / 2
             delta_y_ccf = (y_ticks[1] - y_ticks[0]) / 2
+
             def fn_x(x):
                 return x + delta_x_ccf
+
             def fn_x_inverse(x):
                 return x - delta_x_ccf
+
             def fn_y(y):
                 return y + delta_y_ccf
+
             def fn_y_inverse(y):
                 return y - delta_y_ccf
 
@@ -1267,7 +1344,7 @@ class PersistableInteractive:
                     z=ccf,
                     x=fn_x(x_ticks),
                     y=fn_y(y_ticks),
-                    #hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
+                    # hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
                     hovertemplate="<b># comp.: %{z:d}</b> ",
                     zmin=0,
                     zmax=max_components,
@@ -1276,8 +1353,8 @@ class PersistableInteractive:
                 )
             )
 
-            fig.update_xaxes(tickson='boundaries')
-            fig.update_yaxes(tickson='boundaries')
+            fig.update_xaxes(tickson="boundaries")
+            fig.update_yaxes(tickson="boundaries")
 
             fig.update_traces(colorscale="greys")
             fig.update_layout(showlegend=False)
@@ -1295,7 +1372,7 @@ class PersistableInteractive:
                 [MAX_DIST_SCALE, VALUE, IN],
                 [MIN_DENSITY_THRESHOLD, VALUE, IN],
                 [MAX_DENSITY_THRESHOLD, VALUE, IN],
-                [DISPLAY_LINES_SELECTION, VALUE, IN],
+                [INTERACTIVE_INPUTS_SELECTION, VALUE, IN],
                 [X_START_FIRST_LINE, VALUE, IN],
                 [Y_START_FIRST_LINE, VALUE, IN],
                 [X_END_FIRST_LINE, VALUE, IN],
@@ -1410,11 +1487,11 @@ class PersistableInteractive:
                                 / max_components
                             ) * (1 - min_opacity)
                             x_coords = np.array(
-                                #[x_ticks[i] - delta_x, x_ticks[i_] - delta_x]
+                                # [x_ticks[i] - delta_x, x_ticks[i_] - delta_x]
                                 [x_ticks[i], x_ticks[i_]]
                             )
                             y_coords = np.array(
-                                #[y_ticks[j] - delta_y, y_ticks[j_] - delta_y]
+                                # [y_ticks[j] - delta_y, y_ticks[j_] - delta_y]
                                 [y_ticks[j], y_ticks[j_]]
                             )
                             if length >= d[INPUT_MIN_LENGTH_RI + VALUE]:
@@ -1453,7 +1530,7 @@ class PersistableInteractive:
 
                 positive_bn = np.array(
                     [
-                        #[xs[i] - delta_x, ys[j] - delta_y, bn[i, j]]
+                        # [xs[i] - delta_x, ys[j] - delta_y, bn[i, j]]
                         [xs[i], ys[j], bn[i, j]]
                         for i in range(len(xs))
                         for j in range(len(ys))
@@ -1527,7 +1604,7 @@ class PersistableInteractive:
                     textposition=["top center", "bottom center"],
                 )
 
-            if d[DISPLAY_LINES_SELECTION + VALUE] == "On":
+            if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line family":
 
                 # draw polygon
                 fig.add_trace(
@@ -1606,7 +1683,7 @@ class PersistableInteractive:
 
                 if len(pd) != 0:
                     pd = np.array(pd)
-                    pd = pd-st_x
+                    pd = pd - st_x
                     st = np.array([st_x, st_y])
                     end = np.array([end_x, end_y])
                     A = end - st
