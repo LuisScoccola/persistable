@@ -21,12 +21,18 @@ h3 {
     padding: 0px;
 }
 
-.grid {
+.horizontal-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto 450px auto;
-    row-gap: 15px;
+    grid-template-rows: auto;
     column-gap: 15px;
+}
+
+.vertical-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 450px 1fr;
+    row-gap: 15px;
 }
 
 .parameters {
