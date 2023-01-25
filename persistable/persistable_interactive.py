@@ -112,11 +112,13 @@ INPUT_LINE = "input-line-"
 INPUT_GAP = "gap-"
 EXPORT_PARAMETERS_BUTTON = "export-parameters-"
 PV_FIXED_PARAMETERS = "fixed-parameters-"
-STORED_PD = "stored-pd-"
+STORED_PD_BY_PV = "stored-pd-by-pv-"
+STORED_PARAMETERS_AND_PD_BY_PD = "stored-pd-by-pd-"
 
 STORED_CCF_COMPUTATION_WARNINGS = "stored-ccf-computation-warnings-"
 STORED_PV_COMPUTATION_WARNINGS = "stored-pv-computation-warnings-"
 STORED_RI_COMPUTATION_WARNINGS = "stored-ri-computation-warnings-"
+STORED_PD_COMPUTATION_WARNINGS = "stored-pd-computation-warnings-"
 
 EXPORTED_PARAMETER = "exported-parameter-"
 
@@ -1089,11 +1091,13 @@ class PersistableInteractive:
                 # contains the basic prominence vineyard plot as a plotly figure
                 dcc.Store(id=STORED_PV_DRAWING),
                 #
-                dcc.Store(id=STORED_PD, data=json.dumps([])),
+                dcc.Store(id=STORED_PD_BY_PV, data=json.dumps([])),
+                dcc.Store(id=STORED_PARAMETERS_AND_PD_BY_PD, data=json.dumps([])),
                 #
                 dcc.Store(id=STORED_CCF_COMPUTATION_WARNINGS, data=json.dumps(" ")),
                 dcc.Store(id=STORED_RI_COMPUTATION_WARNINGS, data=json.dumps(" ")),
                 dcc.Store(id=STORED_PV_COMPUTATION_WARNINGS, data=json.dumps(" ")),
+                dcc.Store(id=STORED_PD_COMPUTATION_WARNINGS, data=json.dumps(" ")),
                 #
                 dcc.Store(id=PV_FIXED_PARAMETERS, data=json.dumps([])),
                 #
@@ -1354,6 +1358,7 @@ class PersistableInteractive:
                 [STORED_CCF_COMPUTATION_WARNINGS, DATA, IN],
                 [STORED_RI_COMPUTATION_WARNINGS, DATA, IN],
                 [STORED_PV_COMPUTATION_WARNINGS, DATA, IN],
+                [STORED_PD_COMPUTATION_WARNINGS, DATA, IN],
             ],
             [[LOG, CHILDREN], [LOG_DIV, "open"]],
             True,
@@ -1365,6 +1370,8 @@ class PersistableInteractive:
                 message = json.loads(d[STORED_PV_COMPUTATION_WARNINGS + DATA])
             elif ctx.triggered_id == STORED_RI_COMPUTATION_WARNINGS:
                 message = json.loads(d[STORED_RI_COMPUTATION_WARNINGS + DATA])
+            elif ctx.triggered_id == STORED_PD_COMPUTATION_WARNINGS:
+                message = json.loads(d[STORED_PD_COMPUTATION_WARNINGS + DATA])
             else:
                 raise Exception(
                     "print_log was triggered by unknown id: " + str(ctx.triggered_id)
@@ -1567,7 +1574,8 @@ class PersistableInteractive:
                 [DISPLAY_PARAMETER_SELECTION, VALUE, IN],
                 [INTERACTIVE_INPUTS_SELECTION, VALUE, IN],
                 [PV_FIXED_PARAMETERS, DATA, IN],
-                [STORED_PD, DATA, ST],
+                [STORED_PD_BY_PV, DATA, ST],
+                [STORED_PARAMETERS_AND_PD_BY_PD, DATA, IN],
                 [INPUT_GAP, VALUE, ST],
                 [INPUT_DISPLAY_RI, VALUE, IN],
                 [INPUT_Y_COVARIANT, VALUE, IN],
@@ -1847,24 +1855,16 @@ class PersistableInteractive:
                 )
 
             if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "One-parameter slice":
-                # len(params) != 0 and
-                # pd = json.loads(d[STORED_PD + DATA])
 
                 st_x = d[X_START_LINE + VALUE]
                 st_y = d[Y_START_LINE + VALUE]
                 end_x = d[X_END_LINE + VALUE]
                 end_y = d[Y_END_LINE + VALUE]
 
-                # st_x = params["start"][0]
-                # st_y = params["start"][1]
-                # end_x = params["end"][0]
-                # end_y = params["end"][1]
-
                 if d[PD_ENDPOINT_SELECTION + VALUE] == "Line start":
                     line_endpoints = 0
                 elif d[PD_ENDPOINT_SELECTION + VALUE] == "Line end":
                     line_endpoints = 1
-
 
                 fig.add_trace(
                     generate_line(
@@ -1876,58 +1876,71 @@ class PersistableInteractive:
                     )
                 )
 
-                # if len(pd) != 0:
-                #    pd = np.array(pd)
-                #    pd = pd - st_x
-                #    st = np.array([st_x, st_y])
-                #    end = np.array([end_x, end_y])
-                #    A = end - st
+                saved = json.loads(
+                    d[STORED_PARAMETERS_AND_PD_BY_PD + DATA]
+                )
+                if len(saved) != 0:
+                    saved_params, saved_pd = saved
 
-                #    # ideally we would get the actual ratio of the rendered picture
-                #    # we are using an estimate given by the "usual" way in which
-                #    # persistable's GUI is rendered
-                #    ratio = np.array([3, 2])
-                #    ratio = (ratio / np.linalg.norm(ratio)) * np.linalg.norm(
-                #        np.array([1, 1])
-                #    )
-                #    alpha = [
-                #        (d[MAX_DIST_SCALE + VALUE] - d[MIN_DIST_SCALE + VALUE]),
-                #        (
-                #            d[MAX_DENSITY_THRESHOLD + VALUE]
-                #            - d[MIN_DENSITY_THRESHOLD + VALUE]
-                #        ),
-                #    ]
-                #    alpha = np.array(alpha) / ratio
+                    saved_st_x, saved_st_y = saved_params[0]
+                    saved_end_x, saved_end_y = saved_params[1]
 
-                #    A = A / alpha
-                #    B = np.array([-A[1], A[0]])
+                    if (
+                        np.allclose(
+                            np.array([st_x, st_y, end_x, end_y]),
+                            np.array([saved_st_x, saved_st_y, saved_end_x, saved_end_y]),
+                        )
+                        and len(saved_pd) != 0
+                    ):
+                        pd = np.array(saved_pd)
+                        pd = pd - st_x
+                        st = np.array([st_x, st_y])
+                        end = np.array([end_x, end_y])
+                        A = end - st
 
-                #    shift = 50
-                #    B = B / np.linalg.norm(B)
-                #    tau = B * alpha / shift
+                        # ideally we would get the actual ratio of the rendered picture
+                        # we are using an estimate given by the "usual" way in which
+                        # persistable's GUI is rendered
+                        ratio = np.array([3, 2])
+                        ratio = (ratio / np.linalg.norm(ratio)) * np.linalg.norm(
+                            np.array([1, 1])
+                        )
+                        alpha = [
+                            (d[MAX_DIST_SCALE + VALUE] - d[MIN_DIST_SCALE + VALUE]),
+                            (
+                                d[MAX_DENSITY_THRESHOLD + VALUE]
+                                - d[MIN_DENSITY_THRESHOLD + VALUE]
+                            ),
+                        ]
+                        alpha = np.array(alpha) / ratio
 
-                #    lengths = pd[:, 1] - pd[:, 0]
-                #    pd = pd[np.argsort(lengths)[::-1]]
-                #    for i, point in enumerate(pd):
-                #        l = end_x - st_x
-                #        p_st = point[0]
-                #        p_end = point[1]
-                #        q_st_x = st_x + p_st
-                #        q_end_x = st_x + p_end
-                #        q_st_y = st_y - (st_y - end_y) * (p_st / l)
-                #        q_end_y = st_y - (st_y - end_y) * (p_end / l)
-                #        q_st = np.array([q_st_x, q_st_y])
-                #        q_end = np.array([q_end_x, q_end_y])
-                #        r_st = q_st + (i + 1) * tau
-                #        r_end = q_end + (i + 1) * tau
-                #        color = (
-                #            "rgba(34, 139, 34, 1)"
-                #            if i < d[INPUT_GAP + VALUE]
-                #            else "rgba(34, 139, 34, 0.3)"
-                #        )
-                #        fig.add_trace(
-                #            _draw_bar([r_st[0], r_end[0]], [r_st[1], r_end[1]], color)
-                #        )
+                        A = A / alpha
+                        B = np.array([-A[1], A[0]])
+
+                        shift = 50
+                        B = B / np.linalg.norm(B)
+                        tau = B * alpha / shift
+
+                        lengths = pd[:, 1] - pd[:, 0]
+                        pd = pd[np.argsort(lengths)[::-1]]
+                        for i, point in enumerate(pd):
+                            l = end_x - st_x
+                            p_st = point[0]
+                            p_end = point[1]
+                            q_st_x = st_x + p_st
+                            q_end_x = st_x + p_end
+                            q_st_y = st_y - (st_y - end_y) * (p_st / l)
+                            q_end_y = st_y - (st_y - end_y) * (p_end / l)
+                            q_st = np.array([q_st_x, q_st_y])
+                            q_end = np.array([q_end_x, q_end_y])
+                            r_st = q_st + (i + 1) * tau
+                            r_end = q_end + (i + 1) * tau
+                            color = (
+                                "rgba(34, 139, 34, 1)"
+                            )
+                            fig.add_trace(
+                                _draw_bar([r_st[0], r_end[0]], [r_st[1], r_end[1]], color)
+                            )
 
             params = json.loads(d[PV_FIXED_PARAMETERS + DATA])
             if (
@@ -1935,7 +1948,7 @@ class PersistableInteractive:
                 and d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line family"
                 and d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On"
             ):
-                pd = json.loads(d[STORED_PD + DATA])
+                pd = json.loads(d[STORED_PD_BY_PV + DATA])
 
                 st_x = params["start"][0]
                 st_y = params["start"][1]
@@ -2284,6 +2297,82 @@ class PersistableInteractive:
 
         @dash_callback(
             [
+                [COMPUTE_PD_BUTTON, N_CLICKS, IN],
+                [X_START_LINE, VALUE, ST],
+                [Y_START_LINE, VALUE, ST],
+                [X_END_LINE, VALUE, ST],
+                [Y_END_LINE, VALUE, ST],
+            ],
+            [
+                [STORED_PARAMETERS_AND_PD_BY_PD, DATA],
+                [STORED_PD_COMPUTATION_WARNINGS, DATA],
+                # [EXPORT_PARAMETERS_BUTTON, DISABLED],
+                # [PV_PLOT_CONTROLS_DIV, HIDDEN],
+            ],
+            prevent_initial_call=True,
+            background=True,
+            running=[
+                [COMPUTE_PD_BUTTON, DISABLED, True, False],
+                [STOP_COMPUTE_PD_BUTTON, DISABLED, False, True],
+            ],
+            cancel=[[STOP_COMPUTE_PD_BUTTON, N_CLICKS]],
+        )
+        def compute_pd(d):
+            if debug:
+                print("Compute pd in background started.")
+
+            out = ""
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                try:
+                    pv = persistable._linear_vineyard(
+                        [
+                            [
+                                d[X_START_LINE + VALUE],
+                                d[Y_START_LINE + VALUE],
+                            ],
+                            [d[X_END_LINE + VALUE], d[Y_END_LINE + VALUE]],
+                        ],
+                        [
+                            [
+                                d[X_START_LINE + VALUE],
+                                d[Y_START_LINE + VALUE],
+                            ],
+                            [
+                                d[X_END_LINE + VALUE],
+                                d[Y_END_LINE + VALUE],
+                            ],
+                        ],
+                        n_parameters=1,
+                        n_jobs=1,
+                    )
+                except ValueError:
+                    out += traceback.format_exc()
+                    d[STORED_PARAMETERS_AND_PD_BY_PD + DATA] = json.dumps([])
+                    d[STORED_PD_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
+                    # d[EXPORT_PARAMETERS_BUTTON + DISABLED] = True
+                    # d[PV_PLOT_CONTROLS_DIV + HIDDEN] = True
+                    return d
+
+            for a in w:
+                out += warnings.formatwarning(
+                    a.message, a.category, a.filename, a.lineno
+                )
+
+            d[STORED_PARAMETERS_AND_PD_BY_PD + DATA] = json.dumps(
+                (pv._parameters[0], pv._persistence_diagrams[0])
+            )
+            d[STORED_PD_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
+            # d[EXPORT_PARAMETERS_BUTTON + DISABLED] = False
+            # d[PV_PLOT_CONTROLS_DIV + HIDDEN] = False
+
+            if debug:
+                print("Compute pd in background finished.")
+
+            return d
+
+        @dash_callback(
+            [
                 [STORED_PV, DATA, IN],
                 [INPUT_MAX_VINES, VALUE, IN],
                 [INPUT_PROM_VIN_SCALE, VALUE, IN],
@@ -2397,7 +2486,7 @@ class PersistableInteractive:
             ],
             [
                 [PV_FIXED_PARAMETERS, DATA],
-                [STORED_PD, DATA],
+                [STORED_PD_BY_PV, DATA],
             ],
             True,
         )
@@ -2417,7 +2506,7 @@ class PersistableInteractive:
 
             pd = vineyard._persistence_diagrams[d[INPUT_LINE + VALUE] - 1]
 
-            d[STORED_PD + DATA] = json.dumps(pd)
+            d[STORED_PD_BY_PV + DATA] = json.dumps(pd)
 
             return d
 
