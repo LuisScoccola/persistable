@@ -21,14 +21,6 @@ h3 {
     padding: 0px;
 }
 
-.grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto 450px auto;
-    row-gap: 15px;
-    column-gap: 15px;
-}
-
 .horizontal-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
