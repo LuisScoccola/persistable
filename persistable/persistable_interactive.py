@@ -36,6 +36,10 @@ BaseLongCallbackManager.hash_function = monkeypatched_hash_function
 ###
 
 
+X_START_LINE = "x-start-line-"
+Y_START_LINE = "y-start-line-"
+X_END_LINE = "x-end-line-"
+Y_END_LINE = "y-end-line-"
 X_START_FIRST_LINE = "x-start-first-line-"
 Y_START_FIRST_LINE = "y-start-first-line-"
 X_END_FIRST_LINE = "x-end-first-line-"
@@ -45,8 +49,9 @@ Y_START_SECOND_LINE = "y-start-second-line-"
 X_END_SECOND_LINE = "x-end-second-line-"
 Y_END_SECOND_LINE = "y-end-second-line-"
 CCF_PLOT = "ccf-plot-"
-DISPLAY_LINES_SELECTION = "display-lines-selection-"
-ENDPOINT_SELECTION = "endpoint-selection-"
+INTERACTIVE_INPUTS_SELECTION = "interactive-inputs-selection-"
+PV_ENDPOINT_SELECTION = "pv-endpoint-selection-"
+PD_ENDPOINT_SELECTION = "pd-endpoint-selection-"
 STORED_CCF = "stored-ccf-"
 STORED_X_TICKS_CCF = "stored-x-ticks-ccf-"
 STORED_Y_TICKS_CCF = "stored-y-ticks-ccf-"
@@ -60,9 +65,13 @@ MIN_DIST_SCALE = "min-dist-scale-"
 MAX_DIST_SCALE = "max-dist-scale-"
 MIN_DENSITY_THRESHOLD = "min-density-threshold-"
 MAX_DENSITY_THRESHOLD = "max-density-threshold-"
-ENDPOINT_SELECTION_DIV = "endpoint-selection-div-"
-PARAMETER_SELECTION_DIV = "parameter-selection-div-"
-DISPLAY_PARAMETER_SELECTION = "display-parameter-selection-"
+PV_ENDPOINT_SELECTION_DIV = "pv-endpoint-selection-div-"
+PD_ENDPOINT_SELECTION_DIV = "pd-endpoint-selection-div-"
+PARAMETER_SELECTION_DIV_PV = "parameter-selection-div-pv-"
+PARAMETER_SELECTION_DIV_PD = "parameter-selection-div-pd-"
+DISPLAY_PARAMETER_SELECTION_PV = "display-parameter-selection-pv-"
+DISPLAY_PARAMETER_SELECTION_PD = "display-parameter-selection-pd-"
+DISPLAY_SELECTED_LINE = "display-selected-line-"
 COMPUTE_CCF_BUTTON = "compute-ccf-button-"
 STOP_COMPUTE_CCF_BUTTON = "stop-compute-ccf-button-"
 COMPUTE_RI_BUTTON = "compute-ri-button-"
@@ -82,8 +91,12 @@ INPUT_REDUCED_HOMOLOGY_RI = "input-reduced-homology-ri-"
 CCF_PLOT_CONTROLS_DIV = "ccf-plot-controls-div-"
 CCF_DETAILS = "ccf-details-"
 CCF_EXTRAS = "ccf-extras-"
+PV_PANEL = "pv-panel-"
 PV_DETAILS = "pv-details-"
+PD_DETAILS = "pd-details-"
 PV_PLOT_CONTROLS_DIV = "pv-plot-controls-div-"
+PD_PLOT_CONTROLS_DIV = "pd-plot-controls-div-"
+PD_PANEL = "pd-panel-"
 LOG = "log-"
 LOG_DIV = "log-div-"
 STORED_PV = "stored-pv-"
@@ -91,19 +104,26 @@ INPUT_MAX_VINES = "input-max-vines-"
 INPUT_PROM_VIN_SCALE = "input-prom-vin-scale-"
 COMPUTE_PV_BUTTON = "compute-pv-button-"
 STOP_COMPUTE_PV_BUTTON = "stop-compute-pv-button-"
+COMPUTE_PD_BUTTON = "compute-pd-button-"
+STOP_COMPUTE_PD_BUTTON = "stop-compute-pd-button-"
 PV_PLOT = "pv-plot-"
+PD_PLOT = "pd-plot-"
 STORED_PV_DRAWING = "stored-pv-drawing-"
 INPUT_GRANULARITY_PV = "input-granularity-pv-"
 INPUT_NUM_JOBS_PV = "input-num-jobs-pv-"
 INPUT_LINE = "input-line-"
-INPUT_GAP = "gap-"
-EXPORT_PARAMETERS_BUTTON = "export-parameters-"
-FIXED_PARAMETERS = "fixed-parameters-"
-STORED_PD = "stored-pd-"
+PV_INPUT_GAP = "pv-input-gap-"
+PD_INPUT_GAP = "pd-input-gap-"
+EXPORT_PARAMETERS_BUTTON_PV = "export-parameters-button-pv-"
+EXPORT_PARAMETERS_BUTTON_PD = "export-parameters-button-pd-"
+PV_FIXED_PARAMETERS = "fixed-parameters-"
+STORED_PD_BY_PV = "stored-pd-by-pv-"
+STORED_PARAMETERS_AND_PD_BY_PD = "stored-pd-by-pd-"
 
 STORED_CCF_COMPUTATION_WARNINGS = "stored-ccf-computation-warnings-"
 STORED_PV_COMPUTATION_WARNINGS = "stored-pv-computation-warnings-"
 STORED_RI_COMPUTATION_WARNINGS = "stored-ri-computation-warnings-"
+STORED_PD_COMPUTATION_WARNINGS = "stored-pd-computation-warnings-"
 
 EXPORTED_PARAMETER = "exported-parameter-"
 
@@ -293,6 +313,14 @@ class PersistableInteractive:
             (defr - 1) / defr
         )
         default_y_end_second_line = (default_min_k + default_max_k) * (1 / 2)
+        default_x_start_line = (
+            default_x_start_first_line + default_x_start_second_line
+        ) / 2
+        default_y_start_line = (
+            default_y_start_first_line + default_y_start_second_line
+        ) / 2
+        default_x_end_line = (default_x_end_first_line + default_x_end_second_line) / 2
+        default_y_end_line = (default_y_end_first_line + default_y_end_second_line) / 2
 
         self._app.title = "Persistable"
 
@@ -463,19 +491,23 @@ class PersistableInteractive:
                                         children=[
                                             html.Span(
                                                 className="name",
-                                                children="Vineyard inputs selection",
+                                                children="Interactive inputs selection",
                                             ),
                                             dcc.RadioItems(
-                                                ["On", "Off"],
+                                                [
+                                                    "Off",
+                                                    "One-parameter slice",
+                                                    "Line family",
+                                                ],
                                                 "Off",
-                                                id=DISPLAY_LINES_SELECTION,
+                                                id=INTERACTIVE_INPUTS_SELECTION,
                                                 className=VALUE,
                                             ),
                                         ],
                                     ),
                                     html.Div(
                                         className="parameter-single",
-                                        id=ENDPOINT_SELECTION_DIV,
+                                        id=PV_ENDPOINT_SELECTION_DIV,
                                         children=[
                                             html.Span(
                                                 className="name",
@@ -489,7 +521,26 @@ class PersistableInteractive:
                                                     "2nd line end",
                                                 ],
                                                 "1st line start",
-                                                id=ENDPOINT_SELECTION,
+                                                id=PV_ENDPOINT_SELECTION,
+                                                className=VALUE,
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="parameter-single",
+                                        id=PD_ENDPOINT_SELECTION_DIV,
+                                        children=[
+                                            html.Span(
+                                                className="name",
+                                                children="Endpoint",
+                                            ),
+                                            dcc.RadioItems(
+                                                [
+                                                    "Line start",
+                                                    "Line end",
+                                                ],
+                                                "Line start",
+                                                id=PD_ENDPOINT_SELECTION,
                                                 className=VALUE,
                                             ),
                                         ],
@@ -869,14 +920,14 @@ class PersistableInteractive:
                             dcc.RadioItems(
                                 ["On", "Off"],
                                 "Off",
-                                id=DISPLAY_PARAMETER_SELECTION,
+                                id=DISPLAY_PARAMETER_SELECTION_PV,
                                 className=VALUE,
                             ),
                         ],
                     ),
                     html.Div(
                         className="parameter-double-button",
-                        id=PARAMETER_SELECTION_DIV,
+                        id=PARAMETER_SELECTION_DIV_PV,
                         children=[
                             html.Span(
                                 className="name",
@@ -888,7 +939,7 @@ class PersistableInteractive:
                                 type="number",
                                 value=1,
                                 min=1,
-                                debounce=True,
+                                debounce=False,
                             ),
                             html.Span(
                                 className="name",
@@ -896,15 +947,156 @@ class PersistableInteractive:
                             ),
                             dcc.Input(
                                 className=VALUE,
-                                id=INPUT_GAP,
+                                id=PV_INPUT_GAP,
                                 type="number",
                                 value=1,
                                 min=1,
-                                debounce=True,
+                                debounce=False,
                             ),
                             html.Button(
                                 "Choose parameter",
-                                id=EXPORT_PARAMETERS_BUTTON,
+                                id=EXPORT_PARAMETERS_BUTTON_PV,
+                                className="button",
+                                disabled=True,
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
+
+        pd_inputs = (
+            html.Details(
+                id=PD_DETAILS,
+                children=[
+                    html.Summary("Inputs"),
+                    html.Div(
+                        className="parameters",
+                        children=[
+                            html.Div(
+                                className="parameter-double",
+                                children=[
+                                    html.Span(
+                                        className="name",
+                                        children="Line start x/y",
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=X_START_LINE,
+                                        type="number",
+                                        value=default_x_start_line,
+                                        min=0,
+                                        # step=default_s_step,
+                                        debounce=True,
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=Y_START_LINE,
+                                        type="number",
+                                        value=default_y_start_line,
+                                        min=0,
+                                        # step=default_k_step,
+                                        debounce=True,
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="parameter-double",
+                                children=[
+                                    html.Span(
+                                        className="name",
+                                        children="Line end x/y",
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=X_END_LINE,
+                                        type="number",
+                                        value=default_x_end_line,
+                                        min=0,
+                                        # step=default_s_step,
+                                        debounce=True,
+                                    ),
+                                    dcc.Input(
+                                        className=VALUE,
+                                        id=Y_END_LINE,
+                                        type="number",
+                                        value=default_y_end_line,
+                                        min=0,
+                                        # step=default_k_step,
+                                        debounce=True,
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
+
+        pd_buttons = (
+            html.Div(
+                className="parameters",
+                children=[
+                    html.Div(
+                        className="large-buttons",
+                        children=[
+                            html.Button(
+                                "Compute",
+                                id=COMPUTE_PD_BUTTON,
+                                className="button1",
+                            ),
+                            html.Button(
+                                "Stop computation",
+                                id=STOP_COMPUTE_PD_BUTTON,
+                                className="button2",
+                                disabled=True,
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
+
+        pd_parameter_selection = (
+            html.Div(
+                id=PD_PLOT_CONTROLS_DIV,
+                className="parameters",
+                hidden=True,
+                children=[
+                    html.Div(
+                        className="parameter-single",
+                        children=[
+                            html.Span(
+                                className="name",
+                                children="Parameter selection",
+                            ),
+                            dcc.RadioItems(
+                                ["On", "Off"],
+                                "Off",
+                                id=DISPLAY_PARAMETER_SELECTION_PD,
+                                className=VALUE,
+                            ),
+                        ],
+                    ),
+                    html.Div(
+                        className="parameter-double-button",
+                        id=PARAMETER_SELECTION_DIV_PD,
+                        children=[
+                            html.Span(
+                                className="name",
+                                children="Gap number",
+                            ),
+                            dcc.Input(
+                                className=VALUE,
+                                id=PD_INPUT_GAP,
+                                type="number",
+                                value=1,
+                                min=1,
+                                debounce=False,
+                            ),
+                            html.Button(
+                                "Choose parameter",
+                                id=EXPORT_PARAMETERS_BUTTON_PD,
                                 className="button",
                                 disabled=True,
                             ),
@@ -935,80 +1127,140 @@ class PersistableInteractive:
                 # contains the basic prominence vineyard plot as a plotly figure
                 dcc.Store(id=STORED_PV_DRAWING),
                 #
-                dcc.Store(id=STORED_PD, data=json.dumps([])),
+                dcc.Store(id=STORED_PD_BY_PV, data=json.dumps([])),
+                dcc.Store(id=STORED_PARAMETERS_AND_PD_BY_PD, data=json.dumps([])),
                 #
                 dcc.Store(id=STORED_CCF_COMPUTATION_WARNINGS, data=json.dumps(" ")),
                 dcc.Store(id=STORED_RI_COMPUTATION_WARNINGS, data=json.dumps(" ")),
                 dcc.Store(id=STORED_PV_COMPUTATION_WARNINGS, data=json.dumps(" ")),
+                dcc.Store(id=STORED_PD_COMPUTATION_WARNINGS, data=json.dumps(" ")),
                 #
-                dcc.Store(id=FIXED_PARAMETERS, data=json.dumps([])),
+                dcc.Store(id=PV_FIXED_PARAMETERS, data=json.dumps([])),
                 #
                 html.Div(id=EXPORTED_PARAMETER, hidden=True),
                 html.Div(
-                    className="grid",
+                    className="horizontal-grid",
                     children=[
                         html.Div(
+                            className="vertical-grid",
                             children=[
-                                html.H2("Component Counting Function"),
+                                html.Div(
+                                    children=[
+                                        html.H2("Component Counting Function"),
+                                        html.Div(
+                                            className="parameters",
+                                            children=ccf_inputs + ccf_buttons,
+                                        ),
+                                    ]
+                                ),
+                                dcc.Graph(
+                                    id=CCF_PLOT,
+                                    className="graph",
+                                    figure=empty_figure(),
+                                    config={
+                                        "responsive": True,
+                                        "displayModeBar": False,
+                                        "modeBarButtonsToRemove": [
+                                            "toImage",
+                                            "pan",
+                                            "zoomIn",
+                                            "zoomOut",
+                                            "resetScale",
+                                            "lasso",
+                                            "select",
+                                        ],
+                                        "displaylogo": False,
+                                    },
+                                ),
                                 html.Div(
                                     className="parameters",
-                                    children=ccf_inputs + ccf_buttons,
+                                    children=ccf_parameter_selection + ccf_extras,
                                 ),
-                            ]
+                            ],
                         ),
                         html.Div(
                             children=[
-                                html.H2("Prominence Vineyard"),
                                 html.Div(
-                                    className="parameters",
-                                    children=pv_inputs + pv_buttons,
+                                    hidden=True,
+                                    id=PV_PANEL,
+                                    className="vertical-grid",
+                                    children=[
+                                        html.Div(
+                                            children=[
+                                                html.H2("Prominence Vineyard"),
+                                                html.Div(
+                                                    className="parameters",
+                                                    children=pv_inputs + pv_buttons,
+                                                ),
+                                            ]
+                                        ),
+                                        dcc.Graph(
+                                            id=PV_PLOT,
+                                            className="graph",
+                                            figure=empty_figure(),
+                                            config={
+                                                "responsive": True,
+                                                "displayModeBar": False,
+                                                "modeBarButtonsToRemove": [
+                                                    "toImage",
+                                                    "pan",
+                                                    "zoomIn",
+                                                    "zoomOut",
+                                                    "resetScale",
+                                                    "lasso",
+                                                    "select",
+                                                ],
+                                                "displaylogo": False,
+                                            },
+                                        ),
+                                        html.Div(
+                                            className="plot-tools",
+                                            children=pv_parameter_selection,
+                                        ),
+                                    ],
+                                ),
+                                html.Div(
+                                    hidden=True,
+                                    id=PD_PANEL,
+                                    className="vertical-grid",
+                                    children=[
+                                        html.Div(
+                                            children=[
+                                                html.H2(
+                                                    "Persistence Diagram of one-parameter slice"
+                                                ),
+                                                html.Div(
+                                                    className="parameters",
+                                                    children=pd_inputs + pd_buttons,
+                                                ),
+                                            ]
+                                        ),
+                                        dcc.Graph(
+                                            id=PD_PLOT,
+                                            className="graph",
+                                            figure=empty_figure(),
+                                            config={
+                                                "responsive": True,
+                                                "displayModeBar": False,
+                                                "modeBarButtonsToRemove": [
+                                                    "toImage",
+                                                    "pan",
+                                                    "zoomIn",
+                                                    "zoomOut",
+                                                    "resetScale",
+                                                    "lasso",
+                                                    "select",
+                                                ],
+                                                "displaylogo": False,
+                                            },
+                                        ),
+                                        html.Div(
+                                            className="plot-tools",
+                                            children=pd_parameter_selection,
+                                        ),
+                                    ],
                                 ),
                             ]
-                        ),
-                        dcc.Graph(
-                            id=CCF_PLOT,
-                            className="graph",
-                            figure=empty_figure(),
-                            config={
-                                "responsive": True,
-                                "displayModeBar": False,
-                                "modeBarButtonsToRemove": [
-                                    "toImage",
-                                    "pan",
-                                    "zoomIn",
-                                    "zoomOut",
-                                    "resetScale",
-                                    "lasso",
-                                    "select",
-                                ],
-                                "displaylogo": False,
-                            },
-                        ),
-                        dcc.Graph(
-                            id=PV_PLOT,
-                            className="graph",
-                            figure=empty_figure(),
-                            config={
-                                "responsive": True,
-                                "displayModeBar": False,
-                                "modeBarButtonsToRemove": [
-                                    "toImage",
-                                    "pan",
-                                    "zoomIn",
-                                    "zoomOut",
-                                    "resetScale",
-                                    "lasso",
-                                    "select",
-                                ],
-                                "displaylogo": False,
-                            },
-                        ),
-                        html.Div(
-                            className="parameters",
-                            children=ccf_parameter_selection + ccf_extras,
-                        ),
-                        html.Div(
-                            className="plot-tools", children=pv_parameter_selection
                         ),
                     ],
                 ),
@@ -1055,6 +1307,7 @@ class PersistableInteractive:
             background=False,
             running=None,
             cancel=None,
+            prevent_update_with_none_input=True
         ):
             def cs(l):
                 return l[0] + l[1]
@@ -1086,8 +1339,9 @@ class PersistableInteractive:
                 def callback_function(*argv):
                     d = {}
                     for n, arg in enumerate(argv):
-                        if arg is None:
-                            raise PreventUpdate
+                        if prevent_update_with_none_input:
+                            if arg is None:
+                                raise PreventUpdate
                         d[cs(inputs[n])] = arg
                     d = function(d)
                     return (
@@ -1127,14 +1381,25 @@ class PersistableInteractive:
             return out_function
 
         @dash_callback(
-            [[DISPLAY_PARAMETER_SELECTION, VALUE, IN]],
-            [[PARAMETER_SELECTION_DIV, HIDDEN]],
+            [[DISPLAY_PARAMETER_SELECTION_PV, VALUE, IN]],
+            [[PARAMETER_SELECTION_DIV_PV, HIDDEN]],
         )
         def toggle_parameter_selection_pv(d):
-            if d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On":
-                d[PARAMETER_SELECTION_DIV + HIDDEN] = False
+            if d[DISPLAY_PARAMETER_SELECTION_PV + VALUE] == "On":
+                d[PARAMETER_SELECTION_DIV_PV + HIDDEN] = False
             else:
-                d[PARAMETER_SELECTION_DIV + HIDDEN] = True
+                d[PARAMETER_SELECTION_DIV_PV + HIDDEN] = True
+            return d
+
+        @dash_callback(
+            [[DISPLAY_PARAMETER_SELECTION_PD, VALUE, IN]],
+            [[PARAMETER_SELECTION_DIV_PD, HIDDEN]],
+        )
+        def toggle_parameter_selection_pd(d):
+            if d[DISPLAY_PARAMETER_SELECTION_PD + VALUE] == "On":
+                d[PARAMETER_SELECTION_DIV_PD + HIDDEN] = False
+            else:
+                d[PARAMETER_SELECTION_DIV_PD + HIDDEN] = True
             return d
 
         @dash_callback(
@@ -1142,6 +1407,7 @@ class PersistableInteractive:
                 [STORED_CCF_COMPUTATION_WARNINGS, DATA, IN],
                 [STORED_RI_COMPUTATION_WARNINGS, DATA, IN],
                 [STORED_PV_COMPUTATION_WARNINGS, DATA, IN],
+                [STORED_PD_COMPUTATION_WARNINGS, DATA, IN],
             ],
             [[LOG, CHILDREN], [LOG_DIV, "open"]],
             True,
@@ -1153,6 +1419,8 @@ class PersistableInteractive:
                 message = json.loads(d[STORED_PV_COMPUTATION_WARNINGS + DATA])
             elif ctx.triggered_id == STORED_RI_COMPUTATION_WARNINGS:
                 message = json.loads(d[STORED_RI_COMPUTATION_WARNINGS + DATA])
+            elif ctx.triggered_id == STORED_PD_COMPUTATION_WARNINGS:
+                message = json.loads(d[STORED_PD_COMPUTATION_WARNINGS + DATA])
             else:
                 raise Exception(
                     "print_log was triggered by unknown id: " + str(ctx.triggered_id)
@@ -1169,8 +1437,9 @@ class PersistableInteractive:
         @dash_callback(
             [
                 [CCF_PLOT, CLICKDATA, IN],
-                [DISPLAY_LINES_SELECTION, VALUE, ST],
-                [ENDPOINT_SELECTION, VALUE, ST],
+                [INTERACTIVE_INPUTS_SELECTION, VALUE, ST],
+                [PV_ENDPOINT_SELECTION, VALUE, ST],
+                [PD_ENDPOINT_SELECTION, VALUE, ST],
                 [X_START_FIRST_LINE, VALUE, ST],
                 [Y_START_FIRST_LINE, VALUE, ST],
                 [X_END_FIRST_LINE, VALUE, ST],
@@ -1179,6 +1448,10 @@ class PersistableInteractive:
                 [Y_START_SECOND_LINE, VALUE, ST],
                 [X_END_SECOND_LINE, VALUE, ST],
                 [Y_END_SECOND_LINE, VALUE, ST],
+                [X_START_LINE, VALUE, ST],
+                [Y_START_LINE, VALUE, ST],
+                [X_END_LINE, VALUE, ST],
+                [Y_END_LINE, VALUE, ST],
             ],
             [
                 [X_START_FIRST_LINE, VALUE],
@@ -1189,37 +1462,70 @@ class PersistableInteractive:
                 [Y_START_SECOND_LINE, VALUE],
                 [X_END_SECOND_LINE, VALUE],
                 [Y_END_SECOND_LINE, VALUE],
+                [X_START_LINE, VALUE],
+                [Y_START_LINE, VALUE],
+                [X_END_LINE, VALUE],
+                [Y_END_LINE, VALUE],
             ],
             True,
         )
         def on_ccf_click(d):
-            if d[DISPLAY_LINES_SELECTION + VALUE] == "On":
+            if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line family":
                 new_x, new_y = (
                     d[CCF_PLOT + CLICKDATA]["points"][0]["x"],
                     d[CCF_PLOT + CLICKDATA]["points"][0]["y"],
                 )
-                if d[ENDPOINT_SELECTION + VALUE] == "1st line start":
+                if d[PV_ENDPOINT_SELECTION + VALUE] == "1st line start":
                     d[X_START_FIRST_LINE + VALUE] = new_x
                     d[Y_START_FIRST_LINE + VALUE] = new_y
-                elif d[ENDPOINT_SELECTION + VALUE] == "1st line end":
+                elif d[PV_ENDPOINT_SELECTION + VALUE] == "1st line end":
                     d[X_END_FIRST_LINE + VALUE] = new_x
                     d[Y_END_FIRST_LINE + VALUE] = new_y
-                elif d[ENDPOINT_SELECTION + VALUE] == "2nd line start":
+                elif d[PV_ENDPOINT_SELECTION + VALUE] == "2nd line start":
                     d[X_START_SECOND_LINE + VALUE] = new_x
                     d[Y_START_SECOND_LINE + VALUE] = new_y
-                elif d[ENDPOINT_SELECTION + VALUE] == "2nd line end":
+                elif d[PV_ENDPOINT_SELECTION + VALUE] == "2nd line end":
                     d[X_END_SECOND_LINE + VALUE] = new_x
                     d[Y_END_SECOND_LINE + VALUE] = new_y
+            elif d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "One-parameter slice":
+                new_x, new_y = (
+                    d[CCF_PLOT + CLICKDATA]["points"][0]["x"],
+                    d[CCF_PLOT + CLICKDATA]["points"][0]["y"],
+                )
+                if d[PD_ENDPOINT_SELECTION + VALUE] == "Line start":
+                    d[X_START_LINE + VALUE] = new_x
+                    d[Y_START_LINE + VALUE] = new_y
+                elif d[PD_ENDPOINT_SELECTION + VALUE] == "Line end":
+                    d[X_END_LINE + VALUE] = new_x
+                    d[Y_END_LINE + VALUE] = new_y
             return d
 
         @dash_callback(
-            [[DISPLAY_LINES_SELECTION, VALUE, IN]], [[ENDPOINT_SELECTION_DIV, HIDDEN]]
+            [[INTERACTIVE_INPUTS_SELECTION, VALUE, IN]],
+            [
+                [PV_ENDPOINT_SELECTION_DIV, HIDDEN],
+                [PD_ENDPOINT_SELECTION_DIV, HIDDEN],
+                [PD_PANEL, HIDDEN],
+                [PV_PANEL, HIDDEN],
+            ],
         )
         def toggle_parameter_selection_ccf(d):
-            if d[DISPLAY_LINES_SELECTION + VALUE] == "On":
-                d[ENDPOINT_SELECTION_DIV + HIDDEN] = False
+            # TODO: abstract the following logic better
+            if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line family":
+                d[PV_ENDPOINT_SELECTION_DIV + HIDDEN] = False
+                d[PD_ENDPOINT_SELECTION_DIV + HIDDEN] = True
+                d[PV_PANEL + HIDDEN] = False
+                d[PD_PANEL + HIDDEN] = True
+            elif d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "One-parameter slice":
+                d[PV_ENDPOINT_SELECTION_DIV + HIDDEN] = True
+                d[PD_ENDPOINT_SELECTION_DIV + HIDDEN] = False
+                d[PV_PANEL + HIDDEN] = True
+                d[PD_PANEL + HIDDEN] = False
             else:
-                d[ENDPOINT_SELECTION_DIV + HIDDEN] = True
+                d[PV_ENDPOINT_SELECTION_DIV + HIDDEN] = True
+                d[PD_ENDPOINT_SELECTION_DIV + HIDDEN] = True
+                d[PV_PANEL + HIDDEN] = True
+                d[PD_PANEL + HIDDEN] = True
             return d
 
         @dash_callback(
@@ -1238,12 +1544,16 @@ class PersistableInteractive:
             y_ticks = np.array(json.loads(d[STORED_Y_TICKS_CCF + DATA]))
             delta_x_ccf = (x_ticks[1] - x_ticks[0]) / 2
             delta_y_ccf = (y_ticks[1] - y_ticks[0]) / 2
+
             def fn_x(x):
                 return x + delta_x_ccf
+
             def fn_x_inverse(x):
                 return x - delta_x_ccf
+
             def fn_y(y):
                 return y + delta_y_ccf
+
             def fn_y_inverse(y):
                 return y - delta_y_ccf
 
@@ -1267,7 +1577,7 @@ class PersistableInteractive:
                     z=ccf,
                     x=fn_x(x_ticks),
                     y=fn_y(y_ticks),
-                    #hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
+                    # hovertemplate="<b># comp.: %{z:d}</b><br>x: %{x:.3e} <br>y: %{y:.3e} ",
                     hovertemplate="<b># comp.: %{z:d}</b> ",
                     zmin=0,
                     zmax=max_components,
@@ -1276,8 +1586,8 @@ class PersistableInteractive:
                 )
             )
 
-            fig.update_xaxes(tickson='boundaries')
-            fig.update_yaxes(tickson='boundaries')
+            fig.update_xaxes(tickson="boundaries")
+            fig.update_yaxes(tickson="boundaries")
 
             fig.update_traces(colorscale="greys")
             fig.update_layout(showlegend=False)
@@ -1295,7 +1605,7 @@ class PersistableInteractive:
                 [MAX_DIST_SCALE, VALUE, IN],
                 [MIN_DENSITY_THRESHOLD, VALUE, IN],
                 [MAX_DENSITY_THRESHOLD, VALUE, IN],
-                [DISPLAY_LINES_SELECTION, VALUE, IN],
+                [INTERACTIVE_INPUTS_SELECTION, VALUE, IN],
                 [X_START_FIRST_LINE, VALUE, IN],
                 [Y_START_FIRST_LINE, VALUE, IN],
                 [X_END_FIRST_LINE, VALUE, IN],
@@ -1304,11 +1614,19 @@ class PersistableInteractive:
                 [Y_START_SECOND_LINE, VALUE, IN],
                 [X_END_SECOND_LINE, VALUE, IN],
                 [Y_END_SECOND_LINE, VALUE, IN],
-                [ENDPOINT_SELECTION, VALUE, IN],
-                [DISPLAY_PARAMETER_SELECTION, VALUE, IN],
-                [FIXED_PARAMETERS, DATA, IN],
-                [STORED_PD, DATA, ST],
-                [INPUT_GAP, VALUE, ST],
+                [PV_ENDPOINT_SELECTION, VALUE, IN],
+                [PD_ENDPOINT_SELECTION, VALUE, IN],
+                [X_START_LINE, VALUE, IN],
+                [Y_START_LINE, VALUE, IN],
+                [X_END_LINE, VALUE, IN],
+                [Y_END_LINE, VALUE, IN],
+                [DISPLAY_PARAMETER_SELECTION_PV, VALUE, IN],
+                [INTERACTIVE_INPUTS_SELECTION, VALUE, IN],
+                [PV_FIXED_PARAMETERS, DATA, IN],
+                [STORED_PD_BY_PV, DATA, ST],
+                [STORED_PARAMETERS_AND_PD_BY_PD, DATA, IN],
+                [PV_INPUT_GAP, VALUE, ST],
+                [PD_INPUT_GAP, VALUE, IN],
                 [INPUT_DISPLAY_RI, VALUE, IN],
                 [INPUT_Y_COVARIANT, VALUE, IN],
                 [STORED_BETTI, DATA, ST],
@@ -1410,11 +1728,11 @@ class PersistableInteractive:
                                 / max_components
                             ) * (1 - min_opacity)
                             x_coords = np.array(
-                                #[x_ticks[i] - delta_x, x_ticks[i_] - delta_x]
+                                # [x_ticks[i] - delta_x, x_ticks[i_] - delta_x]
                                 [x_ticks[i], x_ticks[i_]]
                             )
                             y_coords = np.array(
-                                #[y_ticks[j] - delta_y, y_ticks[j_] - delta_y]
+                                # [y_ticks[j] - delta_y, y_ticks[j_] - delta_y]
                                 [y_ticks[j], y_ticks[j_]]
                             )
                             if length >= d[INPUT_MIN_LENGTH_RI + VALUE]:
@@ -1453,7 +1771,7 @@ class PersistableInteractive:
 
                 positive_bn = np.array(
                     [
-                        #[xs[i] - delta_x, ys[j] - delta_y, bn[i, j]]
+                        # [xs[i] - delta_x, ys[j] - delta_y, bn[i, j]]
                         [xs[i], ys[j], bn[i, j]]
                         for i in range(len(xs))
                         for j in range(len(ys))
@@ -1527,7 +1845,7 @@ class PersistableInteractive:
                     textposition=["top center", "bottom center"],
                 )
 
-            if d[DISPLAY_LINES_SELECTION + VALUE] == "On":
+            if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line family":
 
                 # draw polygon
                 fig.add_trace(
@@ -1554,16 +1872,16 @@ class PersistableInteractive:
                     )
                 )
 
-                if d[ENDPOINT_SELECTION + VALUE] == "1st line start":
+                if d[PV_ENDPOINT_SELECTION + VALUE] == "1st line start":
                     first_line_endpoints = 0
                     second_line_endpoints = None
-                elif d[ENDPOINT_SELECTION + VALUE] == "1st line end":
+                elif d[PV_ENDPOINT_SELECTION + VALUE] == "1st line end":
                     first_line_endpoints = 1
                     second_line_endpoints = None
-                elif d[ENDPOINT_SELECTION + VALUE] == "2nd line start":
+                elif d[PV_ENDPOINT_SELECTION + VALUE] == "2nd line start":
                     first_line_endpoints = None
                     second_line_endpoints = 0
-                elif d[ENDPOINT_SELECTION + VALUE] == "2nd line end":
+                elif d[PV_ENDPOINT_SELECTION + VALUE] == "2nd line end":
                     first_line_endpoints = None
                     second_line_endpoints = 1
 
@@ -1586,9 +1904,105 @@ class PersistableInteractive:
                     )
                 )
 
-            params = json.loads(d[FIXED_PARAMETERS + DATA])
-            if len(params) != 0 and d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On":
-                pd = json.loads(d[STORED_PD + DATA])
+            if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "One-parameter slice":
+
+                st_x = d[X_START_LINE + VALUE]
+                st_y = d[Y_START_LINE + VALUE]
+                end_x = d[X_END_LINE + VALUE]
+                end_y = d[Y_END_LINE + VALUE]
+
+                if d[PD_ENDPOINT_SELECTION + VALUE] == "Line start":
+                    line_endpoints = 0
+                elif d[PD_ENDPOINT_SELECTION + VALUE] == "Line end":
+                    line_endpoints = 1
+
+                fig.add_trace(
+                    generate_line(
+                        [st_x, end_x],
+                        [st_y, end_y],
+                        "selected",
+                        color="blue",
+                        different_marker=line_endpoints,
+                    )
+                )
+
+                saved = json.loads(d[STORED_PARAMETERS_AND_PD_BY_PD + DATA])
+                if len(saved) != 0:
+                    saved_params, saved_pd = saved
+
+                    saved_st_x, saved_st_y = saved_params[0]
+                    saved_end_x, saved_end_y = saved_params[1]
+
+                    if (
+                        np.allclose(
+                            np.array([st_x, st_y, end_x, end_y]),
+                            np.array(
+                                [saved_st_x, saved_st_y, saved_end_x, saved_end_y]
+                            ),
+                        )
+                        and len(saved_pd) != 0
+                    ):
+                        pd = np.array(saved_pd)
+                        pd = pd - st_x
+                        st = np.array([st_x, st_y])
+                        end = np.array([end_x, end_y])
+                        A = end - st
+
+                        # ideally we would get the actual ratio of the rendered picture
+                        # we are using an estimate given by the "usual" way in which
+                        # persistable's GUI is rendered
+                        ratio = np.array([3, 2])
+                        ratio = (ratio / np.linalg.norm(ratio)) * np.linalg.norm(
+                            np.array([1, 1])
+                        )
+                        alpha = [
+                            (d[MAX_DIST_SCALE + VALUE] - d[MIN_DIST_SCALE + VALUE]),
+                            (
+                                d[MAX_DENSITY_THRESHOLD + VALUE]
+                                - d[MIN_DENSITY_THRESHOLD + VALUE]
+                            ),
+                        ]
+                        alpha = np.array(alpha) / ratio
+
+                        A = A / alpha
+                        B = np.array([-A[1], A[0]])
+
+                        shift = 50
+                        B = B / np.linalg.norm(B)
+                        tau = B * alpha / shift
+
+                        lengths = pd[:, 1] - pd[:, 0]
+                        pd = pd[np.argsort(lengths)[::-1]]
+                        for i, point in enumerate(pd):
+                            l = end_x - st_x
+                            p_st = point[0]
+                            p_end = point[1]
+                            q_st_x = st_x + p_st
+                            q_end_x = st_x + p_end
+                            q_st_y = st_y - (st_y - end_y) * (p_st / l)
+                            q_end_y = st_y - (st_y - end_y) * (p_end / l)
+                            q_st = np.array([q_st_x, q_st_y])
+                            q_end = np.array([q_end_x, q_end_y])
+                            r_st = q_st + (i + 1) * tau
+                            r_end = q_end + (i + 1) * tau
+                            color = (
+                                "rgba(34, 139, 34, 1)"
+                                if i < d[PD_INPUT_GAP + VALUE]
+                                else "rgba(34, 139, 34, 0.3)"
+                            )
+                            fig.add_trace(
+                                _draw_bar(
+                                    [r_st[0], r_end[0]], [r_st[1], r_end[1]], color
+                                )
+                            )
+
+            params = json.loads(d[PV_FIXED_PARAMETERS + DATA])
+            if (
+                len(params) != 0
+                and d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line family"
+                and d[DISPLAY_PARAMETER_SELECTION_PV + VALUE] == "On"
+            ):
+                pd = json.loads(d[STORED_PD_BY_PV + DATA])
 
                 st_x = params["start"][0]
                 st_y = params["start"][1]
@@ -1606,7 +2020,7 @@ class PersistableInteractive:
 
                 if len(pd) != 0:
                     pd = np.array(pd)
-                    pd = pd-st_x
+                    pd = pd - st_x
                     st = np.array([st_x, st_y])
                     end = np.array([end_x, end_y])
                     A = end - st
@@ -1650,7 +2064,7 @@ class PersistableInteractive:
                         r_end = q_end + (i + 1) * tau
                         color = (
                             "rgba(34, 139, 34, 1)"
-                            if i < d[INPUT_GAP + VALUE]
+                            if i < d[PV_INPUT_GAP + VALUE]
                             else "rgba(34, 139, 34, 0.3)"
                         )
                         fig.add_trace(
@@ -1864,7 +2278,7 @@ class PersistableInteractive:
                 [STORED_PV_COMPUTATION_WARNINGS, DATA],
                 [INPUT_LINE, "max"],
                 [INPUT_LINE, VALUE],
-                [EXPORT_PARAMETERS_BUTTON, DISABLED],
+                [EXPORT_PARAMETERS_BUTTON_PV, DISABLED],
                 [PV_PLOT_CONTROLS_DIV, HIDDEN],
             ],
             prevent_initial_call=True,
@@ -1913,7 +2327,7 @@ class PersistableInteractive:
                     d[STORED_PV + DATA] = None
                     d[INPUT_LINE + "max"] = granularity
                     d[INPUT_LINE + VALUE] = granularity // 2
-                    d[EXPORT_PARAMETERS_BUTTON + DISABLED] = True
+                    d[EXPORT_PARAMETERS_BUTTON_PV + DISABLED] = True
                     d[PV_PLOT_CONTROLS_DIV + HIDDEN] = True
                     return d
 
@@ -1926,7 +2340,7 @@ class PersistableInteractive:
             d[STORED_PV_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[INPUT_LINE + "max"] = granularity
             d[INPUT_LINE + VALUE] = granularity // 2
-            d[EXPORT_PARAMETERS_BUTTON + DISABLED] = False
+            d[EXPORT_PARAMETERS_BUTTON_PV + DISABLED] = False
 
             d[PV_PLOT_CONTROLS_DIV + HIDDEN] = False
 
@@ -1937,12 +2351,204 @@ class PersistableInteractive:
 
         @dash_callback(
             [
+                [COMPUTE_PD_BUTTON, N_CLICKS, IN],
+                [X_START_LINE, VALUE, ST],
+                [Y_START_LINE, VALUE, ST],
+                [X_END_LINE, VALUE, ST],
+                [Y_END_LINE, VALUE, ST],
+            ],
+            [
+                [STORED_PARAMETERS_AND_PD_BY_PD, DATA],
+                [STORED_PD_COMPUTATION_WARNINGS, DATA],
+                [PD_PLOT_CONTROLS_DIV, HIDDEN],
+                [EXPORT_PARAMETERS_BUTTON_PD, DISABLED],
+            ],
+            prevent_initial_call=True,
+            background=True,
+            running=[
+                [COMPUTE_PD_BUTTON, DISABLED, True, False],
+                [STOP_COMPUTE_PD_BUTTON, DISABLED, False, True],
+            ],
+            cancel=[[STOP_COMPUTE_PD_BUTTON, N_CLICKS]],
+        )
+        def compute_pd(d):
+            if debug:
+                print("Compute pd in background started.")
+
+            out = ""
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                try:
+                    pv = persistable._linear_vineyard(
+                        [
+                            [
+                                d[X_START_LINE + VALUE],
+                                d[Y_START_LINE + VALUE],
+                            ],
+                            [d[X_END_LINE + VALUE], d[Y_END_LINE + VALUE]],
+                        ],
+                        [
+                            [
+                                d[X_START_LINE + VALUE],
+                                d[Y_START_LINE + VALUE],
+                            ],
+                            [
+                                d[X_END_LINE + VALUE],
+                                d[Y_END_LINE + VALUE],
+                            ],
+                        ],
+                        n_parameters=1,
+                        n_jobs=1,
+                    )
+                except ValueError:
+                    out += traceback.format_exc()
+                    d[STORED_PARAMETERS_AND_PD_BY_PD + DATA] = json.dumps([])
+                    d[STORED_PD_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
+                    d[EXPORT_PARAMETERS_BUTTON_PD + DISABLED] = True
+                    d[PD_PLOT_CONTROLS_DIV + HIDDEN] = True
+                    return d
+
+            for a in w:
+                out += warnings.formatwarning(
+                    a.message, a.category, a.filename, a.lineno
+                )
+
+            d[STORED_PARAMETERS_AND_PD_BY_PD + DATA] = json.dumps(
+                (pv._parameters[0], pv._persistence_diagrams[0])
+            )
+            d[STORED_PD_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
+            d[EXPORT_PARAMETERS_BUTTON_PD + DISABLED] = False
+            d[PD_PLOT_CONTROLS_DIV + HIDDEN] = False
+
+            if debug:
+                print("Compute pd in background finished.")
+
+            return d
+
+        @dash_callback(
+            [
+                [STORED_PARAMETERS_AND_PD_BY_PD, DATA, IN],
+                [PD_PLOT, FIGURE, ST],
+                [PD_INPUT_GAP, VALUE, IN],
+                [DISPLAY_PARAMETER_SELECTION_PD, VALUE, IN],
+            ],
+            [[PD_PLOT, FIGURE]],
+            False,
+        )
+        def draw_pd(d):
+            saved = json.loads(d[STORED_PARAMETERS_AND_PD_BY_PD + DATA])
+            if len(saved) != 0:
+                saved_params, saved_pd = saved
+
+                if len(saved_pd) != 0:
+                    saved_pd = np.array(saved_pd)
+
+                    offset = min(saved_pd[:, 0])
+                    start = 0
+                    end = max(saved_pd[:, 1]) - offset
+
+                    bit_more = 1 / 100
+                    delta_x = -(end - start) * bit_more
+                    delta_y = (end - start) * bit_more * 3
+                    x_range = [start, end]
+                    y_range = [start, end]
+                    # corner_1_x = x_range[0]
+                    # corner_1_y = y_range[0]
+                    # corner_2_x = x_range[1]
+                    # corner_2_y = y_range[0]
+                    # corner_3_x = x_range[1]
+                    # corner_3_y = y_range[1]
+                    # corner_4_x = x_range[0]
+                    # corner_4_y = y_range[1]
+
+                    fig = go.Figure(
+                        layout=go.Layout(
+                            xaxis=go.layout.XAxis(
+                                title="Birth",
+                                showticklabels=False,
+                                fixedrange=True,
+                                range=x_range,
+                            ),
+                            yaxis=go.layout.YAxis(
+                                title="Death",
+                                showticklabels=False,
+                                fixedrange=True,
+                                range=y_range,
+                            ),
+                        ),
+                    )
+
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[start, end, end],
+                            y=[start, start, end],
+                            fill="toself",
+                            fillcolor="grey",
+                            hoverinfo="skip",
+                            mode="none",
+                        )
+                    )
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[start, end, start],
+                            y=[start, end, end],
+                            fill="toself",
+                            fillcolor="white",
+                            hoverinfo="skip",
+                            mode="none",
+                        )
+                    )
+
+                    if d[DISPLAY_PARAMETER_SELECTION_PD + VALUE] == "On":
+                        gap = d[PD_INPUT_GAP + VALUE] - 1
+                        prominences = saved_pd[:, 1] - saved_pd[:, 0]
+                        prominences = np.sort(prominences)[::-1]
+                        # only plot gap if gap makes sense
+                        if gap < len(prominences):
+                            gap_end = prominences[gap]
+                            if gap + 1 >= len(prominences):
+                                gap_start = 0
+                            else:
+                                gap_start = prominences[gap + 1]
+
+                            fig.add_trace(
+                                go.Scatter(
+                                    x=[start, end - gap_start, end - gap_end, start],
+                                    y=[gap_start, end, end, gap_end],
+                                    fill="toself",
+                                    fillcolor="rgba(255,0,0,0.2)",
+                                    hoverinfo="skip",
+                                    mode="none",
+                                )
+                            )
+
+                    marker_size = 10
+                    fig.add_trace(
+                        go.Scatter(
+                            x=saved_pd[:, 0] - offset,
+                            y=saved_pd[:, 1] - offset,
+                            mode="markers",
+                            hoverinfo="skip",
+                            marker=dict(size=marker_size, color="green"),
+                        )
+                    )
+
+                    fig.update_layout(showlegend=False)
+                    fig.update_layout(autosize=True)
+                    fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
+
+                    d[PD_PLOT + FIGURE] = fig
+
+            return d
+
+        @dash_callback(
+            [
                 [STORED_PV, DATA, IN],
                 [INPUT_MAX_VINES, VALUE, IN],
                 [INPUT_PROM_VIN_SCALE, VALUE, IN],
-                [DISPLAY_PARAMETER_SELECTION, VALUE, IN],
+                [DISPLAY_PARAMETER_SELECTION_PV, VALUE, IN],
                 [INPUT_LINE, VALUE, IN],
-                [INPUT_GAP, VALUE, IN],
+                [PV_INPUT_GAP, VALUE, IN],
             ],
             [[STORED_PV_DRAWING, DATA]],
             False,
@@ -1986,8 +2592,8 @@ class PersistableInteractive:
                     till = "tozeroy" if i == num_vines - 1 else "tonexty"
                     color = colors[i]
                     if (
-                        d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On"
-                        and i + 1 == d[INPUT_GAP + VALUE]
+                        d[DISPLAY_PARAMETER_SELECTION_PV + VALUE] == "On"
+                        and i + 1 == d[PV_INPUT_GAP + VALUE]
                     ):
                         fig.add_trace(
                             go.Scatter(
@@ -2019,7 +2625,7 @@ class PersistableInteractive:
                     _vineyard_values.extend(vine_part)
             values = np.array(_vineyard_values)
 
-            if d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On":
+            if d[DISPLAY_PARAMETER_SELECTION_PV + VALUE] == "On":
                 fig.add_vline(x=d[INPUT_LINE + VALUE], line_color="grey")
 
             if len(values) > 0:
@@ -2044,13 +2650,13 @@ class PersistableInteractive:
 
         @dash_callback(
             [
-                [INPUT_GAP, VALUE, IN],
+                [PV_INPUT_GAP, VALUE, IN],
                 [INPUT_LINE, VALUE, IN],
                 [STORED_PV, DATA, IN],
             ],
             [
-                [FIXED_PARAMETERS, DATA],
-                [STORED_PD, DATA],
+                [PV_FIXED_PARAMETERS, DATA],
+                [STORED_PD_BY_PV, DATA],
             ],
             True,
         )
@@ -2062,29 +2668,49 @@ class PersistableInteractive:
             )
             line = vineyard._parameters[d[INPUT_LINE + VALUE] - 1]
             params = {
-                "n_clusters": d[INPUT_GAP + VALUE],
+                "n_clusters": d[PV_INPUT_GAP + VALUE],
                 "start": line[0],
                 "end": line[1],
             }
-            d[FIXED_PARAMETERS + DATA] = json.dumps(params)
+            d[PV_FIXED_PARAMETERS + DATA] = json.dumps(params)
 
             pd = vineyard._persistence_diagrams[d[INPUT_LINE + VALUE] - 1]
 
-            d[STORED_PD + DATA] = json.dumps(pd)
+            d[STORED_PD_BY_PV + DATA] = json.dumps(pd)
 
             return d
 
         @dash_callback(
             [
-                [EXPORT_PARAMETERS_BUTTON, N_CLICKS, IN],
-                [FIXED_PARAMETERS, DATA, ST],
+                [EXPORT_PARAMETERS_BUTTON_PV, N_CLICKS, IN],
+                [EXPORT_PARAMETERS_BUTTON_PD, N_CLICKS, IN],
+                [PV_FIXED_PARAMETERS, DATA, ST],
+                [PD_INPUT_GAP, VALUE, ST],
+                [X_START_LINE, VALUE, ST],
+                [Y_START_LINE, VALUE, ST],
+                [X_END_LINE, VALUE, ST],
+                [Y_END_LINE, VALUE, ST],
             ],
             [[EXPORTED_PARAMETER, CHILDREN]],
             True,
+            prevent_update_with_none_input=False
         )
         def export_parameters(d):
+            if ctx.triggered_id == EXPORT_PARAMETERS_BUTTON_PV:
+                params = json.loads(d[PV_FIXED_PARAMETERS + DATA])
+            elif ctx.triggered_id == EXPORT_PARAMETERS_BUTTON_PD:
+                params = {
+                    "n_clusters": d[PD_INPUT_GAP + VALUE],
+                    "start": [d[X_START_LINE + VALUE], d[Y_START_LINE + VALUE]],
+                    "end": [d[X_END_LINE + VALUE], d[Y_END_LINE + VALUE]],
+                }
+            else:
+                raise Exception(
+                    "export_parameters was triggered by unknown id: " + str(ctx.triggered_id)
+                )
             self._parameters_sem.acquire()
-            self._parameters = json.loads(d[FIXED_PARAMETERS + DATA])
+            self._parameters = params
             self._parameters_sem.release()
             d[EXPORTED_PARAMETER + CHILDREN] = json.dumps(self._parameters)
             return d
+ 
