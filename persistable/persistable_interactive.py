@@ -67,8 +67,10 @@ MIN_DENSITY_THRESHOLD = "min-density-threshold-"
 MAX_DENSITY_THRESHOLD = "max-density-threshold-"
 PV_ENDPOINT_SELECTION_DIV = "pv-endpoint-selection-div-"
 PD_ENDPOINT_SELECTION_DIV = "pd-endpoint-selection-div-"
-PARAMETER_SELECTION_DIV = "parameter-selection-div-"
-DISPLAY_PARAMETER_SELECTION = "display-parameter-selection-"
+PARAMETER_SELECTION_DIV_PV = "parameter-selection-div-pv-"
+PARAMETER_SELECTION_DIV_PD = "parameter-selection-div-pd-"
+DISPLAY_PARAMETER_SELECTION_PV = "display-parameter-selection-pv-"
+DISPLAY_PARAMETER_SELECTION_PD = "display-parameter-selection-pd-"
 DISPLAY_SELECTED_LINE = "display-selected-line-"
 COMPUTE_CCF_BUTTON = "compute-ccf-button-"
 STOP_COMPUTE_CCF_BUTTON = "stop-compute-ccf-button-"
@@ -93,6 +95,7 @@ PV_PANEL = "pv-panel-"
 PV_DETAILS = "pv-details-"
 PD_DETAILS = "pd-details-"
 PV_PLOT_CONTROLS_DIV = "pv-plot-controls-div-"
+PD_PLOT_CONTROLS_DIV = "pd-plot-controls-div-"
 PD_PANEL = "pd-panel-"
 LOG = "log-"
 LOG_DIV = "log-div-"
@@ -110,7 +113,9 @@ INPUT_GRANULARITY_PV = "input-granularity-pv-"
 INPUT_NUM_JOBS_PV = "input-num-jobs-pv-"
 INPUT_LINE = "input-line-"
 PV_INPUT_GAP = "pv-input-gap-"
-EXPORT_PARAMETERS_BUTTON = "export-parameters-"
+PD_INPUT_GAP = "pd-input-gap-"
+EXPORT_PARAMETERS_BUTTON_PV = "export-parameters-button-pv-"
+EXPORT_PARAMETERS_BUTTON_PD = "export-parameters-button-pd-"
 PV_FIXED_PARAMETERS = "fixed-parameters-"
 STORED_PD_BY_PV = "stored-pd-by-pv-"
 STORED_PARAMETERS_AND_PD_BY_PD = "stored-pd-by-pd-"
@@ -481,24 +486,6 @@ class PersistableInteractive:
                             html.Div(
                                 className="parameters",
                                 children=[
-                                    # html.Div(
-                                    #    className="parameter-single",
-                                    #    children=[
-                                    #        html.Span(
-                                    #            className="name",
-                                    #            children="Display selected line",
-                                    #        ),
-                                    #        dcc.RadioItems(
-                                    #            [
-                                    #                "On",
-                                    #                "Off",
-                                    #            ],
-                                    #            "On",
-                                    #            id=DISPLAY_SELECTED_LINE,
-                                    #            className=VALUE,
-                                    #        ),
-                                    #    ],
-                                    # ),
                                     html.Div(
                                         className="parameter-single",
                                         children=[
@@ -933,14 +920,14 @@ class PersistableInteractive:
                             dcc.RadioItems(
                                 ["On", "Off"],
                                 "Off",
-                                id=DISPLAY_PARAMETER_SELECTION,
+                                id=DISPLAY_PARAMETER_SELECTION_PV,
                                 className=VALUE,
                             ),
                         ],
                     ),
                     html.Div(
                         className="parameter-double-button",
-                        id=PARAMETER_SELECTION_DIV,
+                        id=PARAMETER_SELECTION_DIV_PV,
                         children=[
                             html.Span(
                                 className="name",
@@ -964,11 +951,11 @@ class PersistableInteractive:
                                 type="number",
                                 value=1,
                                 min=1,
-                                debounce=True,
+                                debounce=False,
                             ),
                             html.Button(
                                 "Choose parameter",
-                                id=EXPORT_PARAMETERS_BUTTON,
+                                id=EXPORT_PARAMETERS_BUTTON_PV,
                                 className="button",
                                 disabled=True,
                             ),
@@ -1062,6 +1049,55 @@ class PersistableInteractive:
                                 "Stop computation",
                                 id=STOP_COMPUTE_PD_BUTTON,
                                 className="button2",
+                                disabled=True,
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
+
+        pd_parameter_selection = (
+            html.Div(
+                id=PD_PLOT_CONTROLS_DIV,
+                className="parameters",
+                hidden=True,
+                children=[
+                    html.Div(
+                        className="parameter-single",
+                        children=[
+                            html.Span(
+                                className="name",
+                                children="Parameter selection",
+                            ),
+                            dcc.RadioItems(
+                                ["On", "Off"],
+                                "Off",
+                                id=DISPLAY_PARAMETER_SELECTION_PD,
+                                className=VALUE,
+                            ),
+                        ],
+                    ),
+                    html.Div(
+                        className="parameter-double-button",
+                        id=PARAMETER_SELECTION_DIV_PD,
+                        children=[
+                            html.Span(
+                                className="name",
+                                children="Gap number",
+                            ),
+                            dcc.Input(
+                                className=VALUE,
+                                id=PD_INPUT_GAP,
+                                type="number",
+                                value=1,
+                                min=1,
+                                debounce=False,
+                            ),
+                            html.Button(
+                                "Choose parameter",
+                                id=EXPORT_PARAMETERS_BUTTON_PD,
+                                className="button",
                                 disabled=True,
                             ),
                         ],
@@ -1220,7 +1256,7 @@ class PersistableInteractive:
                                         ),
                                         html.Div(
                                             className="plot-tools",
-                                            children=[],
+                                            children=pd_parameter_selection,
                                         ),
                                     ],
                                 ),
@@ -1343,14 +1379,25 @@ class PersistableInteractive:
             return out_function
 
         @dash_callback(
-            [[DISPLAY_PARAMETER_SELECTION, VALUE, IN]],
-            [[PARAMETER_SELECTION_DIV, HIDDEN]],
+            [[DISPLAY_PARAMETER_SELECTION_PV, VALUE, IN]],
+            [[PARAMETER_SELECTION_DIV_PV, HIDDEN]],
         )
         def toggle_parameter_selection_pv(d):
-            if d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On":
-                d[PARAMETER_SELECTION_DIV + HIDDEN] = False
+            if d[DISPLAY_PARAMETER_SELECTION_PV + VALUE] == "On":
+                d[PARAMETER_SELECTION_DIV_PV + HIDDEN] = False
             else:
-                d[PARAMETER_SELECTION_DIV + HIDDEN] = True
+                d[PARAMETER_SELECTION_DIV_PV + HIDDEN] = True
+            return d
+
+        @dash_callback(
+            [[DISPLAY_PARAMETER_SELECTION_PD, VALUE, IN]],
+            [[PARAMETER_SELECTION_DIV_PD, HIDDEN]],
+        )
+        def toggle_parameter_selection_pd(d):
+            if d[DISPLAY_PARAMETER_SELECTION_PD + VALUE] == "On":
+                d[PARAMETER_SELECTION_DIV_PD + HIDDEN] = False
+            else:
+                d[PARAMETER_SELECTION_DIV_PD + HIDDEN] = True
             return d
 
         @dash_callback(
@@ -1571,12 +1618,13 @@ class PersistableInteractive:
                 [Y_START_LINE, VALUE, IN],
                 [X_END_LINE, VALUE, IN],
                 [Y_END_LINE, VALUE, IN],
-                [DISPLAY_PARAMETER_SELECTION, VALUE, IN],
+                [DISPLAY_PARAMETER_SELECTION_PV, VALUE, IN],
                 [INTERACTIVE_INPUTS_SELECTION, VALUE, IN],
                 [PV_FIXED_PARAMETERS, DATA, IN],
                 [STORED_PD_BY_PV, DATA, ST],
                 [STORED_PARAMETERS_AND_PD_BY_PD, DATA, IN],
                 [PV_INPUT_GAP, VALUE, ST],
+                [PD_INPUT_GAP, VALUE, IN],
                 [INPUT_DISPLAY_RI, VALUE, IN],
                 [INPUT_Y_COVARIANT, VALUE, IN],
                 [STORED_BETTI, DATA, ST],
@@ -1935,7 +1983,11 @@ class PersistableInteractive:
                             q_end = np.array([q_end_x, q_end_y])
                             r_st = q_st + (i + 1) * tau
                             r_end = q_end + (i + 1) * tau
-                            color = "rgba(34, 139, 34, 1)"
+                            color = (
+                                "rgba(34, 139, 34, 1)"
+                                if i < d[PD_INPUT_GAP + VALUE]
+                                else "rgba(34, 139, 34, 0.3)"
+                            )
                             fig.add_trace(
                                 _draw_bar(
                                     [r_st[0], r_end[0]], [r_st[1], r_end[1]], color
@@ -1946,7 +1998,7 @@ class PersistableInteractive:
             if (
                 len(params) != 0
                 and d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line family"
-                and d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On"
+                and d[DISPLAY_PARAMETER_SELECTION_PV + VALUE] == "On"
             ):
                 pd = json.loads(d[STORED_PD_BY_PV + DATA])
 
@@ -2224,7 +2276,7 @@ class PersistableInteractive:
                 [STORED_PV_COMPUTATION_WARNINGS, DATA],
                 [INPUT_LINE, "max"],
                 [INPUT_LINE, VALUE],
-                [EXPORT_PARAMETERS_BUTTON, DISABLED],
+                [EXPORT_PARAMETERS_BUTTON_PV, DISABLED],
                 [PV_PLOT_CONTROLS_DIV, HIDDEN],
             ],
             prevent_initial_call=True,
@@ -2273,7 +2325,7 @@ class PersistableInteractive:
                     d[STORED_PV + DATA] = None
                     d[INPUT_LINE + "max"] = granularity
                     d[INPUT_LINE + VALUE] = granularity // 2
-                    d[EXPORT_PARAMETERS_BUTTON + DISABLED] = True
+                    d[EXPORT_PARAMETERS_BUTTON_PV + DISABLED] = True
                     d[PV_PLOT_CONTROLS_DIV + HIDDEN] = True
                     return d
 
@@ -2286,7 +2338,7 @@ class PersistableInteractive:
             d[STORED_PV_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[INPUT_LINE + "max"] = granularity
             d[INPUT_LINE + VALUE] = granularity // 2
-            d[EXPORT_PARAMETERS_BUTTON + DISABLED] = False
+            d[EXPORT_PARAMETERS_BUTTON_PV + DISABLED] = False
 
             d[PV_PLOT_CONTROLS_DIV + HIDDEN] = False
 
@@ -2306,8 +2358,8 @@ class PersistableInteractive:
             [
                 [STORED_PARAMETERS_AND_PD_BY_PD, DATA],
                 [STORED_PD_COMPUTATION_WARNINGS, DATA],
-                # [EXPORT_PARAMETERS_BUTTON, DISABLED],
-                # [PV_PLOT_CONTROLS_DIV, HIDDEN],
+                [PD_PLOT_CONTROLS_DIV, HIDDEN],
+                [EXPORT_PARAMETERS_BUTTON_PD, DISABLED],
             ],
             prevent_initial_call=True,
             background=True,
@@ -2351,7 +2403,7 @@ class PersistableInteractive:
                     d[STORED_PARAMETERS_AND_PD_BY_PD + DATA] = json.dumps([])
                     d[STORED_PD_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
                     # d[EXPORT_PARAMETERS_BUTTON + DISABLED] = True
-                    # d[PV_PLOT_CONTROLS_DIV + HIDDEN] = True
+                    d[PD_PLOT_CONTROLS_DIV + HIDDEN] = True
                     return d
 
             for a in w:
@@ -2363,8 +2415,8 @@ class PersistableInteractive:
                 (pv._parameters[0], pv._persistence_diagrams[0])
             )
             d[STORED_PD_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
-            # d[EXPORT_PARAMETERS_BUTTON + DISABLED] = False
-            # d[PV_PLOT_CONTROLS_DIV + HIDDEN] = False
+            d[EXPORT_PARAMETERS_BUTTON_PD + DISABLED] = False
+            d[PD_PLOT_CONTROLS_DIV + HIDDEN] = False
 
             if debug:
                 print("Compute pd in background finished.")
@@ -2375,6 +2427,8 @@ class PersistableInteractive:
             [
                 [STORED_PARAMETERS_AND_PD_BY_PD, DATA, IN],
                 [PD_PLOT, FIGURE, ST],
+                [PD_INPUT_GAP, VALUE, IN],
+                [DISPLAY_PARAMETER_SELECTION_PD, VALUE, IN],
             ],
             [[PD_PLOT, FIGURE]],
             False,
@@ -2387,20 +2441,23 @@ class PersistableInteractive:
                 if len(saved_pd) != 0:
                     saved_pd = np.array(saved_pd)
 
-                    start = min(saved_pd[:, 0])
-                    end = max(saved_pd[:, 1])
+                    offset = min(saved_pd[:, 0])
+                    start = 0
+                    end = max(saved_pd[:, 1]) - offset
 
-                    bit_more = 1/100
-                    x_range = [start - (end - start) * bit_more, end]
-                    y_range = [start, end + (end - start) * bit_more]
-                    corner_1_x = x_range[0]
-                    corner_1_y = y_range[0]
-                    corner_2_x = x_range[1]
-                    corner_2_y = y_range[0]
-                    corner_3_x = x_range[1]
-                    corner_3_y = y_range[1]
-                    corner_4_x = x_range[0]
-                    corner_4_y = y_range[1]
+                    bit_more = 1 / 100
+                    delta_x = -(end - start) * bit_more
+                    delta_y = (end - start) * bit_more * 3
+                    x_range = [start, end]
+                    y_range = [start, end]
+                    # corner_1_x = x_range[0]
+                    # corner_1_y = y_range[0]
+                    # corner_2_x = x_range[1]
+                    # corner_2_y = y_range[0]
+                    # corner_3_x = x_range[1]
+                    # corner_3_y = y_range[1]
+                    # corner_4_x = x_range[0]
+                    # corner_4_y = y_range[1]
 
                     fig = go.Figure(
                         layout=go.Layout(
@@ -2421,35 +2478,59 @@ class PersistableInteractive:
 
                     fig.add_trace(
                         go.Scatter(
-                            x=[corner_1_x, corner_2_x, corner_3_x],
-                            y=[corner_1_y, corner_2_y, corner_3_y],
+                            x=[start, end, end],
+                            y=[start, start, end],
                             fill="toself",
                             fillcolor="grey",
                             hoverinfo="skip",
-                            mode="none"
+                            mode="none",
                         )
                     )
                     fig.add_trace(
                         go.Scatter(
-                            x=[corner_1_x, corner_4_x, corner_3_x],
-                            y=[corner_1_y, corner_4_y, corner_3_y],
+                            x=[start, end, start],
+                            y=[start, end, end],
                             fill="toself",
                             fillcolor="white",
                             hoverinfo="skip",
-                            mode="none"
+                            mode="none",
                         )
                     )
+
+                    if d[DISPLAY_PARAMETER_SELECTION_PD + VALUE] == "On":
+                        gap = d[PD_INPUT_GAP + VALUE] - 1
+                        prominences = saved_pd[:, 1] - saved_pd[:, 0]
+                        prominences = np.sort(prominences)[::-1]
+                        # only plot gap if gap makes sense
+                        if gap < len(prominences):
+                            gap_end = prominences[gap]
+                            if gap + 1 >= len(prominences):
+                                gap_start = 0
+                            else:
+                                gap_start = prominences[gap + 1]
+
+                            fig.add_trace(
+                                go.Scatter(
+                                    x=[start, end - gap_start, end - gap_end, start],
+                                    y=[gap_start, end, end, gap_end],
+                                    fill="toself",
+                                    fillcolor="rgba(255,0,0,0.2)",
+                                    hoverinfo="skip",
+                                    mode="none",
+                                )
+                            )
 
                     marker_size = 10
                     fig.add_trace(
                         go.Scatter(
-                            x=saved_pd[:, 0],
-                            y=saved_pd[:, 1],
+                            x=saved_pd[:, 0] - offset,
+                            y=saved_pd[:, 1] - offset,
                             mode="markers",
                             hoverinfo="skip",
                             marker=dict(size=marker_size, color="green"),
                         )
                     )
+
                     fig.update_layout(showlegend=False)
                     fig.update_layout(autosize=True)
                     fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
@@ -2463,7 +2544,7 @@ class PersistableInteractive:
                 [STORED_PV, DATA, IN],
                 [INPUT_MAX_VINES, VALUE, IN],
                 [INPUT_PROM_VIN_SCALE, VALUE, IN],
-                [DISPLAY_PARAMETER_SELECTION, VALUE, IN],
+                [DISPLAY_PARAMETER_SELECTION_PV, VALUE, IN],
                 [INPUT_LINE, VALUE, IN],
                 [PV_INPUT_GAP, VALUE, IN],
             ],
@@ -2509,7 +2590,7 @@ class PersistableInteractive:
                     till = "tozeroy" if i == num_vines - 1 else "tonexty"
                     color = colors[i]
                     if (
-                        d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On"
+                        d[DISPLAY_PARAMETER_SELECTION_PV + VALUE] == "On"
                         and i + 1 == d[PV_INPUT_GAP + VALUE]
                     ):
                         fig.add_trace(
@@ -2542,7 +2623,7 @@ class PersistableInteractive:
                     _vineyard_values.extend(vine_part)
             values = np.array(_vineyard_values)
 
-            if d[DISPLAY_PARAMETER_SELECTION + VALUE] == "On":
+            if d[DISPLAY_PARAMETER_SELECTION_PV + VALUE] == "On":
                 fig.add_vline(x=d[INPUT_LINE + VALUE], line_color="grey")
 
             if len(values) > 0:
@@ -2599,7 +2680,7 @@ class PersistableInteractive:
 
         @dash_callback(
             [
-                [EXPORT_PARAMETERS_BUTTON, N_CLICKS, IN],
+                [EXPORT_PARAMETERS_BUTTON_PV, N_CLICKS, IN],
                 [PV_FIXED_PARAMETERS, DATA, ST],
             ],
             [[EXPORTED_PARAMETER, CHILDREN]],
