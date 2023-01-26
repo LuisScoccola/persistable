@@ -253,7 +253,7 @@ cdef class KDTreeBoruvkaAlgorithm (object):
     cdef const np.int_t[:, ::1] nn
     ####
 
-    def __init__(self, tree, core_distance, const np.int_t[:, ::1] nn, metric='euclidean', leaf_size=20, approx_min_span_tree=False, **kwargs):
+    def __init__(self, tree, core_distance, const np.int_t[:, ::1] nn, metric='euclidean', approx_min_span_tree=False, **kwargs):
 
         self.tree = tree
         self._data = np.array(self.tree.data)
@@ -793,7 +793,7 @@ cdef class BallTreeBoruvkaAlgorithm (object):
 
     cdef const np.int_t[:, ::1] nn
 
-    def __init__(self, tree, core_distance, const np.int_t[:,::1] nn, metric='euclidean', leaf_size=20, approx_min_span_tree=False,
+    def __init__(self, tree, core_distance, const np.int_t[:,::1] nn, metric='euclidean', approx_min_span_tree=False,
                  **kwargs):
 
         self.tree = tree

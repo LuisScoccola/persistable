@@ -253,7 +253,7 @@ class PersistableInteractive:
 
             return port
 
-    def cluster(self, **kwargs):
+    def cluster(self, propagate_labels=False, n_iterations_propagate_labels=30, n_neighbors_propagate_labels=15, **kwargs):
         """Clusters the dataset with which the Persistable instance that was
         passed through ``run_with`` was initialized.
 
@@ -273,7 +273,9 @@ class PersistableInteractive:
                 "No parameters where chosen. Please use the graphical user interface to choose parameters."
             )
         else:
-            return self._persistable.cluster(**params, **kwargs)
+            return self._persistable.cluster(**params, propagate_labels=propagate_labels,
+                n_iterations_propagate_labels=n_iterations_propagate_labels,
+                n_neighbors_propagate_labels=n_neighbors_propagate_labels, **kwargs)
 
     def _chosen_parameters(self):
         self._parameters_sem.acquire()
@@ -283,7 +285,7 @@ class PersistableInteractive:
 
     def _layout_gui(self):
         default_min_k = 0
-        end = self._persistable._find_end()
+        end = self._persistable._find_end(fast=True)
         default_max_k = end[1]
         # default_k_step = default_max_k / 100
         default_min_s = 0

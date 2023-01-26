@@ -94,6 +94,10 @@ class Persistable:
         significantly slower because of the GIL, but the backend ``loky`` does
         not work well in some systems.
 
+    n_jobs: int, default is 1
+        Number of processes or threads to use to fit the data structures, for exaple
+        to compute the nearest neighbors of all points in the dataset.
+
     ``**kwargs``:
         Passed to ``KDTree`` or ``BallTree``.
 
@@ -108,14 +112,10 @@ class Persistable:
         n_neighbors="auto",
         debug=False,
         threading=False,
+        n_jobs=4,
         **kwargs
     ):
         self._subsample = None 
-
-        if "leaf_size" in kwargs:
-            leaf_size = kwargs["leaf_size"]
-        else:
-            leaf_size = 40
 
         # if no measure was passed, assume normalized counting measure
         if measure is None:
@@ -129,7 +129,7 @@ class Persistable:
         if subsample is not None:
             if type(subsample) != int:
                 raise ValueError("subsample must be either None or an integer.")
-            ms = _MetricSpace(X, metric, **kwargs)
+            ms = _MetricSpace(X, metric, threading=threading, debug=debug, n_jobs=n_jobs, **kwargs)
             if subsample >= X.shape[0]:
                 subsample = int(X.shape[0] / 4)
                 warnings.warn(
@@ -177,7 +177,7 @@ class Persistable:
 
         # construct the filtration
         self._mpspace = _MetricProbabilitySpace(
-            X, metric, measure, n_neighbors, leaf_size, **kwargs
+            X, metric, measure, n_neighbors, threading=threading, debug=debug, n_jobs=n_jobs, **kwargs
         )
 
         self._bifiltration = _DegreeRipsBifiltration(
@@ -192,7 +192,7 @@ class Persistable:
         n_clusters_range=np.array([3, 15]),
         propagate_labels=False,
         n_iterations_propagate_labels=30,
-        n_neighbors_propagate_labels=5,
+        n_neighbors_propagate_labels=15,
     ):
         """Clusters the dataset with which the Persistable instance was initialized.
 
@@ -263,7 +263,7 @@ class Persistable:
         end,
         propagate_labels=False,
         n_iterations_propagate_labels=30,
-        n_neighbors_propagate_labels=5,
+        n_neighbors_propagate_labels=15,
     ):
         """Clusters the dataset with which the Persistable instance was initialized.
 
@@ -339,8 +339,8 @@ class Persistable:
 
         return cl
 
-    def _find_end(self):
-        return self._bifiltration.find_end()
+    def _find_end(self, fast):
+        return self._bifiltration.find_end(fast=fast)
 
     def _hilbert_function(
         self,
@@ -792,9 +792,13 @@ class _MetricSpace:
 
     _MAX_DIM_USE_BORUVKA = 60
 
-    def __init__(self, X, metric, leaf_size=40, **kwargs):
+    def __init__(self, X, metric, leaf_size=40, threading=False, debug=False, n_jobs=1, **kwargs):
         # save extra arguments for metric
         self._kwargs = kwargs
+
+        self._threading = threading
+        self._n_jobs = n_jobs
+        self._debug = debug
 
         # default values before fitting
         self._fitted_nn = False
@@ -805,7 +809,8 @@ class _MetricSpace:
         self._size = None
         self._dimension = None
         self._points = None
-        self._tree = None
+        self._nn_tree = None
+        self._boruvka_tree = None
         self._dist_mat = None
         self._dist_metric = None
 
@@ -824,13 +829,20 @@ class _MetricSpace:
         self._metric = metric
         self._leaf_size = leaf_size
         if metric in KDTree.valid_metrics + BallTree.valid_metrics:
+            leaf_size_boruvka = 3 if self._leaf_size < 3 else self._leaf_size // 3
             if metric in KDTree.valid_metrics:
-                self._tree = KDTree(
+                self._nn_tree = KDTree(
                     X, metric=metric, leaf_size=self._leaf_size, **kwargs
                 )
+                self._boruvka_tree = KDTree(
+                    X, metric=metric, leaf_size=leaf_size_boruvka, **kwargs
+                )
             elif metric in BallTree.valid_metrics:
-                self._tree = BallTree(
+                self._nn_tree = BallTree(
                     X, metric=metric, leaf_size=self._leaf_size, **kwargs
+                )
+                self._boruvka_tree = BallTree(
+                    X, metric=metric, leaf_size=leaf_size_boruvka, **kwargs
                 )
 
             self._dist_metric = DistanceMetric.get_metric(self._metric, **self._kwargs)
@@ -843,19 +855,35 @@ class _MetricSpace:
     def _fit_nn(self, n_neighbors):
         self._n_neighbors = n_neighbors
         if self._metric in BallTree.valid_metrics + KDTree.valid_metrics:
-            k_neighbors = self._tree.query(
-                self._points,
-                self._n_neighbors,
-                return_distance=True,
-                sort_results=True,
-                dualtree=True,
-                breadth_first=True,
-            )
-            k_neighbors = (np.array(k_neighbors[1]), np.array(k_neighbors[0]))
-            maxs_given_by_n_neighbors = np.min(k_neighbors[1][:, -1])
+
+            def query_neighbors(points):
+                return self._nn_tree.query(
+                    points,
+                    self._n_neighbors,
+                    return_distance=True,
+                    sort_results=True,
+                    dualtree=True,
+                    breadth_first=True,
+                )
+
+            # if we don't have too many points
+            if self.size() <= 16384 or self._n_jobs == 1:
+                _nn_distance, neighbors = query_neighbors(self._points)
+            else:
+                delta = self.size() // self._n_jobs
+                datasets = []
+                for i in range(self._n_jobs):
+                    if i == self._n_jobs - 1:
+                        datasets.append(self._points[i*delta:])
+                    else:
+                        datasets.append(self._points[i*delta:(i+1)*delta])
+                nn_data = parallel_computation(query_neighbors, datasets, n_jobs = self._n_jobs, debug = self._debug)
+
+                _nn_distance = np.vstack([x[0] for x in nn_data])
+                neighbors = np.vstack([x[1] for x in nn_data])
+
+            maxs_given_by_n_neighbors = np.min(_nn_distance[:, -1])
             self._maxs = maxs_given_by_n_neighbors
-            neighbors = k_neighbors[0]
-            _nn_distance = k_neighbors[1]
         else:
             self._n_neighbors = self._size
             self._maxs = 0
@@ -886,10 +914,9 @@ class _MetricSpace:
                 sl = mst_linkage_core_vector(X, core_distances, self._dist_metric)
             else:
                 sl = KDTreeBoruvkaAlgorithm(
-                    self._tree,
+                    self._boruvka_tree,
                     core_distances,
                     self._nn_indices,
-                    leaf_size=self._leaf_size // 3,
                     metric=self._metric,
                     **self._kwargs
                 ).spanning_tree()
@@ -901,10 +928,9 @@ class _MetricSpace:
                 sl = mst_linkage_core_vector(X, core_distances, self._dist_metric)
             else:
                 sl = BallTreeBoruvkaAlgorithm(
-                    self._tree,
+                    self._boruvka_tree,
                     core_distances,
                     self._nn_indices,
-                    leaf_size=self._leaf_size // 3,
                     metric=self._metric,
                     **self._kwargs
                 ).spanning_tree()
@@ -927,7 +953,7 @@ class _MetricSpace:
 
         # metric tree case
         if self._metric in KDTree.valid_metrics + BallTree.valid_metrics:
-            s_neighbors = self._tree.query_radius(self._points, rips_radius)
+            s_neighbors = self._nn_tree.query_radius(self._points, rips_radius)
         # dense distance matrix case
         elif self._metric == "precomputed":
             s_neighbors = []
@@ -1024,20 +1050,20 @@ class _MetricSpace:
 # examples of persistent metric spaces are the kernel filtration induced by a
 # metric probability space, as well as a metric space together with a function
 # class _PersistentMetricSpace:
-
-
-class _FilteredMetricSpace(_MetricSpace):
-    def __init__(self, X, metric, filter_function, leaf_size=40, **kwargs):
-        _MetricSpace.__init__(self, X, metric, leaf_size, **kwargs)
-        self._filter_function = filter_function
+#
+#
+#class _FilteredMetricSpace(_MetricSpace):
+#    def __init__(self, X, metric, filter_function, **kwargs):
+#        _MetricSpace.__init__(self, X, metric, **kwargs)
+#        self._filter_function = filter_function
 
 
 class _MetricProbabilitySpace(_MetricSpace):
     """Implements a finite metric probability space that can compute its \
        kernel density estimates """
 
-    def __init__(self, X, metric, measure, n_neighbors, leaf_size=40, **kwargs):
-        _MetricSpace.__init__(self, X, metric, leaf_size, **kwargs)
+    def __init__(self, X, metric, measure, n_neighbors, threading = False, debug = False, n_jobs=1, **kwargs):
+        _MetricSpace.__init__(self, X, metric, threading=threading, debug=debug, n_jobs=n_jobs, **kwargs)
 
         # fit metric space nearest neighbors
         self._fit_nn(n_neighbors)
