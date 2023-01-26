@@ -31,7 +31,8 @@ from joblib.parallel import cpu_count
 
 
 _TOL = 1e-08
-
+# starting when we consider a dataset large
+_MANY_POINTS = 16000
 
 def parallel_computation(function, inputs, n_jobs, debug=False, threading=False):
     if n_jobs == 1:
@@ -174,6 +175,7 @@ class Persistable:
             )
         # keep max_k (normalized n_neighbors)
         self._maxk = n_neighbors / X.shape[0]
+        self._dataset_is_large = X.shape[0] > _MANY_POINTS
 
         # construct the filtration
         self._mpspace = _MetricProbabilitySpace(
@@ -339,8 +341,8 @@ class Persistable:
 
         return cl
 
-    def _find_end(self, fast):
-        return self._bifiltration.find_end(fast=fast)
+    def _find_end(self):
+        return self._bifiltration.find_end()
 
     def _hilbert_function(
         self,
@@ -457,10 +459,11 @@ class _DegreeRipsBifiltration:
             #        )
             return nn_distance[(point_index, i_indices)]
 
-    def find_end(self, tolerance=1e-4, fast=False):
+    def find_end(self, tolerance=1e-4):
         maxk = self._mpspace.max_fitted_density()
 
-        if fast:
+        dataset_is_large = self._mpspace.size() > _MANY_POINTS
+        if dataset_is_large:
             default_percentile = 0.95
             return self.connection_radius(default_percentile) * 4, maxk
 
@@ -867,7 +870,7 @@ class _MetricSpace:
                 )
 
             # if we don't have too many points
-            if self.size() <= 16384 or self._n_jobs == 1:
+            if self.size() <= _MANY_POINTS or self._n_jobs == 1:
                 _nn_distance, neighbors = query_neighbors(self._points)
             else:
                 delta = self.size() // self._n_jobs

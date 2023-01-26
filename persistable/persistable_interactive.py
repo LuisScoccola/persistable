@@ -285,7 +285,7 @@ class PersistableInteractive:
 
     def _layout_gui(self):
         default_min_k = 0
-        end = self._persistable._find_end(fast=True)
+        end = self._persistable._find_end()
         default_max_k = end[1]
         # default_k_step = default_max_k / 100
         default_min_s = 0
