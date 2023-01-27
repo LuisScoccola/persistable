@@ -78,7 +78,9 @@ class Persistable:
     subsample: None or int, optional, default is None
         Number of datapoints to subsample. The subsample is taken to have a measure
         that approximates the original measure on the full dataset as best as possible,
-        in the Prokhorov sense.
+        in the Prokhorov sense. If metric is ``minkowski`` and the dimensionality is
+        not too big, computing the sample takes time O( log(size_subsample) * size_data ),
+        otherwise it takes time O( size_subsample * size_data ).
 
     n_neighbors: int or string, optional, default is "auto"
         Number of neighbors for each point in X used to initialize
@@ -110,7 +112,6 @@ class Persistable:
         metric="minkowski",
         measure=None,
         subsample=None,
-        subsample_euclidean=False,
         n_neighbors="auto",
         debug=False,
         threading=False,
@@ -140,6 +141,8 @@ class Persistable:
                     + " instead."
                 )
             self._subsample = subsample
+
+            subsample_euclidean = (metric == "minkowski")
 
             subsample_indices, subsample_representatives = ms.close_subsample(
                 subsample, euclidean=subsample_euclidean
