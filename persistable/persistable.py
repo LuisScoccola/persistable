@@ -110,6 +110,7 @@ class Persistable:
         metric="minkowski",
         measure=None,
         subsample=None,
+        subsample_euclidean=False,
         n_neighbors="auto",
         debug=False,
         threading=False,
@@ -139,8 +140,9 @@ class Persistable:
                     + " instead."
                 )
             self._subsample = subsample
-            subsample_indices, _, subsample_representatives = ms.close_subsample(
-                subsample
+
+            subsample_indices, subsample_representatives = ms.close_subsample(
+                subsample, euclidean=subsample_euclidean
             )
             X = X.copy()
             if metric == "precomputed":
@@ -1029,10 +1031,13 @@ class _MetricSpace:
                 break
         return new_labels
 
-    def close_subsample(self, subsample_size, seed=0):
+    def close_subsample(self, subsample_size, seed=0, euclidean=False):
         """ Returns a pair of arrays with the first array containing the indices \
             of a subsample of the given size that is close in the Hausdorff distance \
             and the second array containing the subsequent covering radii """
+
+        if euclidean:
+            return self._close_subsample_euclidean(subsample_size)
 
         np.random.seed(seed)
         random_start = np.random.randint(0, self.size())
@@ -1053,6 +1058,44 @@ class _MetricSpace:
             )
         else:
             raise ValueError("Metric given is not supported.")
+
+    def _close_subsample_euclidean(self, subsample_size, num_points_tolerance=100):
+        X = self._points
+
+        lower_bound = 0.0
+
+        upper_bound = 1.0
+        while True:
+            W = (upper_bound * X).astype(int)
+            count = np.unique(W, axis=0).shape[0]
+
+            if count < subsample_size:
+                upper_bound *= 2
+            else:
+                break
+
+        i = 0
+        while True:
+            epsilon = (lower_bound + upper_bound) / 2
+            i += 1
+
+            W = (epsilon * X).astype(int)
+            count = np.unique(W, axis=0).shape[0]
+
+            if count > subsample_size + num_points_tolerance:
+                upper_bound = epsilon
+            elif count < subsample_size - num_points_tolerance:
+                lower_bound = epsilon
+            else:
+                break
+            if np.abs(lower_bound - upper_bound) < _TOL:
+                break
+
+        W = (epsilon * X).astype(int)
+        _, subsample_indices, subsample_representatives = np.unique(
+            W, axis=0, return_index=True, return_inverse=True
+        )
+        return subsample_indices, subsample_representatives
 
 
 # TODO:
