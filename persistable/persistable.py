@@ -344,6 +344,15 @@ class Persistable:
     def _find_end(self):
         return self._bifiltration.find_end()
 
+    def _default_granularity(self):
+        if self._mpspace.size() > _MANY_POINTS:
+            return 3
+        elif self._mpspace.size() < 5000 :
+            return 80
+        else:
+            return 30
+
+
     def _hilbert_function(
         self,
         min_s,
@@ -480,8 +489,6 @@ class _DegreeRipsBifiltration:
 
             pd = pers_diag(current_k)
             pd = np.array(pd)
-            # if len(pd[pd[:,1] == np.infty]) > 1:
-            #    raise Exception("End not found! Try setting auto_find_end_hierachical_clustering to False.")
             if pd.shape[0] == 0:
                 raise Exception(
                     "Empty persistence diagram found when trying to find end of bifiltration."
