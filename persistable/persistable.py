@@ -147,6 +147,8 @@ class Persistable:
             subsample_indices, subsample_representatives = ms.close_subsample(
                 subsample, euclidean=subsample_euclidean
             )
+            self._subsample = subsample_indices.shape[0]
+
             X = X.copy()
             if metric == "precomputed":
                 X = X[subsample_indices, :][:, subsample_indices]
@@ -155,7 +157,7 @@ class Persistable:
             self._subsample_representatives = subsample_representatives
 
             # compute measure for subsample
-            new_measure = np.zeros(subsample)
+            new_measure = np.zeros(self._subsample)
             for i, _ in enumerate(self._subsample_representatives):
                 new_measure[self._subsample_representatives[i]] += measure[i]
             measure = new_measure
