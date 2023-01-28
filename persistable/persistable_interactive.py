@@ -2073,15 +2073,19 @@ class PersistableInteractive:
                             _draw_bar([r_st[0], r_end[0]], [r_st[1], r_end[1]], color)
                         )
 
-            yaxis = (
-                [y_ticks_ccf[0], y_ticks_ccf[-1]]
-                if d[INPUT_Y_COVARIANT + VALUE] == "Cov"
-                else [y_ticks_ccf[-1], y_ticks_ccf[0]]
-            )
 
+            if ctx.triggered_id == STORED_CCF_DRAWING:
+                xbounds = [x_ticks_ccf[0], x_ticks_ccf[-1]]
+                ybounds = [y_ticks_ccf[-1], y_ticks_ccf[0]]
+            else:
+                xbounds = [d[MIN_DIST_SCALE + VALUE], d[MAX_DIST_SCALE + VALUE]]
+                ybounds = [d[MIN_DENSITY_THRESHOLD + VALUE], d[MAX_DENSITY_THRESHOLD + VALUE]]
+
+            if d[INPUT_Y_COVARIANT + VALUE] == "Cov":
+                ybounds = ybounds[::-1]
             fig.update_layout(
-                xaxis=dict(range=[x_ticks_ccf[0], x_ticks_ccf[-1]]),
-                yaxis=dict(range=yaxis),
+                xaxis=dict(range=xbounds),
+                yaxis=dict(range=ybounds),
             )
 
             d[CCF_PLOT + FIGURE] = fig
