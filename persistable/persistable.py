@@ -31,7 +31,8 @@ from joblib.parallel import cpu_count
 
 
 _TOL = 1e-08
-
+# starting when we consider a dataset large
+_MANY_POINTS = 16000
 
 def parallel_computation(function, inputs, n_jobs, debug=False, threading=False):
     if n_jobs == 1:
@@ -77,7 +78,9 @@ class Persistable:
     subsample: None or int, optional, default is None
         Number of datapoints to subsample. The subsample is taken to have a measure
         that approximates the original measure on the full dataset as best as possible,
-        in the Prokhorov sense.
+        in the Prokhorov sense. If metric is ``minkowski`` and the dimensionality is
+        not too big, computing the sample takes time O( log(size_subsample) * size_data ),
+        otherwise it takes time O( size_subsample * size_data ).
 
     n_neighbors: int or string, optional, default is "auto"
         Number of neighbors for each point in X used to initialize
@@ -94,6 +97,10 @@ class Persistable:
         significantly slower because of the GIL, but the backend ``loky`` does
         not work well in some systems.
 
+    n_jobs: int, default is 1
+        Number of processes or threads to use to fit the data structures, for exaple
+        to compute the nearest neighbors of all points in the dataset.
+
     ``**kwargs``:
         Passed to ``KDTree`` or ``BallTree``.
 
@@ -108,14 +115,10 @@ class Persistable:
         n_neighbors="auto",
         debug=False,
         threading=False,
+        n_jobs=4,
         **kwargs
     ):
         self._subsample = None 
-
-        if "leaf_size" in kwargs:
-            leaf_size = kwargs["leaf_size"]
-        else:
-            leaf_size = 40
 
         # if no measure was passed, assume normalized counting measure
         if measure is None:
@@ -129,7 +132,7 @@ class Persistable:
         if subsample is not None:
             if type(subsample) != int:
                 raise ValueError("subsample must be either None or an integer.")
-            ms = _MetricSpace(X, metric, **kwargs)
+            ms = _MetricSpace(X, metric, threading=threading, debug=debug, n_jobs=n_jobs, **kwargs)
             if subsample >= X.shape[0]:
                 subsample = int(X.shape[0] / 4)
                 warnings.warn(
@@ -138,9 +141,14 @@ class Persistable:
                     + " instead."
                 )
             self._subsample = subsample
-            subsample_indices, _, subsample_representatives = ms.close_subsample(
-                subsample
+
+            subsample_euclidean = (metric == "minkowski")
+
+            subsample_indices, subsample_representatives = ms.close_subsample(
+                subsample, euclidean=subsample_euclidean
             )
+            self._subsample = subsample_indices.shape[0]
+
             X = X.copy()
             if metric == "precomputed":
                 X = X[subsample_indices, :][:, subsample_indices]
@@ -149,7 +157,7 @@ class Persistable:
             self._subsample_representatives = subsample_representatives
 
             # compute measure for subsample
-            new_measure = np.zeros(subsample)
+            new_measure = np.zeros(self._subsample)
             for i, _ in enumerate(self._subsample_representatives):
                 new_measure[self._subsample_representatives[i]] += measure[i]
             measure = new_measure
@@ -174,10 +182,11 @@ class Persistable:
             )
         # keep max_k (normalized n_neighbors)
         self._maxk = n_neighbors / X.shape[0]
+        self._dataset_is_large = X.shape[0] > _MANY_POINTS
 
         # construct the filtration
         self._mpspace = _MetricProbabilitySpace(
-            X, metric, measure, n_neighbors, leaf_size, **kwargs
+            X, metric, measure, n_neighbors, threading=threading, debug=debug, n_jobs=n_jobs, **kwargs
         )
 
         self._bifiltration = _DegreeRipsBifiltration(
@@ -192,7 +201,7 @@ class Persistable:
         n_clusters_range=np.array([3, 15]),
         propagate_labels=False,
         n_iterations_propagate_labels=30,
-        n_neighbors_propagate_labels=5,
+        n_neighbors_propagate_labels=15,
     ):
         """Find parameters automatically and cluster dataset passed at initialization.
 
@@ -263,7 +272,7 @@ class Persistable:
         end,
         propagate_labels=False,
         n_iterations_propagate_labels=30,
-        n_neighbors_propagate_labels=5,
+        n_neighbors_propagate_labels=15,
     ):
         """Cluster dataset passed at initialization.
 
@@ -341,6 +350,15 @@ class Persistable:
 
     def _find_end(self):
         return self._bifiltration.find_end()
+
+    def _default_granularity(self):
+        if self._mpspace.size() > _MANY_POINTS:
+            return 3
+        elif self._mpspace.size() < 5000 :
+            return 80
+        else:
+            return 30
+
 
     def _hilbert_function(
         self,
@@ -457,10 +475,11 @@ class _DegreeRipsBifiltration:
             #        )
             return nn_distance[(point_index, i_indices)]
 
-    def find_end(self, tolerance=1e-4, fast=False):
+    def find_end(self, tolerance=1e-4):
         maxk = self._mpspace.max_fitted_density()
 
-        if fast:
+        dataset_is_large = self._mpspace.size() > _MANY_POINTS
+        if dataset_is_large:
             default_percentile = 0.95
             return self.connection_radius(default_percentile) * 4, maxk
 
@@ -477,8 +496,6 @@ class _DegreeRipsBifiltration:
 
             pd = pers_diag(current_k)
             pd = np.array(pd)
-            # if len(pd[pd[:,1] == np.infty]) > 1:
-            #    raise Exception("End not found! Try setting auto_find_end_hierachical_clustering to False.")
             if pd.shape[0] == 0:
                 raise Exception(
                     "Empty persistence diagram found when trying to find end of bifiltration."
@@ -792,9 +809,13 @@ class _MetricSpace:
 
     _MAX_DIM_USE_BORUVKA = 60
 
-    def __init__(self, X, metric, leaf_size=40, **kwargs):
+    def __init__(self, X, metric, leaf_size=40, threading=False, debug=False, n_jobs=1, **kwargs):
         # save extra arguments for metric
         self._kwargs = kwargs
+
+        self._threading = threading
+        self._n_jobs = n_jobs
+        self._debug = debug
 
         # default values before fitting
         self._fitted_nn = False
@@ -805,7 +826,8 @@ class _MetricSpace:
         self._size = None
         self._dimension = None
         self._points = None
-        self._tree = None
+        self._nn_tree = None
+        self._boruvka_tree = None
         self._dist_mat = None
         self._dist_metric = None
 
@@ -824,13 +846,20 @@ class _MetricSpace:
         self._metric = metric
         self._leaf_size = leaf_size
         if metric in KDTree.valid_metrics + BallTree.valid_metrics:
+            leaf_size_boruvka = 3 if self._leaf_size < 3 else self._leaf_size // 3
             if metric in KDTree.valid_metrics:
-                self._tree = KDTree(
+                self._nn_tree = KDTree(
                     X, metric=metric, leaf_size=self._leaf_size, **kwargs
                 )
+                self._boruvka_tree = KDTree(
+                    X, metric=metric, leaf_size=leaf_size_boruvka, **kwargs
+                )
             elif metric in BallTree.valid_metrics:
-                self._tree = BallTree(
+                self._nn_tree = BallTree(
                     X, metric=metric, leaf_size=self._leaf_size, **kwargs
+                )
+                self._boruvka_tree = BallTree(
+                    X, metric=metric, leaf_size=leaf_size_boruvka, **kwargs
                 )
 
             self._dist_metric = DistanceMetric.get_metric(self._metric, **self._kwargs)
@@ -843,19 +872,35 @@ class _MetricSpace:
     def _fit_nn(self, n_neighbors):
         self._n_neighbors = n_neighbors
         if self._metric in BallTree.valid_metrics + KDTree.valid_metrics:
-            k_neighbors = self._tree.query(
-                self._points,
-                self._n_neighbors,
-                return_distance=True,
-                sort_results=True,
-                dualtree=True,
-                breadth_first=True,
-            )
-            k_neighbors = (np.array(k_neighbors[1]), np.array(k_neighbors[0]))
-            maxs_given_by_n_neighbors = np.min(k_neighbors[1][:, -1])
+
+            def query_neighbors(points):
+                return self._nn_tree.query(
+                    points,
+                    self._n_neighbors,
+                    return_distance=True,
+                    sort_results=True,
+                    dualtree=True,
+                    breadth_first=True,
+                )
+
+            # if we don't have too many points
+            if self.size() <= _MANY_POINTS or self._n_jobs == 1:
+                _nn_distance, neighbors = query_neighbors(self._points)
+            else:
+                delta = self.size() // self._n_jobs
+                datasets = []
+                for i in range(self._n_jobs):
+                    if i == self._n_jobs - 1:
+                        datasets.append(self._points[i*delta:])
+                    else:
+                        datasets.append(self._points[i*delta:(i+1)*delta])
+                nn_data = parallel_computation(query_neighbors, datasets, n_jobs = self._n_jobs, debug = self._debug)
+
+                _nn_distance = np.vstack([x[0] for x in nn_data])
+                neighbors = np.vstack([x[1] for x in nn_data])
+
+            maxs_given_by_n_neighbors = np.min(_nn_distance[:, -1])
             self._maxs = maxs_given_by_n_neighbors
-            neighbors = k_neighbors[0]
-            _nn_distance = k_neighbors[1]
         else:
             self._n_neighbors = self._size
             self._maxs = 0
@@ -886,10 +931,9 @@ class _MetricSpace:
                 sl = mst_linkage_core_vector(X, core_distances, self._dist_metric)
             else:
                 sl = KDTreeBoruvkaAlgorithm(
-                    self._tree,
+                    self._boruvka_tree,
                     core_distances,
                     self._nn_indices,
-                    leaf_size=self._leaf_size // 3,
                     metric=self._metric,
                     **self._kwargs
                 ).spanning_tree()
@@ -901,10 +945,9 @@ class _MetricSpace:
                 sl = mst_linkage_core_vector(X, core_distances, self._dist_metric)
             else:
                 sl = BallTreeBoruvkaAlgorithm(
-                    self._tree,
+                    self._boruvka_tree,
                     core_distances,
                     self._nn_indices,
-                    leaf_size=self._leaf_size // 3,
                     metric=self._metric,
                     **self._kwargs
                 ).spanning_tree()
@@ -927,7 +970,7 @@ class _MetricSpace:
 
         # metric tree case
         if self._metric in KDTree.valid_metrics + BallTree.valid_metrics:
-            s_neighbors = self._tree.query_radius(self._points, rips_radius)
+            s_neighbors = self._nn_tree.query_radius(self._points, rips_radius)
         # dense distance matrix case
         elif self._metric == "precomputed":
             s_neighbors = []
@@ -993,10 +1036,13 @@ class _MetricSpace:
                 break
         return new_labels
 
-    def close_subsample(self, subsample_size, seed=0):
+    def close_subsample(self, subsample_size, seed=0, euclidean=False):
         """ Returns a pair of arrays with the first array containing the indices \
             of a subsample of the given size that is close in the Hausdorff distance \
             and the second array containing the subsequent covering radii """
+
+        if euclidean:
+            return self._close_subsample_euclidean(subsample_size)
 
         np.random.seed(seed)
         random_start = np.random.randint(0, self.size())
@@ -1018,26 +1064,64 @@ class _MetricSpace:
         else:
             raise ValueError("Metric given is not supported.")
 
+    def _close_subsample_euclidean(self, subsample_size, num_points_tolerance=100):
+        X = self._points
+
+        lower_bound = 0.0
+
+        upper_bound = 1.0
+        while True:
+            W = (upper_bound * X).astype(int)
+            count = np.unique(W, axis=0).shape[0]
+
+            if count < subsample_size:
+                upper_bound *= 2
+            else:
+                break
+
+        i = 0
+        while True:
+            epsilon = (lower_bound + upper_bound) / 2
+            i += 1
+
+            W = (epsilon * X).astype(int)
+            count = np.unique(W, axis=0).shape[0]
+
+            if count > subsample_size + num_points_tolerance:
+                upper_bound = epsilon
+            elif count < subsample_size - num_points_tolerance:
+                lower_bound = epsilon
+            else:
+                break
+            if np.abs(lower_bound - upper_bound) < _TOL:
+                break
+
+        W = (epsilon * X).astype(int)
+        _, subsample_indices, subsample_representatives = np.unique(
+            W, axis=0, return_index=True, return_inverse=True
+        )
+        return subsample_indices, subsample_representatives
+
 
 # TODO:
 # rips bifiltration should take a persistent metric space as input.
 # examples of persistent metric spaces are the kernel filtration induced by a
 # metric probability space, as well as a metric space together with a function
 # class _PersistentMetricSpace:
-
-
-class _FilteredMetricSpace(_MetricSpace):
-    def __init__(self, X, metric, filter_function, leaf_size=40, **kwargs):
-        _MetricSpace.__init__(self, X, metric, leaf_size, **kwargs)
-        self._filter_function = filter_function
+#
+#
+#class _FilteredMetricSpace(_MetricSpace):
+#    def __init__(self, X, metric, filter_function, **kwargs):
+#        _MetricSpace.__init__(self, X, metric, **kwargs)
+#        self._filter_function = filter_function
 
 
 class _MetricProbabilitySpace(_MetricSpace):
     """Implements a finite metric probability space that can compute its \
        kernel density estimates """
 
-    def __init__(self, X, metric, measure, n_neighbors, leaf_size=40, **kwargs):
-        _MetricSpace.__init__(self, X, metric, leaf_size, **kwargs)
+    def __init__(self, X, metric, measure, n_neighbors, threading = False, debug = False, n_jobs=1, **kwargs):
+        _MetricSpace.__init__(self, X, metric, threading=threading, debug=debug, n_jobs=n_jobs, **kwargs)
 
         # fit metric space nearest neighbors
         self._fit_nn(n_neighbors)
