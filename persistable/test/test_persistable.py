@@ -343,13 +343,12 @@ class TestMetricSpace(unittest.TestCase):
     X = make_blobs(n_samples=1000, n_features=2, centers=3, random_state=6, cluster_std=1.5)[0]
     dm = distance_matrix(X, X, p=2)
     ms = _MetricSpace(dm, "precomputed")
-    Y, radii, reps = ms.close_subsample(100, seed=0)
+    Y, reps = ms.close_subsample(100, seed=0)
 
     ms2 = _MetricSpace(X, metric="minkowski")
-    Y2, radii2, reps2 = ms2.close_subsample(100, seed=0)
+    Y2, reps2 = ms2.close_subsample(100, seed=0)
 
     np.testing.assert_array_equal(Y,Y2)
-    np.testing.assert_array_equal(radii,radii2)
     np.testing.assert_array_equal(reps,reps2)
 
 
