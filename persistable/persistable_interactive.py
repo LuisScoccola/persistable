@@ -256,7 +256,7 @@ class PersistableInteractive:
 
             return port
 
-    def cluster(self, **kwargs):
+    def cluster(self, propagate_labels=False, n_iterations_propagate_labels=30, n_neighbors_propagate_labels=15, **kwargs):
         """Clusters the dataset with which the Persistable instance that was
         passed through ``run_with`` was initialized.
 
@@ -276,7 +276,9 @@ class PersistableInteractive:
                 "No parameters where chosen. Please use the graphical user interface to choose parameters."
             )
         else:
-            return self._persistable.cluster(**params, **kwargs)
+            return self._persistable.cluster(**params, propagate_labels=propagate_labels,
+                n_iterations_propagate_labels=n_iterations_propagate_labels,
+                n_neighbors_propagate_labels=n_neighbors_propagate_labels, **kwargs)
 
     def _chosen_parameters(self):
         self._parameters_sem.acquire()
@@ -292,9 +294,9 @@ class PersistableInteractive:
         default_min_s = 0
         default_max_s = end[0]
         # default_s_step = (default_max_s - default_min_s) / 100
-        default_granularity_ccf = 100
-        default_granularity_ri = 20
-        default_granularity_pv = 40
+        default_granularity_ccf = self._persistable._default_granularity()
+        default_granularity_ri = default_granularity_ccf // 5
+        default_granularity_pv =  default_granularity_ccf // 2
         default_num_jobs = 1
         default_max_dim = 15
         default_max_vines = 15
@@ -2124,11 +2126,18 @@ class PersistableInteractive:
             cancel=[[STOP_COMPUTE_CCF_BUTTON, N_CLICKS]],
         )
         def compute_ccf(d):
-            if debug:
-                print("Compute ccf in background started.")
 
             granularity = d[INPUT_GRANULARITY_CCF + VALUE]
             num_jobs = int(d[INPUT_NUM_JOBS_CCF + VALUE])
+
+            if debug:
+                print("Compute ccf in background started with inputs ",
+                    d[MIN_DIST_SCALE + VALUE],
+                    d[MAX_DIST_SCALE + VALUE],
+                    d[MAX_DENSITY_THRESHOLD + VALUE],
+                    d[MIN_DENSITY_THRESHOLD + VALUE],
+                    granularity,
+                    num_jobs)
 
             out = ""
             with warnings.catch_warnings(record=True) as w:

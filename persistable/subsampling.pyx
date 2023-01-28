@@ -56,7 +56,8 @@ cpdef close_subsample_distance_matrix(
 
     radii_view[-1] = np.max(ds)
 
-    return idx_perm, radii, representatives
+    return idx_perm, representatives
+    #return idx_perm, radii, representatives
 
 
 cpdef close_subsample_fast_metric(
@@ -115,4 +116,5 @@ cpdef close_subsample_fast_metric(
 
     radii_view[-1] = np.max(ds)
 
-    return idx_perm, radii, representatives
+    return idx_perm, representatives
+    #return idx_perm, radii, representatives

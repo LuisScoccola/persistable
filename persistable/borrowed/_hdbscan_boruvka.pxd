@@ -18,15 +18,6 @@ cdef class BoruvkaUnionFind (object):
     cdef np.uint8_t[::1] _rank
     cdef np.ndarray is_component
 
-    #def __init__(self, size):
-    #    self._parent_arr = np.arange(size, dtype=np.intp)
-    #    self._parent = (<np.intp_t[:size:1]> (<np.intp_t *>
-    #                                          self._parent_arr.data))
-    #    self._rank_arr = np.zeros(size, dtype=np.uint8)
-    #    self._rank = (<np.uint8_t[:size:1]> (<np.uint8_t *>
-    #                                         self._rank_arr.data))
-    #    self.is_component = np.ones(size, dtype=bool)
-
     cpdef int union_(self, np.intp_t x, np.intp_t y) except -1
 
     cpdef np.intp_t find(self, np.intp_t x) except -1
