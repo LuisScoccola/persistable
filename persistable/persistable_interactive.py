@@ -2460,11 +2460,11 @@ class PersistableInteractive:
                     start = 0
                     end = max(saved_pd[:, 1]) - offset
 
-                    bit_more = 1 / 100
-                    delta_x = -(end - start) * bit_more
+                    bit_more = 1 / 30
+                    delta_x = (end - start) * bit_more
                     delta_y = (end - start) * bit_more * 3
-                    x_range = [start, end]
-                    y_range = [start, end]
+                    x_range = [start - delta_x, end + delta_x]
+                    y_range = [start - delta_y, end + delta_y]
                     # corner_1_x = x_range[0]
                     # corner_1_y = y_range[0]
                     # corner_2_x = x_range[1]
@@ -2490,7 +2490,18 @@ class PersistableInteractive:
                             ),
                         ),
                     )
-
+                    # square background
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[start-delta_x, end+delta_x, end+delta_x, start-delta_x],
+                            y=[start-delta_y, start-delta_y, end+delta_y, end+delta_y],
+                            fill="toself",
+                            fillcolor="white",
+                            hoverinfo="skip",
+                            mode="none",
+                        )
+                    )
+                    # background below diagonal
                     fig.add_trace(
                         go.Scatter(
                             x=[start, end, end],
@@ -2501,6 +2512,7 @@ class PersistableInteractive:
                             mode="none",
                         )
                     )
+                    # background above diagonal
                     fig.add_trace(
                         go.Scatter(
                             x=[start, end, start],
@@ -2511,7 +2523,20 @@ class PersistableInteractive:
                             mode="none",
                         )
                     )
+                    # enclosing box
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[start, end, end, start, start],
+                            y=[start, start, end, end, start],
+                            hoverinfo="skip",
+                            fill="none",
+                            mode="lines",
+                            marker=dict(color="black"),
+                            line=dict(width=1),
+                        )
+                    )
 
+                    # draw gap
                     if d[DISPLAY_PARAMETER_SELECTION_PD + VALUE] == "On":
                         gap = d[PD_INPUT_GAP + VALUE] - 1
                         prominences = saved_pd[:, 1] - saved_pd[:, 0]
@@ -2535,14 +2560,19 @@ class PersistableInteractive:
                                 )
                             )
 
+                    # draw points
+                    prominences = saved_pd[:, 1] - saved_pd[:, 0]
+                    saved_pd = saved_pd[np.argsort(prominences)[::-1]]
                     marker_size = 10
                     fig.add_trace(
                         go.Scatter(
                             x=saved_pd[:, 0] - offset,
                             y=saved_pd[:, 1] - offset,
                             mode="markers",
-                            hoverinfo="skip",
+                            hoverinfo="text",
                             marker=dict(size=marker_size, color="green"),
+                            text = ["# " + str(i+1) for i in range(len(saved_pd))],
+                            showlegend=False
                         )
                     )
 
