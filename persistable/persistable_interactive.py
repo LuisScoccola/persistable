@@ -882,7 +882,7 @@ class PersistableInteractive:
                                         min=1,
                                         className="small-value",
                                         step=1,
-                                        debounce=True,
+                                        debounce=False,
                                     ),
                                 ],
                             ),
@@ -2640,7 +2640,6 @@ class PersistableInteractive:
                 vineyard_as_dict["_persistence_diagrams"],
             )
 
-            _vineyard_values = []
 
             times = np.array(vineyard.parameter_indices()) + 1
             vines = vineyard._vineyard_to_vines()
@@ -2662,11 +2661,17 @@ class PersistableInteractive:
                 ),
             )
 
+            _vineyard_values = []
             colors = sample_colorscale(
                 "viridis", list(np.linspace(0, 1, num_vines))[::-1]
             )
             if num_vines > 0:
                 for i in range(num_vines - 1, -1, -1):
+                    vine = vines[i][1]
+                    for vine_part, _ in vineyard._vine_parts(vine):
+                        vine_part_arr = np.array(vine_part)
+                        vine_part_arr = vine_part_arr[vine_part_arr != 0]
+                        _vineyard_values.extend(list(vine_part_arr))
                     till = "tozeroy" if i == num_vines - 1 else "tonexty"
                     color = colors[i]
                     if (
@@ -2676,7 +2681,7 @@ class PersistableInteractive:
                         fig.add_trace(
                             go.Scatter(
                                 x=times,
-                                y=vines[i][1],
+                                y=vine,
                                 fill=till,
                                 # hoveron="fills",
                                 text="vine " + str(i + 1),
@@ -2689,7 +2694,7 @@ class PersistableInteractive:
                         fig.add_trace(
                             go.Scatter(
                                 x=times,
-                                y=vines[i][1],
+                                y=vine,
                                 fill=till,
                                 # hoveron="fills",
                                 text="vine " + str(i + 1),
@@ -2697,10 +2702,6 @@ class PersistableInteractive:
                                 line_color=color,
                             )
                         )
-            for i, tv in enumerate(vines):
-                times, vine = tv
-                for vine_part, time_part in vineyard._vine_parts(vine):
-                    _vineyard_values.extend(vine_part)
             values = np.array(_vineyard_values)
 
             if d[DISPLAY_PARAMETER_SELECTION_PV + VALUE] == "On":
@@ -2716,7 +2717,7 @@ class PersistableInteractive:
                         ]
                     )
                 else:
-                    fig.update_layout(yaxis_range=[0, max(values)])
+                    fig.update_layout(yaxis_range=[min(values), max(values)])
 
             fig.update_layout(showlegend=False)
             fig.update_layout(autosize=True)
