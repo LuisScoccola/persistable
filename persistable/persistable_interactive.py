@@ -52,6 +52,8 @@ CCF_PLOT = "ccf-plot-"
 INTERACTIVE_INPUTS_SELECTION = "interactive-inputs-selection-"
 PV_ENDPOINT_SELECTION = "pv-endpoint-selection-"
 PD_ENDPOINT_SELECTION = "pd-endpoint-selection-"
+PV_DISPLAY_BARCODE = "pv-display-barcode-"
+PD_DISPLAY_BARCODE = "pd-display-barcode-"
 STORED_CCF = "stored-ccf-"
 STORED_X_TICKS_CCF = "stored-x-ticks-ccf-"
 STORED_Y_TICKS_CCF = "stored-y-ticks-ccf-"
@@ -511,45 +513,82 @@ class PersistableInteractive:
                                         ],
                                     ),
                                     html.Div(
-                                        className="parameter-single",
+                                        className="parameters",
                                         id=PV_ENDPOINT_SELECTION_DIV,
                                         children=[
-                                            html.Span(
-                                                className="name",
-                                                children="Endpoint",
-                                            ),
-                                            dcc.RadioItems(
-                                                [
-                                                    "1st line start",
-                                                    "1st line end",
-                                                    "2nd line start",
-                                                    "2nd line end",
-                                                ],
-                                                "1st line start",
-                                                id=PV_ENDPOINT_SELECTION,
-                                                className=VALUE,
-                                            ),
+                                            html.Div(
+                                                className="parameter-single",
+                                                children=[
+                                                    html.Span(
+                                                        className="name",
+                                                        children="Endpoint",
+                                                    ),
+                                                    dcc.RadioItems(
+                                                        [
+                                                            "1st line start",
+                                                            "1st line end",
+                                                            "2nd line start",
+                                                            "2nd line end",
+                                                        ],
+                                                        "1st line start",
+                                                        id=PV_ENDPOINT_SELECTION,
+                                                        className=VALUE,
+                                                    ),
+                                                ]),
+                                            html.Div(
+                                                className="parameter-single",
+                                                children=[
+                                                    html.Span(
+                                                        className="name",
+                                                        children="Display barcode",
+                                                    ),
+                                                    dcc.RadioItems(
+                                                        ["On", "Off"],
+                                                        "Off",
+                                                        id=PV_DISPLAY_BARCODE,
+                                                    ),
+                                                ]
+                                            )
                                         ],
                                     ),
                                     html.Div(
-                                        className="parameter-single",
+                                        className="parameters",
                                         id=PD_ENDPOINT_SELECTION_DIV,
                                         children=[
-                                            html.Span(
-                                                className="name",
-                                                children="Endpoint",
-                                            ),
-                                            dcc.RadioItems(
-                                                [
-                                                    "Line start",
-                                                    "Line end",
+                                            html.Div(
+                                                className="parameter-single",
+                                                children=[
+                                                    html.Span(
+                                                        className="name",
+                                                        children="Endpoint",
+                                                    ),
+                                                    dcc.RadioItems(
+                                                        [
+                                                            "Line start",
+                                                            "Line end",
+                                                        ],
+                                                        "Line start",
+                                                        id=PD_ENDPOINT_SELECTION,
+                                                        className=VALUE,
+                                                    ),
                                                 ],
-                                                "Line start",
-                                                id=PD_ENDPOINT_SELECTION,
-                                                className=VALUE,
                                             ),
-                                        ],
-                                    ),
+                                            html.Div(
+                                                className="parameter-single",
+                                                children=[
+                                                    html.Span(
+                                                        className="name",
+                                                        children="Display barcode",
+                                                    ),
+                                                    dcc.RadioItems(
+                                                        ["On", "Off"],
+                                                        "Off",
+                                                        id=PD_DISPLAY_BARCODE,
+                                                    ),
+                                                ]
+                                            )
+                                        ]
+                                    )
                                 ],
                             )
                         ],
@@ -846,7 +885,7 @@ class PersistableInteractive:
                                         min=1,
                                         className="small-value",
                                         step=1,
-                                        debounce=True,
+                                        debounce=False,
                                     ),
                                 ],
                             ),
@@ -1626,6 +1665,9 @@ class PersistableInteractive:
                 [X_END_LINE, VALUE, IN],
                 [Y_END_LINE, VALUE, IN],
                 [DISPLAY_PARAMETER_SELECTION_PV, VALUE, IN],
+                [DISPLAY_PARAMETER_SELECTION_PD, VALUE, IN],
+                [PV_DISPLAY_BARCODE, VALUE, IN],
+                [PD_DISPLAY_BARCODE, VALUE, IN],
                 [INTERACTIVE_INPUTS_SELECTION, VALUE, IN],
                 [PV_FIXED_PARAMETERS, DATA, IN],
                 [STORED_PD_BY_PV, DATA, ST],
@@ -1946,6 +1988,7 @@ class PersistableInteractive:
                             ),
                         )
                         and len(saved_pd) != 0
+                        and d[PD_DISPLAY_BARCODE + VALUE] == "On"
                     ):
                         pd = np.array(saved_pd)
                         pd = pd - st_x
@@ -1992,7 +2035,7 @@ class PersistableInteractive:
                             r_end = q_end + (i + 1) * tau
                             color = (
                                 "rgba(34, 139, 34, 1)"
-                                if i < d[PD_INPUT_GAP + VALUE]
+                                if i < d[PD_INPUT_GAP + VALUE] or d[DISPLAY_PARAMETER_SELECTION_PD + VALUE] == "Off"
                                 else "rgba(34, 139, 34, 0.3)"
                             )
                             fig.add_trace(
@@ -2023,7 +2066,7 @@ class PersistableInteractive:
                     )
                 )
 
-                if len(pd) != 0:
+                if len(pd) != 0 and d[PV_DISPLAY_BARCODE + VALUE] == "On":
                     pd = np.array(pd)
                     pd = pd - st_x
                     st = np.array([st_x, st_y])
@@ -2076,15 +2119,19 @@ class PersistableInteractive:
                             _draw_bar([r_st[0], r_end[0]], [r_st[1], r_end[1]], color)
                         )
 
-            yaxis = (
-                [y_ticks_ccf[0], y_ticks_ccf[-1]]
-                if d[INPUT_Y_COVARIANT + VALUE] == "Cov"
-                else [y_ticks_ccf[-1], y_ticks_ccf[0]]
-            )
 
+            if ctx.triggered_id in [MIN_DIST_SCALE, MAX_DIST_SCALE, MIN_DENSITY_THRESHOLD, MAX_DENSITY_THRESHOLD]:
+                xbounds = [d[MIN_DIST_SCALE + VALUE], d[MAX_DIST_SCALE + VALUE]]
+                ybounds = [d[MIN_DENSITY_THRESHOLD + VALUE], d[MAX_DENSITY_THRESHOLD + VALUE]]
+            else:
+                xbounds = [x_ticks_ccf[0], x_ticks_ccf[-1]]
+                ybounds = [y_ticks_ccf[-1], y_ticks_ccf[0]]
+
+            if d[INPUT_Y_COVARIANT + VALUE] == "Cov":
+                ybounds = ybounds[::-1]
             fig.update_layout(
-                xaxis=dict(range=[x_ticks_ccf[0], x_ticks_ccf[-1]]),
-                yaxis=dict(range=yaxis),
+                xaxis=dict(range=xbounds),
+                yaxis=dict(range=ybounds),
             )
 
             d[CCF_PLOT + FIGURE] = fig
@@ -2459,19 +2506,11 @@ class PersistableInteractive:
                     start = 0
                     end = max(saved_pd[:, 1]) - offset
 
-                    bit_more = 1 / 100
-                    delta_x = -(end - start) * bit_more
+                    bit_more = 1 / 30
+                    delta_x = (end - start) * bit_more
                     delta_y = (end - start) * bit_more * 3
-                    x_range = [start, end]
-                    y_range = [start, end]
-                    # corner_1_x = x_range[0]
-                    # corner_1_y = y_range[0]
-                    # corner_2_x = x_range[1]
-                    # corner_2_y = y_range[0]
-                    # corner_3_x = x_range[1]
-                    # corner_3_y = y_range[1]
-                    # corner_4_x = x_range[0]
-                    # corner_4_y = y_range[1]
+                    x_range = [start - delta_x, end + delta_x]
+                    y_range = [start - delta_y, end + delta_y]
 
                     fig = go.Figure(
                         layout=go.Layout(
@@ -2489,7 +2528,18 @@ class PersistableInteractive:
                             ),
                         ),
                     )
-
+                    # square background
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[start-delta_x, end+delta_x, end+delta_x, start-delta_x],
+                            y=[start-delta_y, start-delta_y, end+delta_y, end+delta_y],
+                            fill="toself",
+                            fillcolor="white",
+                            hoverinfo="skip",
+                            mode="none",
+                        )
+                    )
+                    # background below diagonal
                     fig.add_trace(
                         go.Scatter(
                             x=[start, end, end],
@@ -2500,6 +2550,7 @@ class PersistableInteractive:
                             mode="none",
                         )
                     )
+                    # background above diagonal
                     fig.add_trace(
                         go.Scatter(
                             x=[start, end, start],
@@ -2510,7 +2561,20 @@ class PersistableInteractive:
                             mode="none",
                         )
                     )
+                    # enclosing box
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[start, end, end, start, start],
+                            y=[start, start, end, end, start],
+                            hoverinfo="skip",
+                            fill="none",
+                            mode="lines",
+                            marker=dict(color="black"),
+                            line=dict(width=1),
+                        )
+                    )
 
+                    # draw gap
                     if d[DISPLAY_PARAMETER_SELECTION_PD + VALUE] == "On":
                         gap = d[PD_INPUT_GAP + VALUE] - 1
                         prominences = saved_pd[:, 1] - saved_pd[:, 0]
@@ -2534,14 +2598,19 @@ class PersistableInteractive:
                                 )
                             )
 
+                    # draw points
+                    prominences = saved_pd[:, 1] - saved_pd[:, 0]
+                    saved_pd = saved_pd[np.argsort(prominences)[::-1]]
                     marker_size = 10
                     fig.add_trace(
                         go.Scatter(
                             x=saved_pd[:, 0] - offset,
                             y=saved_pd[:, 1] - offset,
                             mode="markers",
-                            hoverinfo="skip",
+                            hoverinfo="text",
                             marker=dict(size=marker_size, color="green"),
+                            text = ["# " + str(i+1) for i in range(len(saved_pd))],
+                            showlegend=False
                         )
                     )
 
@@ -2574,7 +2643,6 @@ class PersistableInteractive:
                 vineyard_as_dict["_persistence_diagrams"],
             )
 
-            _vineyard_values = []
 
             times = np.array(vineyard.parameter_indices()) + 1
             vines = vineyard._vineyard_to_vines()
@@ -2596,11 +2664,17 @@ class PersistableInteractive:
                 ),
             )
 
+            _vineyard_values = []
             colors = sample_colorscale(
                 "viridis", list(np.linspace(0, 1, num_vines))[::-1]
             )
             if num_vines > 0:
                 for i in range(num_vines - 1, -1, -1):
+                    vine = vines[i][1]
+                    for vine_part, _ in vineyard._vine_parts(vine):
+                        vine_part_arr = np.array(vine_part)
+                        vine_part_arr = vine_part_arr[vine_part_arr != 0]
+                        _vineyard_values.extend(list(vine_part_arr))
                     till = "tozeroy" if i == num_vines - 1 else "tonexty"
                     color = colors[i]
                     if (
@@ -2610,7 +2684,7 @@ class PersistableInteractive:
                         fig.add_trace(
                             go.Scatter(
                                 x=times,
-                                y=vines[i][1],
+                                y=vine,
                                 fill=till,
                                 # hoveron="fills",
                                 text="vine " + str(i + 1),
@@ -2623,7 +2697,7 @@ class PersistableInteractive:
                         fig.add_trace(
                             go.Scatter(
                                 x=times,
-                                y=vines[i][1],
+                                y=vine,
                                 fill=till,
                                 # hoveron="fills",
                                 text="vine " + str(i + 1),
@@ -2631,10 +2705,6 @@ class PersistableInteractive:
                                 line_color=color,
                             )
                         )
-            for i, tv in enumerate(vines):
-                times, vine = tv
-                for vine_part, time_part in vineyard._vine_parts(vine):
-                    _vineyard_values.extend(vine_part)
             values = np.array(_vineyard_values)
 
             if d[DISPLAY_PARAMETER_SELECTION_PV + VALUE] == "On":
@@ -2650,7 +2720,7 @@ class PersistableInteractive:
                         ]
                     )
                 else:
-                    fig.update_layout(yaxis_range=[0, max(values)])
+                    fig.update_layout(yaxis_range=[min(values), max(values)])
 
             fig.update_layout(showlegend=False)
             fig.update_layout(autosize=True)
