@@ -32,7 +32,7 @@ from joblib.parallel import cpu_count
 
 _TOL = 1e-08
 # starting when we consider a dataset large
-_MANY_POINTS = 16000
+_MANY_POINTS = 40000
 
 def parallel_computation(function, inputs, n_jobs, debug=False, threading=False):
     if n_jobs == 1:
