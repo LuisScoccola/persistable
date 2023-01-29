@@ -52,6 +52,8 @@ CCF_PLOT = "ccf-plot-"
 INTERACTIVE_INPUTS_SELECTION = "interactive-inputs-selection-"
 PV_ENDPOINT_SELECTION = "pv-endpoint-selection-"
 PD_ENDPOINT_SELECTION = "pd-endpoint-selection-"
+PV_DISPLAY_BARCODE = "pv-display-barcode-"
+PD_DISPLAY_BARCODE = "pd-display-barcode-"
 STORED_CCF = "stored-ccf-"
 STORED_X_TICKS_CCF = "stored-x-ticks-ccf-"
 STORED_Y_TICKS_CCF = "stored-y-ticks-ccf-"
@@ -508,45 +510,82 @@ class PersistableInteractive:
                                         ],
                                     ),
                                     html.Div(
-                                        className="parameter-single",
+                                        className="parameters",
                                         id=PV_ENDPOINT_SELECTION_DIV,
                                         children=[
-                                            html.Span(
-                                                className="name",
-                                                children="Endpoint",
-                                            ),
-                                            dcc.RadioItems(
-                                                [
-                                                    "1st line start",
-                                                    "1st line end",
-                                                    "2nd line start",
-                                                    "2nd line end",
-                                                ],
-                                                "1st line start",
-                                                id=PV_ENDPOINT_SELECTION,
-                                                className=VALUE,
-                                            ),
+                                            html.Div(
+                                                className="parameter-single",
+                                                children=[
+                                                    html.Span(
+                                                        className="name",
+                                                        children="Endpoint",
+                                                    ),
+                                                    dcc.RadioItems(
+                                                        [
+                                                            "1st line start",
+                                                            "1st line end",
+                                                            "2nd line start",
+                                                            "2nd line end",
+                                                        ],
+                                                        "1st line start",
+                                                        id=PV_ENDPOINT_SELECTION,
+                                                        className=VALUE,
+                                                    ),
+                                                ]),
+                                            html.Div(
+                                                className="parameter-single",
+                                                children=[
+                                                    html.Span(
+                                                        className="name",
+                                                        children="Display barcode",
+                                                    ),
+                                                    dcc.RadioItems(
+                                                        ["On", "Off"],
+                                                        "Off",
+                                                        id=PV_DISPLAY_BARCODE,
+                                                    ),
+                                                ]
+                                            )
                                         ],
                                     ),
                                     html.Div(
-                                        className="parameter-single",
+                                        className="parameters",
                                         id=PD_ENDPOINT_SELECTION_DIV,
                                         children=[
-                                            html.Span(
-                                                className="name",
-                                                children="Endpoint",
-                                            ),
-                                            dcc.RadioItems(
-                                                [
-                                                    "Line start",
-                                                    "Line end",
+                                            html.Div(
+                                                className="parameter-single",
+                                                children=[
+                                                    html.Span(
+                                                        className="name",
+                                                        children="Endpoint",
+                                                    ),
+                                                    dcc.RadioItems(
+                                                        [
+                                                            "Line start",
+                                                            "Line end",
+                                                        ],
+                                                        "Line start",
+                                                        id=PD_ENDPOINT_SELECTION,
+                                                        className=VALUE,
+                                                    ),
                                                 ],
-                                                "Line start",
-                                                id=PD_ENDPOINT_SELECTION,
-                                                className=VALUE,
                                             ),
-                                        ],
-                                    ),
+                                            html.Div(
+                                                className="parameter-single",
+                                                children=[
+                                                    html.Span(
+                                                        className="name",
+                                                        children="Display barcode",
+                                                    ),
+                                                    dcc.RadioItems(
+                                                        ["On", "Off"],
+                                                        "Off",
+                                                        id=PD_DISPLAY_BARCODE,
+                                                    ),
+                                                ]
+                                            )
+                                        ]
+                                    )
                                 ],
                             )
                         ],
@@ -1623,6 +1662,9 @@ class PersistableInteractive:
                 [X_END_LINE, VALUE, IN],
                 [Y_END_LINE, VALUE, IN],
                 [DISPLAY_PARAMETER_SELECTION_PV, VALUE, IN],
+                [DISPLAY_PARAMETER_SELECTION_PD, VALUE, IN],
+                [PV_DISPLAY_BARCODE, VALUE, IN],
+                [PD_DISPLAY_BARCODE, VALUE, IN],
                 [INTERACTIVE_INPUTS_SELECTION, VALUE, IN],
                 [PV_FIXED_PARAMETERS, DATA, IN],
                 [STORED_PD_BY_PV, DATA, ST],
@@ -1943,6 +1985,7 @@ class PersistableInteractive:
                             ),
                         )
                         and len(saved_pd) != 0
+                        and d[PD_DISPLAY_BARCODE + VALUE] == "On"
                     ):
                         pd = np.array(saved_pd)
                         pd = pd - st_x
@@ -1989,7 +2032,7 @@ class PersistableInteractive:
                             r_end = q_end + (i + 1) * tau
                             color = (
                                 "rgba(34, 139, 34, 1)"
-                                if i < d[PD_INPUT_GAP + VALUE]
+                                if i < d[PD_INPUT_GAP + VALUE] or d[DISPLAY_PARAMETER_SELECTION_PD + VALUE] == "Off"
                                 else "rgba(34, 139, 34, 0.3)"
                             )
                             fig.add_trace(
@@ -2020,7 +2063,7 @@ class PersistableInteractive:
                     )
                 )
 
-                if len(pd) != 0:
+                if len(pd) != 0 and d[PV_DISPLAY_BARCODE + VALUE] == "On":
                     pd = np.array(pd)
                     pd = pd - st_x
                     st = np.array([st_x, st_y])
@@ -2074,12 +2117,12 @@ class PersistableInteractive:
                         )
 
 
-            if ctx.triggered_id == STORED_CCF_DRAWING:
-                xbounds = [x_ticks_ccf[0], x_ticks_ccf[-1]]
-                ybounds = [y_ticks_ccf[-1], y_ticks_ccf[0]]
-            else:
+            if ctx.triggered_id in [MIN_DIST_SCALE, MAX_DIST_SCALE, MIN_DENSITY_THRESHOLD, MAX_DENSITY_THRESHOLD]:
                 xbounds = [d[MIN_DIST_SCALE + VALUE], d[MAX_DIST_SCALE + VALUE]]
                 ybounds = [d[MIN_DENSITY_THRESHOLD + VALUE], d[MAX_DENSITY_THRESHOLD + VALUE]]
+            else:
+                xbounds = [x_ticks_ccf[0], x_ticks_ccf[-1]]
+                ybounds = [y_ticks_ccf[-1], y_ticks_ccf[0]]
 
             if d[INPUT_Y_COVARIANT + VALUE] == "Cov":
                 ybounds = ybounds[::-1]
@@ -2465,14 +2508,6 @@ class PersistableInteractive:
                     delta_y = (end - start) * bit_more * 3
                     x_range = [start - delta_x, end + delta_x]
                     y_range = [start - delta_y, end + delta_y]
-                    # corner_1_x = x_range[0]
-                    # corner_1_y = y_range[0]
-                    # corner_2_x = x_range[1]
-                    # corner_2_y = y_range[0]
-                    # corner_3_x = x_range[1]
-                    # corner_3_y = y_range[1]
-                    # corner_4_x = x_range[0]
-                    # corner_4_y = y_range[1]
 
                     fig = go.Figure(
                         layout=go.Layout(
