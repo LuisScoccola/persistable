@@ -258,12 +258,23 @@ class PersistableInteractive:
 
             return port
 
-    def cluster(self, propagate_labels=False, n_iterations_propagate_labels=30, n_neighbors_propagate_labels=15, **kwargs):
+    def cluster(self, conservative_flattening_style=False, keep_low_persistence_clusters=False):
         """Clusters the dataset with which the Persistable instance that was
         passed through ``run_with`` was initialized.
 
-        ``**kwargs``:
-            Passed to ``Persistable.cluster``.
+        conservative_flattening_style: bool, optional, default is False
+            If false, flatten the hierarchical clustering using the approach
+            of 'Persistence-Based Clustering in Riemannian Manifolds' Chazal, Guibas,
+            Oudot, Skraba. If true, use the more conservative and more stable approach
+            of 'Stable and consistent density-based clustering' Rolle, Scoccola is used.
+            The conservative approach usually results in more unclustered points.
+
+        keep_low_persistence_clusters: bool, optional, default is False
+            Only relevant if conservative_flattening_style is set to False.
+            Whether to keep clusters that are born below the persistence threshold
+            associated to the selected n_clusters. If set to True, all points will
+            belong to some cluster, but the number of clusters may be larger than the
+            selected one.
 
         returns:
             A numpy array of length the number of points in the dataset containing
@@ -278,9 +289,9 @@ class PersistableInteractive:
                 "No parameters where chosen. Please use the graphical user interface to choose parameters."
             )
         else:
-            return self._persistable.cluster(**params, propagate_labels=propagate_labels,
-                n_iterations_propagate_labels=n_iterations_propagate_labels,
-                n_neighbors_propagate_labels=n_neighbors_propagate_labels, **kwargs)
+            return self._persistable.cluster(**params,
+                conservative_flattening_style = conservative_flattening_style,
+                keep_low_persistence_clusters = keep_low_persistence_clusters)
 
     def _chosen_parameters(self):
         self._parameters_sem.acquire()

@@ -34,6 +34,7 @@ _TOL = 1e-08
 # starting when we consider a dataset large
 _MANY_POINTS = 40000
 
+
 def parallel_computation(function, inputs, n_jobs, debug=False, threading=False):
     if n_jobs == 1:
         return [function(inp) for inp in inputs]
@@ -118,7 +119,7 @@ class Persistable:
         n_jobs=4,
         **kwargs
     ):
-        self._subsample = None 
+        self._subsample = None
 
         # if no measure was passed, assume normalized counting measure
         if measure is None:
@@ -132,7 +133,9 @@ class Persistable:
         if subsample is not None:
             if type(subsample) != int:
                 raise ValueError("subsample must be either None or an integer.")
-            ms = _MetricSpace(X, metric, threading=threading, debug=debug, n_jobs=n_jobs, **kwargs)
+            ms = _MetricSpace(
+                X, metric, threading=threading, debug=debug, n_jobs=n_jobs, **kwargs
+            )
             if subsample >= X.shape[0]:
                 subsample = int(X.shape[0] / 4)
                 warnings.warn(
@@ -142,7 +145,7 @@ class Persistable:
                 )
             self._subsample = subsample
 
-            subsample_euclidean = (metric == "minkowski")
+            subsample_euclidean = metric == "minkowski"
 
             subsample_indices, subsample_representatives = ms.close_subsample(
                 subsample, euclidean=subsample_euclidean
@@ -186,7 +189,14 @@ class Persistable:
 
         # construct the filtration
         self._mpspace = _MetricProbabilitySpace(
-            X, metric, measure, n_neighbors, threading=threading, debug=debug, n_jobs=n_jobs, **kwargs
+            X,
+            metric,
+            measure,
+            n_neighbors,
+            threading=threading,
+            debug=debug,
+            n_jobs=n_jobs,
+            **kwargs
         )
 
         self._bifiltration = _DegreeRipsBifiltration(
@@ -199,9 +209,6 @@ class Persistable:
         self,
         n_neighbors: int = 30,
         n_clusters_range=np.array([3, 15]),
-        propagate_labels=False,
-        n_iterations_propagate_labels=30,
-        n_neighbors_propagate_labels=15,
     ):
         """Find parameters automatically and cluster dataset passed at initialization.
 
@@ -217,17 +224,6 @@ class Persistable:
             A two-element list or tuple representing an integer
             range of possible numbers of clusters to consider when finding the
             optimum number of clusters.
-
-        propagate_labels: bool, optional, default is False
-            Boolean representing whether or not to extend the clustering to
-            noise points by propagating labels.
-
-        n_iterations_propagate_labels: int, optional, default is 30
-            Maximum number of iterations of label propagation to perform. More iterations
-            will cluster more noise points.
-
-        n_neighbors_propagate_labels: int, optional, default is 5
-            How many neighbors to use in the hill climbing procedure.
 
         returns:
             A numpy array of length the number of points in the dataset containing
@@ -259,10 +255,7 @@ class Persistable:
         return self.cluster(
             num_clust,
             [0, k],
-            [s, 0],
-            propagate_labels=propagate_labels,
-            n_iterations_propagate_labels=n_iterations_propagate_labels,
-            n_neighbors_propagate_labels=n_neighbors_propagate_labels,
+            [s, 0]
         )
 
     def cluster(
@@ -270,9 +263,8 @@ class Persistable:
         n_clusters,
         start,
         end,
-        propagate_labels=False,
-        n_iterations_propagate_labels=30,
-        n_neighbors_propagate_labels=15,
+        conservative_flattening_style=False,
+        keep_low_persistence_clusters=False,
     ):
         """Cluster dataset passed at initialization.
 
@@ -293,16 +285,19 @@ class Persistable:
             two-parameter hierarchical clustering used to do persistence-based
             clustering.
 
-        propagate_labels: bool, optional, default is False
-            Boolean representing whether or not to extend the clustering to
-            noise points by propagating labels.
+        conservative_flattening_style: bool, optional, default is False
+            If false, flatten the hierarchical clustering using the approach
+            of 'Persistence-Based Clustering in Riemannian Manifolds' Chazal, Guibas,
+            Oudot, Skraba. If true, use the more conservative and more stable approach
+            of 'Stable and consistent density-based clustering' Rolle, Scoccola is used.
+            The conservative approach usually results in more unclustered points.
 
-        n_iterations_propagate_labels: int, optional, default is 30
-            Maximum number of iterations of label propagation to perform. More iterations
-            will cluster more noise points.
-
-        n_neighbors_propagate_labels: int, optional, default is 5
-            How many neighbors to use in the hill climbing procedure.
+        keep_low_persistence_clusters: bool, optional, default is False
+            Only relevant if conservative_flattening_style is set to False.
+            Whether to keep clusters that are born below the persistence threshold
+            associated to the selected n_clusters. If set to True, all points will
+            belong to some cluster, but the number of clusters may be larger than the
+            selected one.
 
         returns:
             A numpy array of length the number of points in the dataset containing
@@ -334,11 +329,11 @@ class Persistable:
                     "The gap selected is too small to produce a reliable clustering."
                 )
             threshold = (spers[-n_clusters] + spers[-(n_clusters + 1)]) / 2
-        cl = hc.persistence_based_flattening(threshold)
-        if propagate_labels:
-            cl = self._mpspace.propagate_labels(
-                cl, n_iterations_propagate_labels, n_neighbors_propagate_labels
-            )
+        cl = hc.persistence_based_flattening(
+            threshold,
+            conservative_flattening_style=conservative_flattening_style,
+            keep_low_persistence_clusters=keep_low_persistence_clusters,
+        )
 
         if self._subsample is not None:
             new_cl = np.full(self._subsample_representatives.shape[0], -1)
@@ -354,11 +349,10 @@ class Persistable:
     def _default_granularity(self):
         if self._mpspace.size() > _MANY_POINTS:
             return 3
-        elif self._mpspace.size() < 5000 :
+        elif self._mpspace.size() < 5000:
             return 80
         else:
             return 30
-
 
     def _hilbert_function(
         self,
@@ -652,7 +646,6 @@ class _DegreeRipsBifiltration:
         for hc in hcs_horizontal:
             hc.snap_to_grid(ss)
         hcs_vertical = hcs[n_k:]
-        np.set_printoptions(precision=30)
         for hc in hcs_vertical:
             hc.snap_to_grid(ks[0] - ks)
 
@@ -809,7 +802,9 @@ class _MetricSpace:
 
     _MAX_DIM_USE_BORUVKA = 60
 
-    def __init__(self, X, metric, leaf_size=40, threading=False, debug=False, n_jobs=1, **kwargs):
+    def __init__(
+        self, X, metric, leaf_size=40, threading=False, debug=False, n_jobs=1, **kwargs
+    ):
         # save extra arguments for metric
         self._kwargs = kwargs
 
@@ -891,10 +886,12 @@ class _MetricSpace:
                 datasets = []
                 for i in range(self._n_jobs):
                     if i == self._n_jobs - 1:
-                        datasets.append(self._points[i*delta:])
+                        datasets.append(self._points[i * delta :])
                     else:
-                        datasets.append(self._points[i*delta:(i+1)*delta])
-                nn_data = parallel_computation(query_neighbors, datasets, n_jobs = self._n_jobs, debug = self._debug)
+                        datasets.append(self._points[i * delta : (i + 1) * delta])
+                nn_data = parallel_computation(
+                    query_neighbors, datasets, n_jobs=self._n_jobs, debug=self._debug
+                )
 
                 _nn_distance = np.vstack([x[0] for x in nn_data])
                 neighbors = np.vstack([x[1] for x in nn_data])
@@ -1016,26 +1013,6 @@ class _MetricSpace:
             core_scales, merges, merges_heights, -np.inf, np.inf
         )
 
-    def propagate_labels(self, labels, n_iterations, n_neighbors):
-        old_labels = labels
-        for _ in range(n_iterations):
-            new_labels = []
-            for x in range(self._size):
-                if old_labels[x] == -1:
-                    neighbors_labels = old_labels[self._nn_indices[x, :n_neighbors]]
-                    neighbors_labels = neighbors_labels[neighbors_labels != -1]
-                    if len(neighbors_labels) == 0:
-                        new_labels.append(-1)
-                    else:
-                        new_labels.append(mode(neighbors_labels, keepdims=True)[0][0])
-                else:
-                    new_labels.append(old_labels[x])
-            new_labels = np.array(new_labels)
-            old_labels = new_labels
-            if np.array_equal(new_labels, old_labels):
-                break
-        return new_labels
-
     def close_subsample(self, subsample_size, seed=0, euclidean=False):
         """ Returns a pair of arrays with the first array containing the indices \
             of a subsample of the given size that is close in the Hausdorff distance \
@@ -1110,7 +1087,7 @@ class _MetricSpace:
 # class _PersistentMetricSpace:
 #
 #
-#class _FilteredMetricSpace(_MetricSpace):
+# class _FilteredMetricSpace(_MetricSpace):
 #    def __init__(self, X, metric, filter_function, **kwargs):
 #        _MetricSpace.__init__(self, X, metric, **kwargs)
 #        self._filter_function = filter_function
@@ -1120,8 +1097,20 @@ class _MetricProbabilitySpace(_MetricSpace):
     """Implements a finite metric probability space that can compute its \
        kernel density estimates """
 
-    def __init__(self, X, metric, measure, n_neighbors, threading = False, debug = False, n_jobs=1, **kwargs):
-        _MetricSpace.__init__(self, X, metric, threading=threading, debug=debug, n_jobs=n_jobs, **kwargs)
+    def __init__(
+        self,
+        X,
+        metric,
+        measure,
+        n_neighbors,
+        threading=False,
+        debug=False,
+        n_jobs=1,
+        **kwargs
+    ):
+        _MetricSpace.__init__(
+            self, X, metric, threading=threading, debug=debug, n_jobs=n_jobs, **kwargs
+        )
 
         # fit metric space nearest neighbors
         self._fit_nn(n_neighbors)
@@ -1213,7 +1202,100 @@ class _HierarchicalClustering:
         self._start = start
         self._end = end
 
-    def persistence_based_flattening(self, threshold):
+    def persistence_based_flattening(
+        self, threshold, conservative_flattening_style, keep_low_persistence_clusters
+    ):
+        if conservative_flattening_style:
+            return self._conservative_persistence_based_flattening(threshold)
+        else:
+            return self._tomato_style_persistence_based_flattening(
+                threshold, keep_low_persistence_clusters
+            )
+
+    def _tomato_style_persistence_based_flattening(
+        self, threshold, keep_low_persistence_clusters
+    ):
+        end = self._end
+        heights = self._heights
+        merges = self._merges
+        merges_heights = self._merges_heights
+        n_points = heights.shape[0]
+        n_merges = merges.shape[0]
+        # this orders the point by appearance
+        appearances = np.argsort(heights)
+        # contains the current clusters
+        uf = DisjointSet()
+        # contains the birth time of clusters
+        clusters_birth = np.full(len(heights), -np.inf)
+        # height index
+        hind = 0
+        # merge index
+        mind = 0
+        current_appearence_height = heights[appearances[0]]
+        current_merge_height = merges_heights[0]
+        while True:
+            # while there is no merge
+            while (
+                hind < n_points
+                and heights[appearances[hind]] <= current_merge_height
+                and heights[appearances[hind]] < end
+            ):
+                # add all points that are born as new clusters
+                uf.add(appearances[hind])
+                clusters_birth[appearances[hind]] = heights[appearances[hind]]
+                hind += 1
+                if hind == n_points:
+                    current_appearence_height = end
+                else:
+                    current_appearence_height = heights[appearances[hind]]
+            # while there is no cluster being born
+            while (
+                mind < n_merges
+                and merges_heights[mind] < current_appearence_height
+                and merges_heights[mind] < end
+            ):
+                xy = merges[mind]
+                x, y = xy
+                rx = uf.__getitem__(x)
+                ry = uf.__getitem__(y)
+                bx = clusters_birth[rx]
+                by = clusters_birth[ry]
+                # if one of them has not lived more than the threshold, merge them
+                # otherwise, don't
+                if (
+                    bx + threshold > merges_heights[mind]
+                    or by + threshold > merges_heights[mind]
+                ):
+                    uf.merge(x, y)
+                    rxy = uf.__getitem__(x)
+                    clusters_birth[rxy] = min(bx, by)
+                mind += 1
+                if mind == n_merges:
+                    current_merge_height = end
+                else:
+                    current_merge_height = merges_heights[mind]
+            if (hind == n_points or heights[appearances[hind]] >= end) and (
+                mind == n_merges or merges_heights[mind] >= end
+            ):
+                break
+        # contains the flat clusters
+        clusters = []
+        # go through all clusters
+        for c in uf.subsets():
+            c = list(c)
+            rc = uf.__getitem__(c[0])
+            if (clusters_birth[rc] + threshold <= end) or keep_low_persistence_clusters:
+                clusters.append(list(c))
+        current_cluster = 0
+        res = np.full(n_points, -1)
+        for cl in clusters:
+            for x in cl:
+                if x < n_points:
+                    res[x] = current_cluster
+            current_cluster += 1
+        return res
+
+    def _conservative_persistence_based_flattening(self, threshold):
         end = self._end
         heights = self._heights
         merges = self._merges

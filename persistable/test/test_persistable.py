@@ -414,13 +414,13 @@ class TestHierarchicalClustering(unittest.TestCase):
         merges_heights = np.array([2, 6])
         end = 10
         hc = _HierarchicalClustering(heights, merges, merges_heights, 0, end)
-        c = hc.persistence_based_flattening(0.5)
+        c = hc.persistence_based_flattening(0.5, conservative_flattening_style=True, keep_low_persistence_clusters=False)
         res = np.array([0, 1, 2, 3])
         np.testing.assert_array_equal(
             self.clustering_matrix(c), self.clustering_matrix(res)
         )
 
-        c = hc.persistence_based_flattening(1.5)
+        c = hc.persistence_based_flattening(1.5, conservative_flattening_style=True, keep_low_persistence_clusters=False)
         res = np.array([0, 0, 1, 2])
         np.testing.assert_array_equal(
             self.clustering_matrix(c), self.clustering_matrix(res)
@@ -447,13 +447,13 @@ class TestPersistable(unittest.TestCase):
         k0 = 0.05
         for s0 in np.linspace(0.1, 0.5, 5):
             for i in list(range(2, 5)):
-                c = p.cluster(n_clusters=i, start=[0, k0], end=[s0, 0])
+                c = p.cluster(n_clusters=i, start=[0, k0], end=[s0, 0], conservative_flattening_style=True)
                 self.assertEqual(len(set(c[c >= 0])), i)
                 c = p.cluster(
                     n_clusters=i,
                     start=[0, k0],
                     end=[s0, 0],
-                    propagate_labels=True,
+                    conservative_flattening_style=True
                 )
                 self.assertEqual(len(set(c[c >= 0])), i)
 
@@ -465,21 +465,15 @@ class TestPersistable(unittest.TestCase):
         p = Persistable(X)
         c = p.quick_cluster()
         self.assertEqual(len(set(c[c >= 0])), 3)
-        c = p.quick_cluster(propagate_labels=True)
-        self.assertEqual(len(set(c[c >= 0])), 3)
 
         X, _ = datasets.make_blobs(n_samples=1000, centers=4, random_state=2)
         p = Persistable(X)
         c = p.quick_cluster(n_neighbors=50)
         self.assertEqual(len(set(c[c >= 0])), 4)
-        c = p.quick_cluster(n_neighbors=50, propagate_labels=True)
-        self.assertEqual(len(set(c[c >= 0])), 4)
 
         X, _ = datasets.make_blobs(n_samples=1000, centers=5, random_state=3)
         p = Persistable(X)
         c = p.quick_cluster()
-        self.assertEqual(len(set(c[c >= 0])), 5)
-        c = p.quick_cluster(propagate_labels=True)
         self.assertEqual(len(set(c[c >= 0])), 5)
 
 
