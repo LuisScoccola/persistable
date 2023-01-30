@@ -255,10 +255,7 @@ class Persistable:
         return self.cluster(
             num_clust,
             [0, k],
-            [s, 0],
-            propagate_labels=propagate_labels,
-            n_iterations_propagate_labels=n_iterations_propagate_labels,
-            n_neighbors_propagate_labels=n_neighbors_propagate_labels,
+            [s, 0]
         )
 
     def cluster(
