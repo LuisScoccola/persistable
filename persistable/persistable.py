@@ -263,7 +263,7 @@ class Persistable:
         n_clusters,
         start,
         end,
-        tomato_flattening_style=True,
+        conservative_flattening_style=False,
         keep_low_persistence_clusters=False,
     ):
         """Clusters the dataset with which the Persistable instance was initialized.
@@ -285,13 +285,15 @@ class Persistable:
             two-parameter hierarchical clustering used to do persistence-based
             clustering.
 
-        tomato_flattening_style: bool, optional, default is True
-            Whether to flatten the hierarchical clustering using the approach
+        conservative_flattening_style: bool, optional, default is False
+            If false, flatten the hierarchical clustering using the approach
             of 'Persistence-Based Clustering in Riemannian Manifolds' Chazal, Guibas,
-            Oudot, Skraba. Otherwise the more conservative and more stable approach of
-            'Stable and consistent density-based clustering' Rolle, Scoccola is used.
+            Oudot, Skraba. If true, use the more conservative and more stable approach
+            of 'Stable and consistent density-based clustering' Rolle, Scoccola is used.
+            The conservative approach usually results in more unclustered points.
 
         keep_low_persistence_clusters: bool, optional, default is False
+            Only relevant if conservative_flattening_style is set to False.
             Whether to keep clusters that are born below the persistence threshold
             associated to the selected n_clusters. If set to True, all points will
             belong to some cluster, but the number of clusters may be larger than the
@@ -329,7 +331,7 @@ class Persistable:
             threshold = (spers[-n_clusters] + spers[-(n_clusters + 1)]) / 2
         cl = hc.persistence_based_flattening(
             threshold,
-            tomato_flattening_style=tomato_flattening_style,
+            conservative_flattening_style=conservative_flattening_style,
             keep_low_persistence_clusters=keep_low_persistence_clusters,
         )
 
@@ -1201,14 +1203,14 @@ class _HierarchicalClustering:
         self._end = end
 
     def persistence_based_flattening(
-        self, threshold, tomato_flattening_style, keep_low_persistence_clusters
+        self, threshold, conservative_flattening_style, keep_low_persistence_clusters
     ):
-        if tomato_flattening_style:
+        if conservative_flattening_style:
+            return self._conservative_persistence_based_flattening(threshold)
+        else:
             return self._tomato_style_persistence_based_flattening(
                 threshold, keep_low_persistence_clusters
             )
-        else:
-            return self._conservative_persistence_based_flattening(threshold)
 
     def _tomato_style_persistence_based_flattening(
         self, threshold, keep_low_persistence_clusters
