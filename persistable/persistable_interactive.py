@@ -2874,12 +2874,15 @@ class PersistableInteractive:
             [
                 [EXPORT_PARAMETERS_BUTTON_PV, N_CLICKS, IN],
                 [EXPORT_PARAMETERS_BUTTON_PD, N_CLICKS, IN],
+                [EXPORT_PARAMETERS_BUTTON_DBSCAN, N_CLICKS, IN],
                 [PV_FIXED_PARAMETERS, DATA, ST],
                 [PD_INPUT_GAP, VALUE, ST],
                 [X_START_LINE, VALUE, ST],
                 [Y_START_LINE, VALUE, ST],
                 [X_END_LINE, VALUE, ST],
                 [Y_END_LINE, VALUE, ST],
+                [X_POINT, VALUE, ST],
+                [Y_POINT, VALUE, ST],
             ],
             [[EXPORTED_PARAMETER, CHILDREN]],
             True,
@@ -2894,6 +2897,8 @@ class PersistableInteractive:
                     "start": [d[X_START_LINE + VALUE], d[Y_START_LINE + VALUE]],
                     "end": [d[X_END_LINE + VALUE], d[Y_END_LINE + VALUE]],
                 }
+            elif ctx.triggered_id == EXPORT_PARAMETERS_BUTTON_DBSCAN:
+                params = { "point": (d[X_POINT + VALUE], d[Y_POINT + VALUE]) }
             else:
                 raise Exception(
                     "export_parameters was triggered by unknown id: "
