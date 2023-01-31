@@ -36,6 +36,9 @@ BaseLongCallbackManager.hash_function = monkeypatched_hash_function
 ###
 
 
+X_POINT = "x-point-"
+Y_POINT = "y-point-"
+POINT_SELECTION_DIV = "point-selection-div-"
 X_START_LINE = "x-start-line-"
 Y_START_LINE = "y-start-line-"
 X_END_LINE = "x-end-line-"
@@ -118,6 +121,7 @@ PV_INPUT_GAP = "pv-input-gap-"
 PD_INPUT_GAP = "pd-input-gap-"
 EXPORT_PARAMETERS_BUTTON_PV = "export-parameters-button-pv-"
 EXPORT_PARAMETERS_BUTTON_PD = "export-parameters-button-pd-"
+EXPORT_PARAMETERS_BUTTON_DBSCAN = "export-parameters-button-dbscan-"
 PV_FIXED_PARAMETERS = "fixed-parameters-"
 STORED_PD_BY_PV = "stored-pd-by-pv-"
 STORED_PARAMETERS_AND_PD_BY_PD = "stored-pd-by-pd-"
@@ -255,7 +259,9 @@ class PersistableInteractive:
 
             return port
 
-    def cluster(self, conservative_flattening_style=False, keep_low_persistence_clusters=False):
+    def cluster(
+        self, conservative_flattening_style=False, keep_low_persistence_clusters=False
+    ):
         """Clusters the dataset with which the Persistable instance that was
         passed through ``run_with`` was initialized.
 
@@ -286,9 +292,11 @@ class PersistableInteractive:
                 "No parameters where chosen. Please use the graphical user interface to choose parameters."
             )
         else:
-            return self._persistable.cluster(**params,
-                conservative_flattening_style = conservative_flattening_style,
-                keep_low_persistence_clusters = keep_low_persistence_clusters)
+            return self._persistable.cluster(
+                **params,
+                conservative_flattening_style=conservative_flattening_style,
+                keep_low_persistence_clusters=keep_low_persistence_clusters
+            )
 
     def _chosen_parameters(self):
         self._parameters_sem.acquire()
@@ -306,7 +314,7 @@ class PersistableInteractive:
         # default_s_step = (default_max_s - default_min_s) / 100
         default_granularity_ccf = self._persistable._default_granularity()
         default_granularity_ri = default_granularity_ccf // 5
-        default_granularity_pv =  default_granularity_ccf // 2
+        default_granularity_pv = default_granularity_ccf // 2
         default_num_jobs = 1
         default_max_dim = 15
         default_max_vines = 15
@@ -511,8 +519,9 @@ class PersistableInteractive:
                                             dcc.RadioItems(
                                                 [
                                                     "Off",
-                                                    "One-parameter slice",
-                                                    "Line family",
+                                                    "Single clustering",
+                                                    "Line",
+                                                    "Family of lines",
                                                 ],
                                                 "Off",
                                                 id=INTERACTIVE_INPUTS_SELECTION,
@@ -542,7 +551,8 @@ class PersistableInteractive:
                                                         id=PV_ENDPOINT_SELECTION,
                                                         className=VALUE,
                                                     ),
-                                                ]),
+                                                ],
+                                            ),
                                             html.Div(
                                                 className="parameter-single",
                                                 children=[
@@ -555,8 +565,8 @@ class PersistableInteractive:
                                                         "Off",
                                                         id=PV_DISPLAY_BARCODE,
                                                     ),
-                                                ]
-                                            )
+                                                ],
+                                            ),
                                         ],
                                     ),
                                     html.Div(
@@ -593,10 +603,51 @@ class PersistableInteractive:
                                                         "Off",
                                                         id=PD_DISPLAY_BARCODE,
                                                     ),
-                                                ]
-                                            )
-                                        ]
-                                    )
+                                                ],
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="parameters",
+                                        id=POINT_SELECTION_DIV,
+                                        children=[
+                                            html.Div(
+                                                className="parameter-double",
+                                                children=[
+                                                    html.Span(
+                                                        className="name",
+                                                        children="x/y",
+                                                    ),
+                                                    dcc.Input(
+                                                        className=VALUE,
+                                                        id=X_POINT,
+                                                        type="number",
+                                                        value=default_x_start_first_line,
+                                                        min=0,
+                                                        debounce=True,
+                                                    ),
+                                                    dcc.Input(
+                                                        className=VALUE,
+                                                        id=Y_POINT,
+                                                        type="number",
+                                                        value=default_y_start_first_line,
+                                                        min=0,
+                                                        debounce=True,
+                                                    ),
+                                                ],
+                                            ),
+                                            html.Div(
+                                                className="parameter-single",
+                                                children=[
+                                                    html.Button(
+                                                        "Choose parameter",
+                                                        id=EXPORT_PARAMETERS_BUTTON_DBSCAN,
+                                                        className="button",
+                                                    ),
+                                                ],
+                                            ),
+                                        ],
+                                    ),
                                 ],
                             )
                         ],
@@ -1359,7 +1410,7 @@ class PersistableInteractive:
             background=False,
             running=None,
             cancel=None,
-            prevent_update_with_none_input=True
+            prevent_update_with_none_input=True,
         ):
             def cs(l):
                 return l[0] + l[1]
@@ -1518,15 +1569,17 @@ class PersistableInteractive:
                 [Y_START_LINE, VALUE],
                 [X_END_LINE, VALUE],
                 [Y_END_LINE, VALUE],
+                [X_POINT, VALUE],
+                [Y_POINT, VALUE],
             ],
             True,
         )
         def on_ccf_click(d):
-            if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line family":
-                new_x, new_y = (
-                    d[CCF_PLOT + CLICKDATA]["points"][0]["x"],
-                    d[CCF_PLOT + CLICKDATA]["points"][0]["y"],
-                )
+            new_x, new_y = (
+                d[CCF_PLOT + CLICKDATA]["points"][0]["x"],
+                d[CCF_PLOT + CLICKDATA]["points"][0]["y"],
+            )
+            if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Family of lines":
                 if d[PV_ENDPOINT_SELECTION + VALUE] == "1st line start":
                     d[X_START_FIRST_LINE + VALUE] = new_x
                     d[Y_START_FIRST_LINE + VALUE] = new_y
@@ -1539,17 +1592,16 @@ class PersistableInteractive:
                 elif d[PV_ENDPOINT_SELECTION + VALUE] == "2nd line end":
                     d[X_END_SECOND_LINE + VALUE] = new_x
                     d[Y_END_SECOND_LINE + VALUE] = new_y
-            elif d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "One-parameter slice":
-                new_x, new_y = (
-                    d[CCF_PLOT + CLICKDATA]["points"][0]["x"],
-                    d[CCF_PLOT + CLICKDATA]["points"][0]["y"],
-                )
+            elif d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line":
                 if d[PD_ENDPOINT_SELECTION + VALUE] == "Line start":
                     d[X_START_LINE + VALUE] = new_x
                     d[Y_START_LINE + VALUE] = new_y
                 elif d[PD_ENDPOINT_SELECTION + VALUE] == "Line end":
                     d[X_END_LINE + VALUE] = new_x
                     d[Y_END_LINE + VALUE] = new_y
+            elif d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Single clustering":
+                d[X_POINT + VALUE] = new_x
+                d[Y_POINT + VALUE] = new_y
             return d
 
         @dash_callback(
@@ -1557,27 +1609,37 @@ class PersistableInteractive:
             [
                 [PV_ENDPOINT_SELECTION_DIV, HIDDEN],
                 [PD_ENDPOINT_SELECTION_DIV, HIDDEN],
+                [POINT_SELECTION_DIV, HIDDEN],
                 [PD_PANEL, HIDDEN],
                 [PV_PANEL, HIDDEN],
             ],
         )
         def toggle_parameter_selection_ccf(d):
             # TODO: abstract the following logic better
-            if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line family":
+            if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Family of lines":
                 d[PV_ENDPOINT_SELECTION_DIV + HIDDEN] = False
                 d[PD_ENDPOINT_SELECTION_DIV + HIDDEN] = True
                 d[PV_PANEL + HIDDEN] = False
                 d[PD_PANEL + HIDDEN] = True
-            elif d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "One-parameter slice":
+                d[POINT_SELECTION_DIV + HIDDEN] = True
+            elif d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line":
                 d[PV_ENDPOINT_SELECTION_DIV + HIDDEN] = True
                 d[PD_ENDPOINT_SELECTION_DIV + HIDDEN] = False
                 d[PV_PANEL + HIDDEN] = True
                 d[PD_PANEL + HIDDEN] = False
-            else:
+                d[POINT_SELECTION_DIV + HIDDEN] = True
+            elif d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Off":
                 d[PV_ENDPOINT_SELECTION_DIV + HIDDEN] = True
                 d[PD_ENDPOINT_SELECTION_DIV + HIDDEN] = True
                 d[PV_PANEL + HIDDEN] = True
                 d[PD_PANEL + HIDDEN] = True
+                d[POINT_SELECTION_DIV + HIDDEN] = True
+            elif d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Single clustering":
+                d[PV_ENDPOINT_SELECTION_DIV + HIDDEN] = True
+                d[PD_ENDPOINT_SELECTION_DIV + HIDDEN] = True
+                d[PV_PANEL + HIDDEN] = True
+                d[PD_PANEL + HIDDEN] = True
+                d[POINT_SELECTION_DIV + HIDDEN] = False
             return d
 
         @dash_callback(
@@ -1672,6 +1734,8 @@ class PersistableInteractive:
                 [Y_START_LINE, VALUE, IN],
                 [X_END_LINE, VALUE, IN],
                 [Y_END_LINE, VALUE, IN],
+                [X_POINT, VALUE, IN],
+                [Y_POINT, VALUE, IN],
                 [DISPLAY_PARAMETER_SELECTION_PV, VALUE, IN],
                 [DISPLAY_PARAMETER_SELECTION_PD, VALUE, IN],
                 [PV_DISPLAY_BARCODE, VALUE, IN],
@@ -1900,7 +1964,22 @@ class PersistableInteractive:
                     textposition=["top center", "bottom center"],
                 )
 
-            if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line family":
+            def generate_point(x, y, color="mediumslateblue"):
+                return go.Scatter(
+                    x=[x],
+                    y=[y],
+                    marker=dict(size=15, color=color),
+                    hoverinfo="skip",
+                    showlegend=False,
+                    mode="markers",
+                )
+
+            # draw single point
+            if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Single clustering":
+                fig.add_trace(generate_point(d[X_POINT + VALUE], d[Y_POINT + VALUE]))
+
+            # draw family of lines
+            if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Family of lines":
 
                 # draw polygon
                 fig.add_trace(
@@ -1959,7 +2038,8 @@ class PersistableInteractive:
                     )
                 )
 
-            if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "One-parameter slice":
+            # draw single line
+            if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line":
 
                 st_x = d[X_START_LINE + VALUE]
                 st_y = d[Y_START_LINE + VALUE]
@@ -2043,7 +2123,8 @@ class PersistableInteractive:
                             r_end = q_end + (i + 1) * tau
                             color = (
                                 "rgba(34, 139, 34, 1)"
-                                if i < d[PD_INPUT_GAP + VALUE] or d[DISPLAY_PARAMETER_SELECTION_PD + VALUE] == "Off"
+                                if i < d[PD_INPUT_GAP + VALUE]
+                                or d[DISPLAY_PARAMETER_SELECTION_PD + VALUE] == "Off"
                                 else "rgba(34, 139, 34, 0.3)"
                             )
                             fig.add_trace(
@@ -2052,10 +2133,11 @@ class PersistableInteractive:
                                 )
                             )
 
+            # draw barcode in case of family of lines
             params = json.loads(d[PV_FIXED_PARAMETERS + DATA])
             if (
                 len(params) != 0
-                and d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line family"
+                and d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Family of lines"
                 and d[DISPLAY_PARAMETER_SELECTION_PV + VALUE] == "On"
             ):
                 pd = json.loads(d[STORED_PD_BY_PV + DATA])
@@ -2127,10 +2209,17 @@ class PersistableInteractive:
                             _draw_bar([r_st[0], r_end[0]], [r_st[1], r_end[1]], color)
                         )
 
-
-            if ctx.triggered_id in [MIN_DIST_SCALE, MAX_DIST_SCALE, MIN_DENSITY_THRESHOLD, MAX_DENSITY_THRESHOLD]:
+            if ctx.triggered_id in [
+                MIN_DIST_SCALE,
+                MAX_DIST_SCALE,
+                MIN_DENSITY_THRESHOLD,
+                MAX_DENSITY_THRESHOLD,
+            ]:
                 xbounds = [d[MIN_DIST_SCALE + VALUE], d[MAX_DIST_SCALE + VALUE]]
-                ybounds = [d[MIN_DENSITY_THRESHOLD + VALUE], d[MAX_DENSITY_THRESHOLD + VALUE]]
+                ybounds = [
+                    d[MIN_DENSITY_THRESHOLD + VALUE],
+                    d[MAX_DENSITY_THRESHOLD + VALUE],
+                ]
             else:
                 xbounds = [x_ticks_ccf[0], x_ticks_ccf[-1]]
                 ybounds = [y_ticks_ccf[-1], y_ticks_ccf[0]]
@@ -2186,13 +2275,15 @@ class PersistableInteractive:
             num_jobs = int(d[INPUT_NUM_JOBS_CCF + VALUE])
 
             if debug:
-                print("Compute ccf in background started with inputs ",
+                print(
+                    "Compute ccf in background started with inputs ",
                     d[MIN_DIST_SCALE + VALUE],
                     d[MAX_DIST_SCALE + VALUE],
                     d[MAX_DENSITY_THRESHOLD + VALUE],
                     d[MIN_DENSITY_THRESHOLD + VALUE],
                     granularity,
-                    num_jobs)
+                    num_jobs,
+                )
 
             out = ""
             with warnings.catch_warnings(record=True) as w:
@@ -2539,8 +2630,18 @@ class PersistableInteractive:
                     # square background
                     fig.add_trace(
                         go.Scatter(
-                            x=[start-delta_x, end+delta_x, end+delta_x, start-delta_x],
-                            y=[start-delta_y, start-delta_y, end+delta_y, end+delta_y],
+                            x=[
+                                start - delta_x,
+                                end + delta_x,
+                                end + delta_x,
+                                start - delta_x,
+                            ],
+                            y=[
+                                start - delta_y,
+                                start - delta_y,
+                                end + delta_y,
+                                end + delta_y,
+                            ],
                             fill="toself",
                             fillcolor="white",
                             hoverinfo="skip",
@@ -2617,8 +2718,8 @@ class PersistableInteractive:
                             mode="markers",
                             hoverinfo="text",
                             marker=dict(size=marker_size, color="green"),
-                            text = ["# " + str(i+1) for i in range(len(saved_pd))],
-                            showlegend=False
+                            text=["# " + str(i + 1) for i in range(len(saved_pd))],
+                            showlegend=False,
                         )
                     )
 
@@ -2650,7 +2751,6 @@ class PersistableInteractive:
                 vineyard_as_dict["_parameters"],
                 vineyard_as_dict["_persistence_diagrams"],
             )
-
 
             times = np.array(vineyard.parameter_indices()) + 1
             vines = vineyard._vineyard_to_vines()
@@ -2783,7 +2883,7 @@ class PersistableInteractive:
             ],
             [[EXPORTED_PARAMETER, CHILDREN]],
             True,
-            prevent_update_with_none_input=False
+            prevent_update_with_none_input=False,
         )
         def export_parameters(d):
             if ctx.triggered_id == EXPORT_PARAMETERS_BUTTON_PV:
@@ -2796,11 +2896,11 @@ class PersistableInteractive:
                 }
             else:
                 raise Exception(
-                    "export_parameters was triggered by unknown id: " + str(ctx.triggered_id)
+                    "export_parameters was triggered by unknown id: "
+                    + str(ctx.triggered_id)
                 )
             self._parameters_sem.acquire()
             self._parameters = params
             self._parameters_sem.release()
             d[EXPORTED_PARAMETER + CHILDREN] = json.dumps(self._parameters)
             return d
- 
