@@ -343,6 +343,19 @@ class Persistable:
 
         return cl
 
+    def _dbscan_cluster(self, xy):
+        x,y = xy
+        hc = self._bifiltration.lambda_linkage([0,y], [np.inf, y])
+        cl = hc.cut(x)
+
+        if self._subsample is not None:
+            new_cl = np.full(self._subsample_representatives.shape[0], -1)
+            for i, _ in enumerate(self._subsample_representatives):
+                new_cl[i] = cl[self._subsample_representatives[i]]
+            cl = new_cl
+
+        return cl
+
     def _find_end(self):
         return self._bifiltration.find_end()
 
@@ -1201,6 +1214,70 @@ class _HierarchicalClustering:
         self._merges_heights = np.maximum(self._merges_heights, start)
         self._start = start
         self._end = end
+
+    def cut(self, cut_height):
+        end = min(self._end, cut_height)
+        heights = self._heights
+        merges = self._merges
+        merges_heights = self._merges_heights
+        n_points = heights.shape[0]
+        n_merges = merges.shape[0]
+        # this orders the point by appearance
+        appearances = np.argsort(heights)
+        # contains the current clusters
+        uf = DisjointSet()
+        # height index
+        hind = 0
+        # merge index
+        mind = 0
+        current_appearence_height = heights[appearances[0]]
+        current_merge_height = merges_heights[0]
+        while True:
+            # while there is no merge
+            while (
+                hind < n_points
+                and heights[appearances[hind]] <= current_merge_height
+                and heights[appearances[hind]] <= end
+            ):
+                # add all points that are born as new clusters
+                uf.add(appearances[hind])
+                hind += 1
+                if hind == n_points:
+                    current_appearence_height = end
+                else:
+                    current_appearence_height = heights[appearances[hind]]
+            # while there is no cluster being born
+            while (
+                mind < n_merges
+                and merges_heights[mind] < current_appearence_height
+                and merges_heights[mind] <= end
+            ):
+                xy = merges[mind]
+                x, y = xy
+                uf.merge(x, y)
+                mind += 1
+                if mind == n_merges:
+                    current_merge_height = end
+                else:
+                    current_merge_height = merges_heights[mind]
+            if (hind == n_points or heights[appearances[hind]] >= end) and (
+                mind == n_merges or merges_heights[mind] >= end
+            ):
+                break
+        # contains the flat clusters
+        clusters = []
+        # go through all clusters
+        for c in uf.subsets():
+            c = list(c)
+            clusters.append(list(c))
+        current_cluster = 0
+        res = np.full(n_points, -1)
+        for cl in clusters:
+            for x in cl:
+                if x < n_points:
+                    res[x] = current_cluster
+            current_cluster += 1
+        return res
 
     def persistence_based_flattening(
         self, threshold, conservative_flattening_style, keep_low_persistence_clusters

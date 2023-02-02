@@ -292,11 +292,14 @@ class PersistableInteractive:
                 "No parameters where chosen. Please use the graphical user interface to choose parameters."
             )
         else:
-            return self._persistable.cluster(
-                **params,
-                conservative_flattening_style=conservative_flattening_style,
-                keep_low_persistence_clusters=keep_low_persistence_clusters
-            )
+            if "point" in params:
+                return self._persistable._dbscan_cluster(params["point"])
+            else:
+                return self._persistable.cluster(
+                    **params,
+                    conservative_flattening_style=conservative_flattening_style,
+                    keep_low_persistence_clusters=keep_low_persistence_clusters
+                )
 
     def _chosen_parameters(self):
         self._parameters_sem.acquire()
