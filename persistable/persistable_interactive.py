@@ -1558,6 +1558,8 @@ class PersistableInteractive:
                 [Y_START_LINE, VALUE, ST],
                 [X_END_LINE, VALUE, ST],
                 [Y_END_LINE, VALUE, ST],
+                [X_POINT, VALUE, ST],
+                [Y_POINT, VALUE, ST],
             ],
             [
                 [X_START_FIRST_LINE, VALUE],
