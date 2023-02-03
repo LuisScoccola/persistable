@@ -4,7 +4,6 @@ on: [push]
 #  release:
 #    types: [published]
 
-name: Upload Python Package
 
 jobs:
   deploy-unix:
