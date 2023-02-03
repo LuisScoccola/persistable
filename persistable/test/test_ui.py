@@ -37,7 +37,7 @@ def ccf_compute_button_locator(page):
 
 def ccf_vineyard_input_selection_radio_on_locator(page):
     return page.locator(
-        "div#ccf-plot-controls-div-.parameters div#interactive-inputs-selection- :text('Line family')"
+        "div#ccf-plot-controls-div-.parameters div#interactive-inputs-selection- :text('Family of lines')"
     )
 
 
