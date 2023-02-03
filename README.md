@@ -1,4 +1,4 @@
-
+[![PyPI](https://img.shields.io/pypi/v/persistable-clustering?color=green)](https://pypi.org/project/persistable-clustering)
 [![tests](https://github.com/LuisScoccola/persistable/actions/workflows/run_tests.yaml/badge.svg)](https://github.com/LuisScoccola/persistable/actions/workflows/run_tests.yaml)
 [![coverage](https://codecov.io/gh/LuisScoccola/persistable/branch/main/graph/badge.svg)](https://codecov.io/gh/LuisScoccola/persistable)
 [![docs](https://readthedocs.org/projects/persistable/badge/?version=latest)](https://persistable.readthedocs.io/)
@@ -6,7 +6,7 @@
 ---
 
 <p align="center">
-    <img src="./docs/pictures/logo.svg" width="550">
+    <img src="https://raw.githubusercontent.com/LuisScoccola/persistable/main/docs/pictures/logo.svg" width="550">
 </p>
 
 Persistent and stable clustering (Persistable) is a density-based clustering algorithm intended for exploratory data analysis.
@@ -55,7 +55,7 @@ pi.start_UI()
 The last command returns the port in `localhost` serving the UI, which is `8050` by default.
 Now go to `localhost:8050` in your web browser to access the graphical user interface:
 
-![Alt text](docs/pictures/GUI.png?raw=true)
+![Alt text](https://raw.githubusercontent.com/LuisScoccola/persistable/main/docs/pictures/GUI.png)
 
 After choosing your parameters using the user interface, you can get your clustering in another Jupyter cell by running:
 

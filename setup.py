@@ -86,10 +86,32 @@ _hdbscan_boruvka = Extension(
 if not HAVE_CYTHON:
     raise ImportError("Cython not found!")
 
+def readme():
+    with open("README.md") as readme_file:
+        return readme_file.read()
+
 setup(
     name="persistable-clustering",
-    version="0.3.2",
-    description="Persistable: persistent and stable clustering. Versatile density-based clustering for exploratory data analysis.",
+    version="0.3.5",
+    description="Density-based clustering for exploratory data analysis based on multi-parameter persistence",
+    long_description=readme(),
+    long_description_content_type="text/markdown",
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Science/Research",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved",
+        "Programming Language :: Python",
+        "Programming Language :: C",
+        "Topic :: Software Development",
+        "Topic :: Scientific/Engineering",
+        "Operating System :: Microsoft :: Windows",
+        "Operating System :: POSIX",
+        "Operating System :: Unix",
+        "Operating System :: MacOS",
+    ],
+    keywords="clustering density hierarchical persistence TDA",
+    url="https://github.com/LuisScoccola/persistable",
     license="3-clause BSD",
     maintainer="Luis Scoccola",
     maintainer_email="luis.scoccola@gmail.com",
