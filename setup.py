@@ -87,7 +87,7 @@ if not HAVE_CYTHON:
     raise ImportError("Cython not found!")
 
 setup(
-    name="persistable",
+    name="persistable-clustering",
     version="0.3.2",
     description="Persistable: persistent and stable clustering. Versatile density-based clustering for exploratory data analysis.",
     license="3-clause BSD",
