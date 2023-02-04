@@ -72,7 +72,7 @@ Make sure you are using Python 3.
 Persistable depends on the following python packages, which will be installed automatically when you install with `pip`:
 `numpy`, `scipy`, `scikit-learn`, `cython`, `plotly`, `dash`, `jupyter_dash`, `diskcache`, `multiprocess`, `psutil`.
 
-### Stable
+### Latest release
 
 ```bash
 pip install persistable-clustering
