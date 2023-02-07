@@ -123,7 +123,7 @@ class Persistable:
         n_iterations_extend_cluster=10,
         n_neighbors_extend_cluster=5,
     ):
-        """Clusters the dataset with which the Persistable instance was initialized.
+        """Find parameters automatically and cluster dataset passed at initialization.
 
         This function will find the best number of clusterings in the range passed
         by the user, according to a certain measure of goodness of clustering
@@ -192,7 +192,7 @@ class Persistable:
         n_iterations_extend_cluster=10,
         n_neighbors_extend_cluster=5,
     ):
-        """Clusters the dataset with which the Persistable instance was initialized.
+        """Clusters dataset passed at initialization.
 
         n_clusters: int
             Integer determining how many clusters the final clustering

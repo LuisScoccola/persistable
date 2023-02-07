@@ -221,8 +221,7 @@ class PersistableInteractive:
 
 
     def cluster(self, **kwargs):
-        """Clusters the dataset with which the Persistable instance that was
-        passed through ``run_with`` was initialized.
+        """Clusters the dataset passed to ``Persistable`` at initialization.
 
         ``**kwargs``:
             Passed to ``Persistable.cluster``.
