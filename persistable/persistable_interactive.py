@@ -120,7 +120,7 @@ def empty_figure():
 
 
 class PersistableInteractive:
-    """A graphical user interface for doing parameter selection for Persistable.
+    """Graphical user interface for doing parameter selection for ``Persistable``.
 
     persistable: Persistable
         Persistable instance with which to interact with the user interface.
@@ -136,7 +136,7 @@ class PersistableInteractive:
 
 
     def start_UI(self, port=8050, debug=False, inline=False):
-        """Serves the GUI with a given persistable instance.
+        """Serve the GUI.
 
         port: int, optional, default is 8050
             Integer representing which port of localhost to try use to run the GUI.
