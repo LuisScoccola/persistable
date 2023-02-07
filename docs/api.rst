@@ -1,6 +1,9 @@
 API Reference
 =============
 
+Index
+-----
+
 .. rubric:: Classes
 
 .. autosummary::
@@ -9,7 +12,7 @@ API Reference
     persistable.Persistable
     persistable.PersistableInteractive
 
-.. rubric:: persistable.Persistable
+.. rubric:: persistable.Persistable methods
 
 .. autosummary::
     :nosignatures:
@@ -17,7 +20,7 @@ API Reference
     persistable.Persistable.cluster
     persistable.Persistable.quick_cluster
 
-.. rubric:: persistable.PersistableInteractive
+.. rubric:: persistable.PersistableInteractive methods
 
 .. autosummary::
     :nosignatures:
