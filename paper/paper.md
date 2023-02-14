@@ -94,6 +94,8 @@ It is worth pointing out that the component counting function of Figure \ref{fig
 # Acknowledgements
 
 We thank Leandro Lovisolo and Manuel Ferreria for several fruitful conversations.
+L.S.~was partially supported by the National Science Foundation through grants CCF-2006661
+and CAREER award DMS-1943758.
 
 
 # References
