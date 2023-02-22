@@ -1,8 +1,8 @@
 name: upload to pypi
 
-on: [push]
-#  release:
-#    types: [published]
+on:
+  release:
+    types: [published]
 
 jobs:
   deploy-unix:
