@@ -1,4 +1,4 @@
-
+[![PyPI](https://img.shields.io/pypi/v/persistable-clustering?color=green)](https://pypi.org/project/persistable-clustering)
 [![tests](https://github.com/LuisScoccola/persistable/actions/workflows/run_tests.yaml/badge.svg)](https://github.com/LuisScoccola/persistable/actions/workflows/run_tests.yaml)
 [![coverage](https://codecov.io/gh/LuisScoccola/persistable/branch/main/graph/badge.svg)](https://codecov.io/gh/LuisScoccola/persistable)
 [![docs](https://readthedocs.org/projects/persistable/badge/?version=latest)](https://persistable.readthedocs.io/)
@@ -6,7 +6,7 @@
 ---
 
 <p align="center">
-    <img src="./docs/pictures/logo.svg" width="550">
+    <img src="https://raw.githubusercontent.com/LuisScoccola/persistable/main/docs/pictures/logo.svg" width="550">
 </p>
 
 Persistent and stable clustering (Persistable) is a density-based clustering algorithm intended for exploratory data analysis.
@@ -50,7 +50,7 @@ pi.start_UI()
 The last command returns the port in `localhost` serving the UI, which is `8050` by default.
 Now go to `localhost:8050` in your web browser to access the graphical user interface:
 
-![Alt text](docs/pictures/GUI.png?raw=true)
+![Alt text](https://raw.githubusercontent.com/LuisScoccola/persistable/main/docs/pictures/GUI.png)
 
 After choosing your parameters using the user interface, you can get your clustering in another Jupyter cell by running:
 
@@ -64,14 +64,24 @@ clustering_labels = pi.cluster()
 ## Installing
 
 Make sure you are using Python 3.
-Installation through PyPI is coming soon.
+Persistable depends on the following python packages, which will be installed automatically when you install with `pip`:
+`numpy`, `scipy`, `scikit-learn`, `cython`, `plotly`, `dash`, `jupyter_dash`, `diskcache`, `multiprocess`, `psutil`.
+
+
+### Latest release
 
 ```bash
-pip install git+https://github.com/LuisScoccola/persistable.git
+pip install persistable-clustering
 ```
 
-Persistable depends on the following python packages:
-`numpy`, `scipy`, `scikit-learn`, `cython`, `plotly`, `dash`, `jupyter_dash`, `diskcache`, `multiprocess`, `psutil`.
+### Experimental
+
+The `experimental` branch may contain newer and more advanced features.
+You can install from that branch by running
+
+```bash
+pip install git+https://github.com/LuisScoccola/persistable.git@experimental
+```
 
 
 ## Documentation and support
@@ -82,15 +92,6 @@ Please include as much information as possible, including your system's informat
 If you do not wish to open an issue, you are also welcome to contact [Luis Scoccola](https://luisscoccola.github.io/) directly.
 Please be patient if it takes us a bit to get back to you.
 
-
-## Experimental features
-
-Check the `experimental` branch for more advanced features.
-You can install from that branch by running
-
-```bash
-pip install git+https://github.com/LuisScoccola/persistable.git@experimental
-```
 
 
 ## Running the tests
