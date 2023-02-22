@@ -28,7 +28,7 @@ jobs:
         run: |
           python setup.py sdist bdist_wheel
           twine upload --skip-existing dist/*.tar.gz
-          auditwheel repair --plat manylinux_2_31_x86_64 dist/*linux_x86_64.whl
+          auditwheel repair --plat manylinux_2_17_x86_64 dist/*linux_x86_64.whl
           twine upload --skip-existing wheelhouse/*.whljobs:
 
   deploy-windows:
