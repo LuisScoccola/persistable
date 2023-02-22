@@ -92,7 +92,7 @@ def readme():
 
 setup(
     name="persistable-clustering",
-    version="0.3.2.7",
+    version="0.3.2.8",
     description="Density-based clustering for exploratory data analysis based on multi-parameter persistence",
     long_description=readme(),
     long_description_content_type="text/markdown",
