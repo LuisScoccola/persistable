@@ -1,6 +1,8 @@
 name: upload to pypi
 
 on: [push]
+#  release:
+#    types: [published]
 
 jobs:
   deploy-unix:
@@ -27,7 +29,7 @@ jobs:
           python setup.py sdist bdist_wheel
           twine upload dist/*.tar.gz
           auditwheel repair dist/*linux_x86_64.whl
-          twine upload wheelhouse/*.whljobs:
+          twine upload --skip-existing wheelhouse/*.whljobs:
 
   deploy-windows:
     strategy:
@@ -51,7 +53,7 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           python setup.py sdist
-          twine upload dist/*
+          twine upload --skip-existing dist/*
 
   deploy-macos:
     strategy:
@@ -75,4 +77,4 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           python setup.py sdist
-          twine upload dist/*
+          twine upload --skip-existing dist/*
