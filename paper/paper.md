@@ -28,7 +28,7 @@ Persistable's interactive mode lets the user visualize multi-scale and multi-den
 This is used to guide the choice of parameters that lead to the final clustering.
 
 Persistable is based on multi-parameter persistence [@botnanlesnick], a method from topological data analysis; the theory behind Persistable is developed in [@rollescoccola].
-Persistable is implemented in Python, with the most expensive computations---in particular the implementations borrowed from [@scipy] and from the high performance algorithms for density-based clustering developed in [@mcinneshealy] and implemented in [@mcinneshealyastels]---done in Cython.
+Persistable is implemented in Python, with the most expensive computations---in particular the implementations borrowed from [@scipy] and from the high-performance algorithms for density-based clustering developed in [@mcinneshealy] and implemented in [@mcinneshealyastels]---done in Cython.
 Persistable's interactive mode is inspired by RIVET [@rivet] and is implemented in Plotly Dash [@plotly].
 We test the core algorithms as well as the graphical user interface in Ubuntu, macOS, and Windows.
 We have designed Persistable with the goal of making both its computational components and its GUI easy to extend.
@@ -46,12 +46,12 @@ We review existing algorithms and implementations that are related to Persistabl
 **DBSCAN.**
 The algorithm was introduced in [@dbscan], and an implementation is available at [@scikit-learn].
 DBSCAN takes two parameters, a scale parameter and a density threshold, which are used to construct a graph on the data.
-This graph models the connectivity properties of the data, with respect to the chosen parameters, and the DBSCAN clustering is the set of components of this graph.
+This graph models the connectivity properties of the data with respect to the chosen parameters, and the DBSCAN clustering is the set of components of this graph.
 A main advantage of DBSCAN is that the output clustering is very interpretable in terms of the chosen parameters; meanwhile, a major difficulty for practitioners is the choice of these parameters, especially without a priori knowledge of the scale of the data (see, e.g., [@dbscan-2]).
 
 **HDBSCAN.**
-The algorithm was introduced in [@campello2013density], and a high performance implementation is in [@mcinneshealyastels].
-HDBSCAN can be seen as a hierarchical version of DBSCAN, which eliminates the dependence on the scale parameter by considering the hierarchical clustering defined by fixing a density threshold, and letting the distance scale vary.
+The algorithm was introduced in [@campello2013density], and a high-performance implementation is in [@mcinneshealyastels].
+HDBSCAN can be seen as a hierarchical version of DBSCAN that eliminates the dependence on the scale parameter by considering the hierarchical clustering defined by fixing a density threshold and letting the distance scale vary.
 The algorithm extracts a single clustering from this hierarchy according to a certain notion of persistence, using an additional minimum cluster size parameter.
 Eliminating the scale parameter makes HDBSCAN easier to use than DBSCAN in many cases, but choosing the density threshold can still be a challenge for practitioners.
 The implementation of [@mcinneshealyastels] has visualization functionality which aides in the choice of minimum cluster size.
