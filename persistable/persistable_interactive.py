@@ -379,7 +379,10 @@ class PersistableInteractive:
 
     def _chosen_parameters(self):
         self._parameters_sem.acquire()
-        params = self._parameters.copy()
+        if self._parameters is None:
+            params = None
+        else:
+            params = self._parameters.copy()
         self._parameters_sem.release()
         return params
 
