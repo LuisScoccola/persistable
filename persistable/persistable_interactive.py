@@ -81,18 +81,23 @@ COMPUTE_CCF_BUTTON = "compute-ccf-button-"
 STOP_COMPUTE_CCF_BUTTON = "stop-compute-ccf-button-"
 COMPUTE_RI_BUTTON = "compute-ri-button-"
 STOP_COMPUTE_RI_BUTTON = "stop-compute-ri-button-"
-INPUT_GRANULARITY_CCF = "input-granularity-ccf-"
-INPUT_GRANULARITY_RI = "input-granularity-ri-"
-INPUT_NUM_JOBS_CCF = "input-num-jobs-ccf-"
-INPUT_NUM_JOBS_RI = "input-num-jobs-ri-"
-INPUT_MAX_COMPONENTS = "input-max-components-"
-INPUT_MAX_RI = "input-max-ri-"
-INPUT_MIN_LENGTH_RI = "input-min-length-bars-ri-"
-INPUT_SIGNED_BETTI_NUMBERS = "input-signed-betti-numbers-"
-INPUT_Y_COVARIANT = "input-y-covariant-"
-INPUT_DISPLAY_RI = "input-display-ri-"
-INPUT_DECOMPOSE_BY_RI = "input-decompose-by-ri-"
-INPUT_REDUCED_HOMOLOGY_RI = "input-reduced-homology-ri-"
+GRANULARITY = "granularity-"
+MIN_GRANULARITY = "min-granularity-"
+MAX_GRANULARITY = "max-granularity-"
+MAX_GRANULARITY_RI = "max-granularity-ri-"
+MIN_GRANULARITY_VINEYARD = "min-granularity-vineyard-"
+MAX_GRANULARITY_VINEYARD = "max-granularity-vineyard-"
+GRANULARITY_RI = "granularity-ri-"
+NUM_JOBS_CCF = "num-jobs-ccf-"
+NUM_JOBS_RI = "num-jobs-ri-"
+MAX_COMPONENTS = "max-components-"
+MAX_RI = "max-ri-"
+MIN_LENGTH_RI = "min-length-bars-ri-"
+SIGNED_BETTI_NUMBERS = "signed-betti-numbers-"
+Y_COVARIANT = "y-covariant-"
+DISPLAY_RI = "display-ri-"
+DECOMPOSE_BY_RI = "decompose-by-ri-"
+REDUCED_HOMOLOGY_RI = "reduced-homology-ri-"
 CCF_PLOT_CONTROLS_DIV = "ccf-plot-controls-div-"
 CCF_DETAILS = "ccf-details-"
 CCF_EXTRAS = "ccf-extras-"
@@ -105,8 +110,8 @@ PD_PANEL = "pd-panel-"
 LOG = "log-"
 LOG_DIV = "log-div-"
 STORED_PV = "stored-pv-"
-INPUT_MAX_VINES = "input-max-vines-"
-INPUT_PROM_VIN_SCALE = "input-prom-vin-scale-"
+MAX_VINES = "max-vines-"
+PROM_VIN_SCALE = "prom-vin-scale-"
 COMPUTE_PV_BUTTON = "compute-pv-button-"
 STOP_COMPUTE_PV_BUTTON = "stop-compute-pv-button-"
 COMPUTE_PD_BUTTON = "compute-pd-button-"
@@ -114,11 +119,11 @@ STOP_COMPUTE_PD_BUTTON = "stop-compute-pd-button-"
 PV_PLOT = "pv-plot-"
 PD_PLOT = "pd-plot-"
 STORED_PV_DRAWING = "stored-pv-drawing-"
-INPUT_GRANULARITY_PV = "input-granularity-pv-"
-INPUT_NUM_JOBS_PV = "input-num-jobs-pv-"
-INPUT_LINE = "input-line-"
-PV_INPUT_GAP = "pv-input-gap-"
-PD_INPUT_GAP = "pd-input-gap-"
+GRANULARITY_PV = "granularity-pv-"
+NUM_JOBS_PV = "num-jobs-pv-"
+LINE = "line-"
+PV_GAP = "pv-gap-"
+PD_GAP = "pd-gap-"
 EXPORT_PARAMETERS_BUTTON_PV = "export-parameters-button-pv-"
 EXPORT_PARAMETERS_BUTTON_PD = "export-parameters-button-pd-"
 EXPORT_PARAMETERS_BUTTON_DBSCAN = "export-parameters-button-dbscan-"
@@ -132,8 +137,7 @@ STORED_RI_COMPUTATION_WARNINGS = "stored-ri-computation-warnings-"
 STORED_PD_COMPUTATION_WARNINGS = "stored-pd-computation-warnings-"
 
 EXPORTED_PARAMETER = "exported-parameter-"
-
-SHUTDOWN_BUTTON = "shutdown-button-"
+EXPORTED_STATE = "exported-state-"
 
 VALUE = "value"
 CLICKDATA = "clickData"
@@ -164,6 +168,56 @@ def empty_figure():
     fig.update_layout(clickmode="none")
     return fig
 
+def compute_defaults(end, default_granularity):
+    bounds = {
+        MIN_GRANULARITY: 2,
+        MAX_GRANULARITY: 512,
+        MAX_GRANULARITY_RI: 64,
+        MIN_GRANULARITY_VINEYARD: 1,
+        MAX_GRANULARITY_VINEYARD: 512,
+    }
+    d0 = {GRANULARITY: default_granularity}
+    d1 = {
+        MIN_DENSITY_THRESHOLD: 0,
+        MAX_DENSITY_THRESHOLD: end[1],
+        MIN_DIST_SCALE: 0,
+        MAX_DIST_SCALE: end[0],
+        GRANULARITY_RI: d0[GRANULARITY] // 5,
+        GRANULARITY_PV: d0[GRANULARITY] // 2,
+        NUM_JOBS_CCF: 1,
+        NUM_JOBS_PV: 1,
+        NUM_JOBS_RI: 1,
+        MAX_COMPONENTS: 15,
+        MAX_VINES: 15,
+    }
+    defr = 6
+    d2 = {
+        X_START_FIRST_LINE: (d1[MIN_DIST_SCALE] + d1[MAX_DIST_SCALE]) * (1 / defr),
+        Y_START_FIRST_LINE: (d1[MIN_DENSITY_THRESHOLD] + d1[MAX_DENSITY_THRESHOLD]) * (1 / 2),
+        X_END_FIRST_LINE: (d1[MAX_DIST_SCALE] + d1[MIN_DIST_SCALE]) * (1 / 2),
+        Y_END_FIRST_LINE: (d1[MIN_DENSITY_THRESHOLD] + d1[MAX_DENSITY_THRESHOLD]) * (1 / defr),
+        X_START_SECOND_LINE: (d1[MIN_DIST_SCALE] + d1[MAX_DIST_SCALE]) * (1 / 2),
+        Y_START_SECOND_LINE: (d1[MIN_DENSITY_THRESHOLD] + d1[MAX_DENSITY_THRESHOLD])
+        * ((defr - 1) / defr),
+        X_END_SECOND_LINE: (d1[MAX_DIST_SCALE] + d1[MIN_DIST_SCALE])
+        * ((defr - 1) / defr),
+        Y_END_SECOND_LINE: (d1[MIN_DENSITY_THRESHOLD] + d1[MAX_DENSITY_THRESHOLD]) * (1 / 2),
+    }
+    d3 = {
+        X_START_LINE: (d2[X_START_FIRST_LINE] + d2[X_START_SECOND_LINE])
+        / 2,
+        Y_START_LINE: (d2[Y_START_FIRST_LINE] + d2[Y_START_SECOND_LINE])
+        / 2,
+        X_END_LINE: (d2[X_END_FIRST_LINE] + d2[X_END_SECOND_LINE]) / 2,
+        Y_END_LINE: (d2[Y_END_FIRST_LINE] + d2[Y_END_SECOND_LINE]) / 2,
+    }
+    d4 = {
+        X_POINT: (d3[X_START_LINE] + d3[X_END_LINE])/2,
+        Y_POINT: (d3[Y_START_LINE] + d3[Y_END_LINE])/2,
+    }
+
+    return {**d0, **d1, **d2, **d3, **d4}, bounds
+
 
 class PersistableInteractive:
     """A graphical user interface for doing parameter selection for Persistable.
@@ -179,9 +233,14 @@ class PersistableInteractive:
         self._debug = False
         self._parameters_sem = threading.Semaphore()
         self._parameters = None
+        self._ui_state = None
 
-    def start_UI(self, port=8050, debug=False, inline=False):
+    def start_ui(self, ui_state=None, port=8050, debug=False, inline=False):
         """Serves the GUI with a given persistable instance.
+
+        ui_state: dictionary, optional
+            The state of a previous UI session, as a Python object, obtained
+            by calling the method ``save_UI_state()``.
 
         port: int, optional, default is 8050
             Integer representing which port of localhost to try use to run the GUI.
@@ -218,23 +277,26 @@ class PersistableInteractive:
 
         def suppress_warnings(app):
             import logging
+
             app.logger.setLevel(logging.WARNING)
             logging.getLogger("werkzeug").setLevel(logging.ERROR)
+
             def secho(text, file=None, nl=None, err=None, color=None, **styles):
                 pass
+
             def echo(text, file=None, nl=None, err=None, color=None, **styles):
                 pass
+
             click.echo = echo
             click.secho = secho
 
         if inline == True:
-
             self._app = JupyterDash(
                 __name__,
                 background_callback_manager=background_callback_manager,
                 update_title="Persistable is computing...",
             )
-            self._layout_gui()
+            self._layout_gui(ui_state)
             self._register_callbacks(self._persistable, self._debug)
 
             if not debug:
@@ -247,7 +309,7 @@ class PersistableInteractive:
                 background_callback_manager=background_callback_manager,
                 update_title="Persistable is computing...",
             )
-            self._layout_gui()
+            self._layout_gui(ui_state)
             self._register_callbacks(self._persistable, self._debug)
 
             if not debug:
@@ -261,6 +323,17 @@ class PersistableInteractive:
             self._thread.start()
 
             return port
+
+    def save_ui_state(self):
+        """Save state of input fields in the UI as a Python object. The output
+        can then be used as the optional input of the ``start_ui()`` method.
+        
+        returns: dictionary
+        """
+        self._parameters_sem.acquire()
+        state = self._ui_state.copy()
+        self._parameters_sem.release()
+        return state
 
     def cluster(
         self, conservative_flattening_style=False, keep_low_persistence_clusters=False
@@ -306,51 +379,17 @@ class PersistableInteractive:
 
     def _chosen_parameters(self):
         self._parameters_sem.acquire()
-        params = self._parameters
+        params = self._parameters.copy()
         self._parameters_sem.release()
         return params
 
-    def _layout_gui(self):
+    def _layout_gui(self, ui_state):
 
-        def compute_defaults(end, default_granularity):
-            d0 = {"granularity": default_granularity}
-            d1 = {
-                "min_k": 0,
-                "max_k": end[1],
-                "min_s": 0,
-                "max_s": end[0],
-                "granularity_ri": d0["granularity"] // 5,
-                "granularity_pv": d0["granularity"] // 2,
-                "num_jobs": 1,
-                "max_dim": 15,
-                "max_vines" : 15,
-                "min_granularity" : 2,
-                "max_granularity" : 512,
-                "max_granularity_ri" : 64,
-                "min_granularity_vineyard" : 1,
-                "defr" : 6,
-            }
-            d2 = {
-                "max_granularity_vineyard" : d1["max_granularity"],
-                "x_start_first_line" : (d1["min_s"] + d1["max_s"]) * (1 / d1["defr"]),
-                "y_start_first_line" : (d1["min_k"] + d1["max_k"]) * (1 / 2),
-                "x_end_first_line" : (d1["max_s"] + d1["min_s"]) * (1 / 2),
-                "y_end_first_line" : (d1["min_k"] + d1["max_k"]) * (1 / d1["defr"]),
-                "x_start_second_line" : (d1["min_s"] + d1["max_s"]) * (1 / 2),
-                "y_start_second_line" : (d1["min_k"] + d1["max_k"]) * ( (d1["defr"] - 1) / d1["defr"]),
-                "x_end_second_line" : (d1["max_s"] + d1["min_s"]) * ( (d1["defr"] - 1) / d1["defr"]),
-                "y_end_second_line" : (d1["min_k"] + d1["max_k"]) * (1 / 2),
-            }
-            d3 = {
-                "x_start_line" : ( d2["x_start_first_line"] + d2["x_start_second_line"]) / 2,
-                "y_start_line" : ( d2["y_start_first_line"] + d2["y_start_second_line"]) / 2,
-                "x_end_line" : (d2["x_end_first_line"] + d2["x_end_second_line"]) / 2,
-                "y_end_line" : (d2["y_end_first_line"] + d2["y_end_second_line"]) / 2,
-            }
-
-            return {**d0, **d1, **d2, **d3}
-        
-        default = compute_defaults( self._persistable._find_end(), self._persistable._default_granularity())
+        defaults, bounds = compute_defaults(
+            self._persistable._find_end(), self._persistable._default_granularity()
+        )
+        if ui_state is None:
+            ui_state = defaults
 
         self._app.title = "Persistable"
 
@@ -373,7 +412,7 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=MIN_DIST_SCALE,
                                         type="number",
-                                        value=default["min_s"],
+                                        value=ui_state[MIN_DIST_SCALE],
                                         min=0,
                                         debounce=True,
                                     ),
@@ -381,7 +420,7 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=MAX_DIST_SCALE,
                                         type="number",
-                                        value=default["max_s"],
+                                        value=ui_state[MAX_DIST_SCALE],
                                         min=0,
                                         debounce=True,
                                     ),
@@ -398,7 +437,7 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=MIN_DENSITY_THRESHOLD,
                                         type="number",
-                                        value=default["min_k"],
+                                        value=ui_state[MIN_DENSITY_THRESHOLD],
                                         min=0,
                                         debounce=True,
                                     ),
@@ -406,7 +445,7 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=MAX_DENSITY_THRESHOLD,
                                         type="number",
-                                        value=default["max_k"],
+                                        value=ui_state[MAX_DENSITY_THRESHOLD],
                                         min=0,
                                         debounce=True,
                                     ),
@@ -417,15 +456,15 @@ class PersistableInteractive:
                                 children=[
                                     html.Span(
                                         className="name",
-                                        children="Granularity",
+                                        children=GRANULARITY,
                                     ),
                                     dcc.Input(
-                                        id=INPUT_GRANULARITY_CCF,
+                                        id=GRANULARITY,
                                         className="small-value",
                                         type="number",
-                                        value=default["granularity"],
-                                        min=default["min_granularity"],
-                                        max=default["max_granularity"],
+                                        value=ui_state[GRANULARITY],
+                                        min=bounds[MIN_GRANULARITY],
+                                        max=bounds[MAX_GRANULARITY],
                                         debounce=True,
                                     ),
                                     html.Span(
@@ -433,9 +472,9 @@ class PersistableInteractive:
                                         children="Max connected components",
                                     ),
                                     dcc.Input(
-                                        id=INPUT_MAX_COMPONENTS,
+                                        id=MAX_COMPONENTS,
                                         type="number",
-                                        value=default["max_dim"],
+                                        value=ui_state[MAX_COMPONENTS],
                                         min=1,
                                         className="small-value",
                                         step=1,
@@ -452,9 +491,9 @@ class PersistableInteractive:
                                     ),
                                     dcc.Input(
                                         className="small-value",
-                                        id=INPUT_NUM_JOBS_CCF,
+                                        id=NUM_JOBS_CCF,
                                         type="number",
-                                        value=default["num_jobs"],
+                                        value=ui_state[NUM_JOBS_CCF],
                                         min=1,
                                         step=1,
                                         max=16,
@@ -470,7 +509,7 @@ class PersistableInteractive:
                                             "Contr",
                                         ],
                                         "Cov",
-                                        id=INPUT_Y_COVARIANT,
+                                        id=Y_COVARIANT,
                                         className="small-value",
                                     ),
                                 ],
@@ -625,7 +664,7 @@ class PersistableInteractive:
                                                         className=VALUE,
                                                         id=X_POINT,
                                                         type="number",
-                                                        value=default["x_start_first_line"],
+                                                        value=ui_state[X_POINT],
                                                         min=0,
                                                         debounce=True,
                                                     ),
@@ -633,7 +672,7 @@ class PersistableInteractive:
                                                         className=VALUE,
                                                         id=Y_POINT,
                                                         type="number",
-                                                        value=default["y_start_first_line"],
+                                                        value=ui_state[Y_POINT],
                                                         min=0,
                                                         debounce=True,
                                                     ),
@@ -675,15 +714,15 @@ class PersistableInteractive:
                                         children=[
                                             html.Span(
                                                 className="name",
-                                                children="Granularity",
+                                                children=GRANULARITY,
                                             ),
                                             dcc.Input(
-                                                id=INPUT_GRANULARITY_RI,
+                                                id=GRANULARITY_RI,
                                                 className="small-value",
                                                 type="number",
-                                                value=default["granularity_ri"],
-                                                min=default["min_granularity"],
-                                                max=default["max_granularity_ri"],
+                                                value=ui_state[GRANULARITY_RI],
+                                                min=bounds[MIN_GRANULARITY],
+                                                max=bounds[MAX_GRANULARITY_RI],
                                                 debounce=True,
                                             ),
                                             html.Span(
@@ -691,9 +730,9 @@ class PersistableInteractive:
                                                 children="Max rank",
                                             ),
                                             dcc.Input(
-                                                id=INPUT_MAX_RI,
+                                                id=MAX_RI,
                                                 type="number",
-                                                value=default["max_dim"],
+                                                value=ui_state[MAX_COMPONENTS],
                                                 min=1,
                                                 className="small-value",
                                                 step=1,
@@ -709,7 +748,7 @@ class PersistableInteractive:
                                                 children="Min length bars",
                                             ),
                                             dcc.Input(
-                                                id=INPUT_MIN_LENGTH_RI,
+                                                id=MIN_LENGTH_RI,
                                                 type="number",
                                                 value=1,
                                                 min=1,
@@ -723,9 +762,9 @@ class PersistableInteractive:
                                             ),
                                             dcc.Input(
                                                 className="small-value",
-                                                id=INPUT_NUM_JOBS_RI,
+                                                id=NUM_JOBS_RI,
                                                 type="number",
-                                                value=default["num_jobs"],
+                                                value=ui_state[NUM_JOBS_RI],
                                                 min=1,
                                                 step=1,
                                                 max=16,
@@ -746,7 +785,7 @@ class PersistableInteractive:
                                                     "No",
                                                 ],
                                                 "Yes",
-                                                id=INPUT_REDUCED_HOMOLOGY_RI,
+                                                id=REDUCED_HOMOLOGY_RI,
                                                 className="small-value",
                                             ),
                                             html.Span(
@@ -759,7 +798,7 @@ class PersistableInteractive:
                                                     "No",
                                                 ],
                                                 "Yes",
-                                                id=INPUT_DISPLAY_RI,
+                                                id=DISPLAY_RI,
                                                 className="small-value",
                                             ),
                                         ],
@@ -777,7 +816,7 @@ class PersistableInteractive:
                                                     "Hook",
                                                 ],
                                                 "Rect",
-                                                id=INPUT_DECOMPOSE_BY_RI,
+                                                id=DECOMPOSE_BY_RI,
                                                 className="value",
                                             ),
                                         ],
@@ -825,7 +864,7 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=X_START_FIRST_LINE,
                                         type="number",
-                                        value=default["x_start_first_line"],
+                                        value=ui_state[X_START_FIRST_LINE],
                                         min=0,
                                         debounce=True,
                                     ),
@@ -833,7 +872,7 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=Y_START_FIRST_LINE,
                                         type="number",
-                                        value=default["y_start_first_line"],
+                                        value=ui_state[Y_START_FIRST_LINE],
                                         min=0,
                                         debounce=True,
                                     ),
@@ -850,7 +889,7 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=X_END_FIRST_LINE,
                                         type="number",
-                                        value=default["x_end_first_line"],
+                                        value=ui_state[X_END_FIRST_LINE],
                                         min=0,
                                         debounce=True,
                                     ),
@@ -858,7 +897,7 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=Y_END_FIRST_LINE,
                                         type="number",
-                                        value=default["y_end_first_line"],
+                                        value=ui_state[Y_END_FIRST_LINE],
                                         min=0,
                                         debounce=True,
                                     ),
@@ -875,7 +914,7 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=X_START_SECOND_LINE,
                                         type="number",
-                                        value=default["x_start_second_line"],
+                                        value=ui_state[X_START_SECOND_LINE],
                                         min=0,
                                         debounce=True,
                                     ),
@@ -883,7 +922,7 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=Y_START_SECOND_LINE,
                                         type="number",
-                                        value=default["y_start_second_line"],
+                                        value=ui_state[Y_START_SECOND_LINE],
                                         min=0,
                                         debounce=True,
                                     ),
@@ -900,14 +939,14 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=X_END_SECOND_LINE,
                                         type="number",
-                                        value=default["x_end_second_line"],
+                                        value=ui_state[X_END_SECOND_LINE],
                                         min=0,
                                     ),
                                     dcc.Input(
                                         className=VALUE,
                                         id=Y_END_SECOND_LINE,
                                         type="number",
-                                        value=default["y_end_second_line"],
+                                        value=ui_state[Y_END_SECOND_LINE],
                                         min=0,
                                     ),
                                 ],
@@ -920,12 +959,12 @@ class PersistableInteractive:
                                         children="# lines vineyard",
                                     ),
                                     dcc.Input(
-                                        id=INPUT_GRANULARITY_PV,
+                                        id=GRANULARITY_PV,
                                         className="small-value",
                                         type="number",
-                                        value=default["granularity_pv"],
-                                        min=default["min_granularity_vineyard"],
-                                        max=default["max_granularity_vineyard"],
+                                        value=ui_state[GRANULARITY_PV],
+                                        min=bounds[MIN_GRANULARITY_VINEYARD],
+                                        max=bounds[MAX_GRANULARITY_VINEYARD],
                                         debounce=True,
                                     ),
                                     html.Span(
@@ -933,9 +972,9 @@ class PersistableInteractive:
                                         children="Max number vines to display",
                                     ),
                                     dcc.Input(
-                                        id=INPUT_MAX_VINES,
+                                        id=MAX_VINES,
                                         type="number",
-                                        value=default["max_vines"],
+                                        value=ui_state[MAX_VINES],
                                         min=1,
                                         className="small-value",
                                         step=1,
@@ -952,9 +991,9 @@ class PersistableInteractive:
                                     ),
                                     dcc.Input(
                                         className="small-value",
-                                        id=INPUT_NUM_JOBS_PV,
+                                        id=NUM_JOBS_PV,
                                         type="number",
-                                        value=default["num_jobs"],
+                                        value=ui_state[NUM_JOBS_PV],
                                         min=1,
                                         step=1,
                                         max=16,
@@ -967,7 +1006,7 @@ class PersistableInteractive:
                                     dcc.RadioItems(
                                         ["Lin", "Log"],
                                         "Lin",
-                                        id=INPUT_PROM_VIN_SCALE,
+                                        id=PROM_VIN_SCALE,
                                         className="small-value",
                                     ),
                                 ],
@@ -1033,7 +1072,7 @@ class PersistableInteractive:
                             ),
                             dcc.Input(
                                 className=VALUE,
-                                id=INPUT_LINE,
+                                id=LINE,
                                 type="number",
                                 value=1,
                                 min=1,
@@ -1045,7 +1084,7 @@ class PersistableInteractive:
                             ),
                             dcc.Input(
                                 className=VALUE,
-                                id=PV_INPUT_GAP,
+                                id=PV_GAP,
                                 type="number",
                                 value=1,
                                 min=1,
@@ -1082,7 +1121,7 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=X_START_LINE,
                                         type="number",
-                                        value=default["x_start_line"],
+                                        value=ui_state[X_START_LINE],
                                         min=0,
                                         debounce=True,
                                     ),
@@ -1090,7 +1129,7 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=Y_START_LINE,
                                         type="number",
-                                        value=default["y_start_line"],
+                                        value=ui_state[Y_START_LINE],
                                         min=0,
                                         debounce=True,
                                     ),
@@ -1107,7 +1146,7 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=X_END_LINE,
                                         type="number",
-                                        value=default["x_end_line"],
+                                        value=ui_state[X_END_LINE],
                                         min=0,
                                         debounce=True,
                                     ),
@@ -1115,7 +1154,7 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=Y_END_LINE,
                                         type="number",
-                                        value=default["y_end_line"],
+                                        value=ui_state[Y_END_LINE],
                                         min=0,
                                         debounce=True,
                                     ),
@@ -1182,7 +1221,7 @@ class PersistableInteractive:
                             ),
                             dcc.Input(
                                 className=VALUE,
-                                id=PD_INPUT_GAP,
+                                id=PD_GAP,
                                 type="number",
                                 value=1,
                                 min=1,
@@ -1230,8 +1269,10 @@ class PersistableInteractive:
                 dcc.Store(id=STORED_PD_COMPUTATION_WARNINGS, data=json.dumps(" ")),
                 #
                 dcc.Store(id=PV_FIXED_PARAMETERS, data=json.dumps([])),
+                dcc.Store(id=EXPORTED_PARAMETER, data=json.dumps([])),
+                dcc.Store(id=EXPORTED_STATE, data=json.dumps([])),
                 #
-                html.Div(id=EXPORTED_PARAMETER, hidden=True),
+                #
                 html.Div(
                     className="horizontal-grid",
                     children=[
@@ -1640,7 +1681,7 @@ class PersistableInteractive:
                 [STORED_CCF, DATA, IN],
                 [STORED_X_TICKS_CCF, DATA, ST],
                 [STORED_Y_TICKS_CCF, DATA, ST],
-                [INPUT_MAX_COMPONENTS, VALUE, IN],
+                [MAX_COMPONENTS, VALUE, IN],
             ],
             [[STORED_CCF_DRAWING, DATA]],
             False,
@@ -1664,7 +1705,7 @@ class PersistableInteractive:
             def fn_y_inverse(y):
                 return y - delta_y_ccf
 
-            max_components = d[INPUT_MAX_COMPONENTS + VALUE]
+            max_components = d[MAX_COMPONENTS + VALUE]
 
             fig = go.Figure(
                 layout=go.Layout(
@@ -1737,21 +1778,21 @@ class PersistableInteractive:
                 [PV_FIXED_PARAMETERS, DATA, IN],
                 [STORED_PD_BY_PV, DATA, ST],
                 [STORED_PARAMETERS_AND_PD_BY_PD, DATA, IN],
-                [PV_INPUT_GAP, VALUE, ST],
-                [PD_INPUT_GAP, VALUE, IN],
-                [INPUT_DISPLAY_RI, VALUE, IN],
-                [INPUT_Y_COVARIANT, VALUE, IN],
+                [PV_GAP, VALUE, ST],
+                [PD_GAP, VALUE, IN],
+                [DISPLAY_RI, VALUE, IN],
+                [Y_COVARIANT, VALUE, IN],
                 [STORED_BETTI, DATA, ST],
                 [STORED_X_TICKS_CCF, DATA, ST],
                 [STORED_Y_TICKS_CCF, DATA, ST],
-                [INPUT_MAX_COMPONENTS, VALUE, IN],
-                [INPUT_MAX_RI, VALUE, IN],
+                [MAX_COMPONENTS, VALUE, IN],
+                [MAX_RI, VALUE, IN],
                 [STORED_SIGNED_BARCODE_RECTANGLES, DATA, IN],
                 [STORED_SIGNED_BARCODE_HOOKS, DATA, IN],
                 [STORED_X_TICKS_RI, DATA, ST],
                 [STORED_Y_TICKS_RI, DATA, ST],
-                [INPUT_MIN_LENGTH_RI, VALUE, IN],
-                [INPUT_DECOMPOSE_BY_RI, VALUE, IN],
+                [MIN_LENGTH_RI, VALUE, IN],
+                [DECOMPOSE_BY_RI, VALUE, IN],
             ],
             [[CCF_PLOT, FIGURE]],
             False,
@@ -1766,7 +1807,7 @@ class PersistableInteractive:
             x_ticks_ccf.append(np.array(x_ticks_ccf[-1]) + 2 * delta_x_ccf)
             y_ticks_ccf.append(np.array(y_ticks_ccf[-1]) + 2 * delta_y_ccf)
 
-            max_components = d[INPUT_MAX_COMPONENTS + VALUE]
+            max_components = d[MAX_COMPONENTS + VALUE]
 
             def _rgba(color, opacity):
                 if color == "red":
@@ -1794,9 +1835,9 @@ class PersistableInteractive:
                 )
 
             # draw signed barcode
-            if d[INPUT_DISPLAY_RI + VALUE] == "Yes":
+            if d[DISPLAY_RI + VALUE] == "Yes":
                 using_rectangles = (
-                    True if d[INPUT_DECOMPOSE_BY_RI + VALUE] == "Rect" else False
+                    True if d[DECOMPOSE_BY_RI + VALUE] == "Rect" else False
                 )
                 if using_rectangles:
                     sb = np.array(
@@ -1805,8 +1846,7 @@ class PersistableInteractive:
                 else:
                     sb = np.array(json.loads(d[STORED_SIGNED_BARCODE_HOOKS + DATA]))
                 if len(sb) != 0:
-
-                    max_components = d[INPUT_MAX_RI + VALUE]
+                    max_components = d[MAX_RI + VALUE]
                     x_ticks = json.loads(d[STORED_X_TICKS_RI + DATA])
                     y_ticks = json.loads(d[STORED_Y_TICKS_RI + DATA])
                     delta_x = (x_ticks[1] - x_ticks[0]) / 2
@@ -1847,7 +1887,7 @@ class PersistableInteractive:
                                 # [y_ticks[j] - delta_y, y_ticks[j_] - delta_y]
                                 [y_ticks[j], y_ticks[j_]]
                             )
-                            if length >= d[INPUT_MIN_LENGTH_RI + VALUE]:
+                            if length >= d[MIN_LENGTH_RI + VALUE]:
                                 if mult < 0:
                                     color = _rgba("red", opacity)
                                     traces.append(
@@ -1876,7 +1916,6 @@ class PersistableInteractive:
 
             # draw Betti numbers
             if False:
-
                 bn = np.array(json.loads(d[STORED_BETTI + DATA]))
                 xs = x_ticks
                 ys = y_ticks
@@ -1973,7 +2012,6 @@ class PersistableInteractive:
 
             # draw family of lines
             if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Family of lines":
-
                 # draw polygon
                 fig.add_trace(
                     go.Scatter(
@@ -2033,7 +2071,6 @@ class PersistableInteractive:
 
             # draw single line
             if d[INTERACTIVE_INPUTS_SELECTION + VALUE] == "Line":
-
                 st_x = d[X_START_LINE + VALUE]
                 st_y = d[Y_START_LINE + VALUE]
                 end_x = d[X_END_LINE + VALUE]
@@ -2116,7 +2153,7 @@ class PersistableInteractive:
                             r_end = q_end + (i + 1) * tau
                             color = (
                                 "rgba(34, 139, 34, 1)"
-                                if i < d[PD_INPUT_GAP + VALUE]
+                                if i < d[PD_GAP + VALUE]
                                 or d[DISPLAY_PARAMETER_SELECTION_PD + VALUE] == "Off"
                                 else "rgba(34, 139, 34, 0.3)"
                             )
@@ -2195,7 +2232,7 @@ class PersistableInteractive:
                         r_end = q_end + (i + 1) * tau
                         color = (
                             "rgba(34, 139, 34, 1)"
-                            if i < d[PV_INPUT_GAP + VALUE]
+                            if i < d[PV_GAP + VALUE]
                             else "rgba(34, 139, 34, 0.3)"
                         )
                         fig.add_trace(
@@ -2217,7 +2254,7 @@ class PersistableInteractive:
                 xbounds = [x_ticks_ccf[0], x_ticks_ccf[-1]]
                 ybounds = [y_ticks_ccf[-1], y_ticks_ccf[0]]
 
-            if d[INPUT_Y_COVARIANT + VALUE] == "Cov":
+            if d[Y_COVARIANT + VALUE] == "Cov":
                 ybounds = ybounds[::-1]
             fig.update_layout(
                 xaxis=dict(range=xbounds),
@@ -2231,7 +2268,6 @@ class PersistableInteractive:
             [[STORED_PV, DATA, ST], [STORED_PV_DRAWING, DATA, IN]], [[PV_PLOT, FIGURE]]
         )
         def draw_pv_post(d):
-
             d[PV_PLOT + FIGURE] = plotly.io.from_json(d[STORED_PV_DRAWING + DATA])
 
             return d
@@ -2243,8 +2279,8 @@ class PersistableInteractive:
                 [MAX_DENSITY_THRESHOLD, VALUE, ST],
                 [MIN_DIST_SCALE, VALUE, ST],
                 [MAX_DIST_SCALE, VALUE, ST],
-                [INPUT_GRANULARITY_CCF, VALUE, ST],
-                [INPUT_NUM_JOBS_CCF, VALUE, ST],
+                [GRANULARITY, VALUE, ST],
+                [NUM_JOBS_CCF, VALUE, ST],
             ],
             [
                 [STORED_CCF, DATA],
@@ -2263,9 +2299,8 @@ class PersistableInteractive:
             cancel=[[STOP_COMPUTE_CCF_BUTTON, N_CLICKS]],
         )
         def compute_ccf(d):
-
-            granularity = d[INPUT_GRANULARITY_CCF + VALUE]
-            num_jobs = int(d[INPUT_NUM_JOBS_CCF + VALUE])
+            granularity = d[GRANULARITY + VALUE]
+            num_jobs = int(d[NUM_JOBS_CCF + VALUE])
 
             if debug:
                 print(
@@ -2324,9 +2359,9 @@ class PersistableInteractive:
                 [MAX_DENSITY_THRESHOLD, VALUE, ST],
                 [MIN_DIST_SCALE, VALUE, ST],
                 [MAX_DIST_SCALE, VALUE, ST],
-                [INPUT_GRANULARITY_RI, VALUE, ST],
-                [INPUT_NUM_JOBS_RI, VALUE, ST],
-                [INPUT_REDUCED_HOMOLOGY_RI, VALUE, ST],
+                [GRANULARITY_RI, VALUE, ST],
+                [NUM_JOBS_RI, VALUE, ST],
+                [REDUCED_HOMOLOGY_RI, VALUE, ST],
             ],
             [
                 [STORED_X_TICKS_RI, DATA],
@@ -2347,15 +2382,15 @@ class PersistableInteractive:
             if debug:
                 print("Compute rank invariant in background started.")
 
-            granularity = d[INPUT_GRANULARITY_RI + VALUE]
-            num_jobs = int(d[INPUT_NUM_JOBS_RI + VALUE])
+            granularity = d[GRANULARITY_RI + VALUE]
+            num_jobs = int(d[NUM_JOBS_RI + VALUE])
 
             out = ""
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 try:
                     reduced = (
-                        True if d[INPUT_REDUCED_HOMOLOGY_RI + VALUE] == "Yes" else False
+                        True if d[REDUCED_HOMOLOGY_RI + VALUE] == "Yes" else False
                     )
                     ss, ks, ri, sbr, sbh = persistable._rank_invariant(
                         d[MIN_DIST_SCALE + VALUE],
@@ -2421,14 +2456,14 @@ class PersistableInteractive:
                 [Y_START_SECOND_LINE, VALUE, ST],
                 [X_END_SECOND_LINE, VALUE, ST],
                 [Y_END_SECOND_LINE, VALUE, ST],
-                [INPUT_GRANULARITY_PV, VALUE, ST],
-                [INPUT_NUM_JOBS_PV, VALUE, ST],
+                [GRANULARITY_PV, VALUE, ST],
+                [NUM_JOBS_PV, VALUE, ST],
             ],
             [
                 [STORED_PV, DATA],
                 [STORED_PV_COMPUTATION_WARNINGS, DATA],
-                [INPUT_LINE, "max"],
-                [INPUT_LINE, VALUE],
+                [LINE, "max"],
+                [LINE, VALUE],
                 [EXPORT_PARAMETERS_BUTTON_PV, DISABLED],
                 [PV_PLOT_CONTROLS_DIV, HIDDEN],
             ],
@@ -2444,8 +2479,8 @@ class PersistableInteractive:
             if debug:
                 print("Compute pv in background started.")
 
-            granularity = d[INPUT_GRANULARITY_PV + VALUE]
-            num_jobs = int(d[INPUT_NUM_JOBS_PV + VALUE])
+            granularity = d[GRANULARITY_PV + VALUE]
+            num_jobs = int(d[NUM_JOBS_PV + VALUE])
 
             out = ""
             with warnings.catch_warnings(record=True) as w:
@@ -2476,8 +2511,8 @@ class PersistableInteractive:
                     out += traceback.format_exc()
                     d[STORED_PV_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
                     d[STORED_PV + DATA] = None
-                    d[INPUT_LINE + "max"] = granularity
-                    d[INPUT_LINE + VALUE] = granularity // 2
+                    d[LINE + "max"] = granularity
+                    d[LINE + VALUE] = granularity // 2
                     d[EXPORT_PARAMETERS_BUTTON_PV + DISABLED] = True
                     d[PV_PLOT_CONTROLS_DIV + HIDDEN] = True
                     return d
@@ -2489,8 +2524,8 @@ class PersistableInteractive:
 
             d[STORED_PV + DATA] = json.dumps(pv.__dict__)
             d[STORED_PV_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
-            d[INPUT_LINE + "max"] = granularity
-            d[INPUT_LINE + VALUE] = granularity // 2
+            d[LINE + "max"] = granularity
+            d[LINE + VALUE] = granularity // 2
             d[EXPORT_PARAMETERS_BUTTON_PV + DISABLED] = False
 
             d[PV_PLOT_CONTROLS_DIV + HIDDEN] = False
@@ -2580,7 +2615,7 @@ class PersistableInteractive:
             [
                 [STORED_PARAMETERS_AND_PD_BY_PD, DATA, IN],
                 [PD_PLOT, FIGURE, ST],
-                [PD_INPUT_GAP, VALUE, IN],
+                [PD_GAP, VALUE, IN],
                 [DISPLAY_PARAMETER_SELECTION_PD, VALUE, IN],
             ],
             [[PD_PLOT, FIGURE]],
@@ -2678,7 +2713,7 @@ class PersistableInteractive:
 
                     # draw gap
                     if d[DISPLAY_PARAMETER_SELECTION_PD + VALUE] == "On":
-                        gap = d[PD_INPUT_GAP + VALUE] - 1
+                        gap = d[PD_GAP + VALUE] - 1
                         prominences = saved_pd[:, 1] - saved_pd[:, 0]
                         prominences = np.sort(prominences)[::-1]
                         # only plot gap if gap makes sense
@@ -2727,17 +2762,17 @@ class PersistableInteractive:
         @dash_callback(
             [
                 [STORED_PV, DATA, IN],
-                [INPUT_MAX_VINES, VALUE, IN],
-                [INPUT_PROM_VIN_SCALE, VALUE, IN],
+                [MAX_VINES, VALUE, IN],
+                [PROM_VIN_SCALE, VALUE, IN],
                 [DISPLAY_PARAMETER_SELECTION_PV, VALUE, IN],
-                [INPUT_LINE, VALUE, IN],
-                [PV_INPUT_GAP, VALUE, IN],
+                [LINE, VALUE, IN],
+                [PV_GAP, VALUE, IN],
             ],
             [[STORED_PV_DRAWING, DATA]],
             False,
         )
         def draw_pv(d):
-            firstn = d[INPUT_MAX_VINES + VALUE]
+            firstn = d[MAX_VINES + VALUE]
 
             vineyard_as_dict = json.loads(d[STORED_PV + DATA])
             vineyard = Vineyard(
@@ -2780,7 +2815,7 @@ class PersistableInteractive:
                     color = colors[i]
                     if (
                         d[DISPLAY_PARAMETER_SELECTION_PV + VALUE] == "On"
-                        and i + 1 == d[PV_INPUT_GAP + VALUE]
+                        and i + 1 == d[PV_GAP + VALUE]
                     ):
                         fig.add_trace(
                             go.Scatter(
@@ -2809,10 +2844,10 @@ class PersistableInteractive:
             values = np.array(_vineyard_values)
 
             if d[DISPLAY_PARAMETER_SELECTION_PV + VALUE] == "On":
-                fig.add_vline(x=d[INPUT_LINE + VALUE], line_color="grey")
+                fig.add_vline(x=d[LINE + VALUE], line_color="grey")
 
             if len(values) > 0:
-                if d[INPUT_PROM_VIN_SCALE + VALUE] == "Log":
+                if d[PROM_VIN_SCALE + VALUE] == "Log":
                     fig.update_layout(yaxis_type="log")
                     fig.update_layout(
                         yaxis_range=[
@@ -2833,8 +2868,8 @@ class PersistableInteractive:
 
         @dash_callback(
             [
-                [PV_INPUT_GAP, VALUE, IN],
-                [INPUT_LINE, VALUE, IN],
+                [PV_GAP, VALUE, IN],
+                [LINE, VALUE, IN],
                 [STORED_PV, DATA, IN],
             ],
             [
@@ -2849,15 +2884,15 @@ class PersistableInteractive:
                 vineyard_as_dict["_parameters"],
                 vineyard_as_dict["_persistence_diagrams"],
             )
-            line = vineyard._parameters[d[INPUT_LINE + VALUE] - 1]
+            line = vineyard._parameters[d[LINE + VALUE] - 1]
             params = {
-                "n_clusters": d[PV_INPUT_GAP + VALUE],
+                "n_clusters": d[PV_GAP + VALUE],
                 "start": line[0],
                 "end": line[1],
             }
             d[PV_FIXED_PARAMETERS + DATA] = json.dumps(params)
 
-            pd = vineyard._persistence_diagrams[d[INPUT_LINE + VALUE] - 1]
+            pd = vineyard._persistence_diagrams[d[LINE + VALUE] - 1]
 
             d[STORED_PD_BY_PV + DATA] = json.dumps(pd)
 
@@ -2869,7 +2904,7 @@ class PersistableInteractive:
                 [EXPORT_PARAMETERS_BUTTON_PD, N_CLICKS, IN],
                 [EXPORT_PARAMETERS_BUTTON_DBSCAN, N_CLICKS, IN],
                 [PV_FIXED_PARAMETERS, DATA, ST],
-                [PD_INPUT_GAP, VALUE, ST],
+                [PD_GAP, VALUE, ST],
                 [X_START_LINE, VALUE, ST],
                 [Y_START_LINE, VALUE, ST],
                 [X_END_LINE, VALUE, ST],
@@ -2877,7 +2912,7 @@ class PersistableInteractive:
                 [X_POINT, VALUE, ST],
                 [Y_POINT, VALUE, ST],
             ],
-            [[EXPORTED_PARAMETER, CHILDREN]],
+            [[EXPORTED_PARAMETER, DATA]],
             True,
             prevent_update_with_none_input=False,
         )
@@ -2886,12 +2921,12 @@ class PersistableInteractive:
                 params = json.loads(d[PV_FIXED_PARAMETERS + DATA])
             elif ctx.triggered_id == EXPORT_PARAMETERS_BUTTON_PD:
                 params = {
-                    "n_clusters": d[PD_INPUT_GAP + VALUE],
+                    "n_clusters": d[PD_GAP + VALUE],
                     "start": [d[X_START_LINE + VALUE], d[Y_START_LINE + VALUE]],
                     "end": [d[X_END_LINE + VALUE], d[Y_END_LINE + VALUE]],
                 }
             elif ctx.triggered_id == EXPORT_PARAMETERS_BUTTON_DBSCAN:
-                params = { "point": (d[X_POINT + VALUE], d[Y_POINT + VALUE]) }
+                params = {"point": (d[X_POINT + VALUE], d[Y_POINT + VALUE])}
             else:
                 raise Exception(
                     "export_parameters was triggered by unknown id: "
@@ -2900,5 +2935,48 @@ class PersistableInteractive:
             self._parameters_sem.acquire()
             self._parameters = params
             self._parameters_sem.release()
-            d[EXPORTED_PARAMETER + CHILDREN] = json.dumps(self._parameters)
+            d[EXPORTED_PARAMETER + DATA] = json.dumps(self._parameters)
+            return d
+
+        @dash_callback(
+            [
+                [GRANULARITY, VALUE, IN],
+                [GRANULARITY_RI, VALUE, IN],
+                [GRANULARITY_PV, VALUE, IN],
+                [MIN_DENSITY_THRESHOLD, VALUE, IN],
+                [MAX_DENSITY_THRESHOLD, VALUE, IN],
+                [MIN_DIST_SCALE, VALUE, IN],
+                [MAX_DIST_SCALE, VALUE, IN],
+                [NUM_JOBS_CCF, VALUE, IN],
+                [NUM_JOBS_PV, VALUE, IN],
+                [NUM_JOBS_RI, VALUE, IN],
+                [MAX_COMPONENTS, VALUE, IN],
+                [MAX_VINES, VALUE, IN],
+                [X_START_FIRST_LINE, VALUE, IN],
+                [Y_START_FIRST_LINE, VALUE, IN],
+                [X_END_FIRST_LINE, VALUE, IN],
+                [Y_END_FIRST_LINE, VALUE, IN],
+                [X_START_SECOND_LINE, VALUE, IN],
+                [Y_START_SECOND_LINE, VALUE, IN],
+                [X_END_SECOND_LINE, VALUE, IN],
+                [Y_END_SECOND_LINE, VALUE, IN],
+                [X_START_LINE, VALUE, IN],
+                [Y_START_LINE, VALUE, IN],
+                [X_END_LINE, VALUE, IN],
+                [Y_END_LINE, VALUE, IN],
+                [X_POINT, VALUE, IN],
+                [Y_POINT, VALUE, IN],
+            ],
+            [[EXPORTED_STATE, DATA]],
+            prevent_initial_call=False,
+            prevent_update_with_none_input=False,
+        )
+        def export_ui_state(d):
+            def remove_trailing_state(word):
+                return word[:-5]
+            state = d.copy()
+            self._parameters_sem.acquire()
+            self._ui_state = { remove_trailing_state(w):v for w,v in state.items() }
+            self._parameters_sem.release()
+            d[EXPORTED_STATE + DATA] = json.dumps(state)
             return d
