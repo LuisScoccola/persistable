@@ -65,16 +65,16 @@ def pv_details_locator(page):
 
 # input fields
 def ccf_granularity_input_locator(page):
-    return page.locator("#input-granularity-ccf-")
+    return page.locator("#granularity-ccf-")
 
 def ccf_cores_input_locator(page):
-    return page.locator("#input-num-jobs-ccf-")
+    return page.locator("#num-jobs-ccf-")
 
 def pv_granularity_input_locator(page):
-    return page.locator("#input-granularity-pv-")
+    return page.locator("#granularity-pv-")
 
 def pv_cores_input_locator(page):
-    return page.locator("#input-num-jobs-pv-")
+    return page.locator("#num-jobs-pv-")
 
 
 # other objects
