@@ -311,45 +311,46 @@ class PersistableInteractive:
         return params
 
     def _layout_gui(self):
-        default_min_k = 0
-        end = self._persistable._find_end()
-        default_max_k = end[1]
-        # default_k_step = default_max_k / 100
-        default_min_s = 0
-        default_max_s = end[0]
-        # default_s_step = (default_max_s - default_min_s) / 100
-        default_granularity_ccf = self._persistable._default_granularity()
-        default_granularity_ri = default_granularity_ccf // 5
-        default_granularity_pv = default_granularity_ccf // 2
-        default_num_jobs = 1
-        default_max_dim = 15
-        default_max_vines = 15
-        min_granularity = 2
-        max_granularity = 512
-        max_granularity_ri = 64
-        min_granularity_vineyard = 1
-        max_granularity_vineyard = max_granularity
-        defr = 6
-        default_x_start_first_line = (default_min_s + default_max_s) * (1 / defr)
-        default_y_start_first_line = (default_min_k + default_max_k) * (1 / 2)
-        default_x_end_first_line = (default_max_s + default_min_s) * (1 / 2)
-        default_y_end_first_line = (default_min_k + default_max_k) * (1 / defr)
-        default_x_start_second_line = (default_min_s + default_max_s) * (1 / 2)
-        default_y_start_second_line = (default_min_k + default_max_k) * (
-            (defr - 1) / defr
-        )
-        default_x_end_second_line = (default_max_s + default_min_s) * (
-            (defr - 1) / defr
-        )
-        default_y_end_second_line = (default_min_k + default_max_k) * (1 / 2)
-        default_x_start_line = (
-            default_x_start_first_line + default_x_start_second_line
-        ) / 2
-        default_y_start_line = (
-            default_y_start_first_line + default_y_start_second_line
-        ) / 2
-        default_x_end_line = (default_x_end_first_line + default_x_end_second_line) / 2
-        default_y_end_line = (default_y_end_first_line + default_y_end_second_line) / 2
+
+        def compute_defaults(end, default_granularity):
+            d0 = {"granularity": default_granularity}
+            d1 = {
+                "min_k": 0,
+                "max_k": end[1],
+                "min_s": 0,
+                "max_s": end[0],
+                "granularity_ri": d0["granularity"] // 5,
+                "granularity_pv": d0["granularity"] // 2,
+                "num_jobs": 1,
+                "max_dim": 15,
+                "max_vines" : 15,
+                "min_granularity" : 2,
+                "max_granularity" : 512,
+                "max_granularity_ri" : 64,
+                "min_granularity_vineyard" : 1,
+                "defr" : 6,
+            }
+            d2 = {
+                "max_granularity_vineyard" : d1["max_granularity"],
+                "x_start_first_line" : (d1["min_s"] + d1["max_s"]) * (1 / d1["defr"]),
+                "y_start_first_line" : (d1["min_k"] + d1["max_k"]) * (1 / 2),
+                "x_end_first_line" : (d1["max_s"] + d1["min_s"]) * (1 / 2),
+                "y_end_first_line" : (d1["min_k"] + d1["max_k"]) * (1 / d1["defr"]),
+                "x_start_second_line" : (d1["min_s"] + d1["max_s"]) * (1 / 2),
+                "y_start_second_line" : (d1["min_k"] + d1["max_k"]) * ( (d1["defr"] - 1) / d1["defr"]),
+                "x_end_second_line" : (d1["max_s"] + d1["min_s"]) * ( (d1["defr"] - 1) / d1["defr"]),
+                "y_end_second_line" : (d1["min_k"] + d1["max_k"]) * (1 / 2),
+            }
+            d3 = {
+                "x_start_line" : ( d2["x_start_first_line"] + d2["x_start_second_line"]) / 2,
+                "y_start_line" : ( d2["y_start_first_line"] + d2["y_start_second_line"]) / 2,
+                "x_end_line" : (d2["x_end_first_line"] + d2["x_end_second_line"]) / 2,
+                "y_end_line" : (d2["y_end_first_line"] + d2["y_end_second_line"]) / 2,
+            }
+
+            return {**d0, **d1, **d2, **d3}
+        
+        default = compute_defaults( self._persistable._find_end(), self._persistable._default_granularity())
 
         self._app.title = "Persistable"
 
@@ -372,18 +373,16 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=MIN_DIST_SCALE,
                                         type="number",
-                                        value=default_min_s,
+                                        value=default["min_s"],
                                         min=0,
-                                        # step=default_s_step,
                                         debounce=True,
                                     ),
                                     dcc.Input(
                                         className=VALUE,
                                         id=MAX_DIST_SCALE,
                                         type="number",
-                                        value=default_max_s,
+                                        value=default["max_s"],
                                         min=0,
-                                        # step=default_s_step,
                                         debounce=True,
                                     ),
                                 ],
@@ -399,18 +398,16 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=MIN_DENSITY_THRESHOLD,
                                         type="number",
-                                        value=default_min_k,
+                                        value=default["min_k"],
                                         min=0,
-                                        # step=default_k_step,
                                         debounce=True,
                                     ),
                                     dcc.Input(
                                         className=VALUE,
                                         id=MAX_DENSITY_THRESHOLD,
                                         type="number",
-                                        value=default_max_k,
+                                        value=default["max_k"],
                                         min=0,
-                                        # step=default_k_step,
                                         debounce=True,
                                     ),
                                 ],
@@ -426,9 +423,9 @@ class PersistableInteractive:
                                         id=INPUT_GRANULARITY_CCF,
                                         className="small-value",
                                         type="number",
-                                        value=default_granularity_ccf,
-                                        min=min_granularity,
-                                        max=max_granularity,
+                                        value=default["granularity"],
+                                        min=default["min_granularity"],
+                                        max=default["max_granularity"],
                                         debounce=True,
                                     ),
                                     html.Span(
@@ -438,7 +435,7 @@ class PersistableInteractive:
                                     dcc.Input(
                                         id=INPUT_MAX_COMPONENTS,
                                         type="number",
-                                        value=default_max_dim,
+                                        value=default["max_dim"],
                                         min=1,
                                         className="small-value",
                                         step=1,
@@ -457,7 +454,7 @@ class PersistableInteractive:
                                         className="small-value",
                                         id=INPUT_NUM_JOBS_CCF,
                                         type="number",
-                                        value=default_num_jobs,
+                                        value=default["num_jobs"],
                                         min=1,
                                         step=1,
                                         max=16,
@@ -628,7 +625,7 @@ class PersistableInteractive:
                                                         className=VALUE,
                                                         id=X_POINT,
                                                         type="number",
-                                                        value=default_x_start_first_line,
+                                                        value=default["x_start_first_line"],
                                                         min=0,
                                                         debounce=True,
                                                     ),
@@ -636,7 +633,7 @@ class PersistableInteractive:
                                                         className=VALUE,
                                                         id=Y_POINT,
                                                         type="number",
-                                                        value=default_y_start_first_line,
+                                                        value=default["y_start_first_line"],
                                                         min=0,
                                                         debounce=True,
                                                     ),
@@ -684,9 +681,9 @@ class PersistableInteractive:
                                                 id=INPUT_GRANULARITY_RI,
                                                 className="small-value",
                                                 type="number",
-                                                value=default_granularity_ri,
-                                                min=min_granularity,
-                                                max=max_granularity_ri,
+                                                value=default["granularity_ri"],
+                                                min=default["min_granularity"],
+                                                max=default["max_granularity_ri"],
                                                 debounce=True,
                                             ),
                                             html.Span(
@@ -696,7 +693,7 @@ class PersistableInteractive:
                                             dcc.Input(
                                                 id=INPUT_MAX_RI,
                                                 type="number",
-                                                value=default_max_dim,
+                                                value=default["max_dim"],
                                                 min=1,
                                                 className="small-value",
                                                 step=1,
@@ -728,7 +725,7 @@ class PersistableInteractive:
                                                 className="small-value",
                                                 id=INPUT_NUM_JOBS_RI,
                                                 type="number",
-                                                value=default_num_jobs,
+                                                value=default["num_jobs"],
                                                 min=1,
                                                 step=1,
                                                 max=16,
@@ -828,18 +825,16 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=X_START_FIRST_LINE,
                                         type="number",
-                                        value=default_x_start_first_line,
+                                        value=default["x_start_first_line"],
                                         min=0,
-                                        # step=default_s_step,
                                         debounce=True,
                                     ),
                                     dcc.Input(
                                         className=VALUE,
                                         id=Y_START_FIRST_LINE,
                                         type="number",
-                                        value=default_y_start_first_line,
+                                        value=default["y_start_first_line"],
                                         min=0,
-                                        # step=default_k_step,
                                         debounce=True,
                                     ),
                                 ],
@@ -855,18 +850,16 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=X_END_FIRST_LINE,
                                         type="number",
-                                        value=default_x_end_first_line,
+                                        value=default["x_end_first_line"],
                                         min=0,
-                                        # step=default_s_step,
                                         debounce=True,
                                     ),
                                     dcc.Input(
                                         className=VALUE,
                                         id=Y_END_FIRST_LINE,
                                         type="number",
-                                        value=default_y_end_first_line,
+                                        value=default["y_end_first_line"],
                                         min=0,
-                                        # step=default_k_step,
                                         debounce=True,
                                     ),
                                 ],
@@ -882,18 +875,16 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=X_START_SECOND_LINE,
                                         type="number",
-                                        value=default_x_start_second_line,
+                                        value=default["x_start_second_line"],
                                         min=0,
-                                        # step=default_s_step,
                                         debounce=True,
                                     ),
                                     dcc.Input(
                                         className=VALUE,
                                         id=Y_START_SECOND_LINE,
                                         type="number",
-                                        value=default_y_start_second_line,
+                                        value=default["y_start_second_line"],
                                         min=0,
-                                        # step=default_k_step,
                                         debounce=True,
                                     ),
                                 ],
@@ -909,17 +900,15 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=X_END_SECOND_LINE,
                                         type="number",
-                                        value=default_x_end_second_line,
+                                        value=default["x_end_second_line"],
                                         min=0,
-                                        # step=default_s_step,
                                     ),
                                     dcc.Input(
                                         className=VALUE,
                                         id=Y_END_SECOND_LINE,
                                         type="number",
-                                        value=default_y_end_second_line,
+                                        value=default["y_end_second_line"],
                                         min=0,
-                                        # step=default_k_step,
                                     ),
                                 ],
                             ),
@@ -934,9 +923,9 @@ class PersistableInteractive:
                                         id=INPUT_GRANULARITY_PV,
                                         className="small-value",
                                         type="number",
-                                        value=default_granularity_pv,
-                                        min=min_granularity_vineyard,
-                                        max=max_granularity_vineyard,
+                                        value=default["granularity_pv"],
+                                        min=default["min_granularity_vineyard"],
+                                        max=default["max_granularity_vineyard"],
                                         debounce=True,
                                     ),
                                     html.Span(
@@ -946,7 +935,7 @@ class PersistableInteractive:
                                     dcc.Input(
                                         id=INPUT_MAX_VINES,
                                         type="number",
-                                        value=default_max_vines,
+                                        value=default["max_vines"],
                                         min=1,
                                         className="small-value",
                                         step=1,
@@ -965,7 +954,7 @@ class PersistableInteractive:
                                         className="small-value",
                                         id=INPUT_NUM_JOBS_PV,
                                         type="number",
-                                        value=default_num_jobs,
+                                        value=default["num_jobs"],
                                         min=1,
                                         step=1,
                                         max=16,
@@ -1093,18 +1082,16 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=X_START_LINE,
                                         type="number",
-                                        value=default_x_start_line,
+                                        value=default["x_start_line"],
                                         min=0,
-                                        # step=default_s_step,
                                         debounce=True,
                                     ),
                                     dcc.Input(
                                         className=VALUE,
                                         id=Y_START_LINE,
                                         type="number",
-                                        value=default_y_start_line,
+                                        value=default["y_start_line"],
                                         min=0,
-                                        # step=default_k_step,
                                         debounce=True,
                                     ),
                                 ],
@@ -1120,18 +1107,16 @@ class PersistableInteractive:
                                         className=VALUE,
                                         id=X_END_LINE,
                                         type="number",
-                                        value=default_x_end_line,
+                                        value=default["x_end_line"],
                                         min=0,
-                                        # step=default_s_step,
                                         debounce=True,
                                     ),
                                     dcc.Input(
                                         className=VALUE,
                                         id=Y_END_LINE,
                                         type="number",
-                                        value=default_y_end_line,
+                                        value=default["y_end_line"],
                                         min=0,
-                                        # step=default_k_step,
                                         debounce=True,
                                     ),
                                 ],
