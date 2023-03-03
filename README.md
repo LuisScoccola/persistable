@@ -1,7 +1,9 @@
+
 [![PyPI](https://img.shields.io/pypi/v/persistable-clustering?color=green)](https://pypi.org/project/persistable-clustering)
 [![tests](https://github.com/LuisScoccola/persistable/actions/workflows/run_tests.yaml/badge.svg)](https://github.com/LuisScoccola/persistable/actions/workflows/run_tests.yaml)
 [![coverage](https://codecov.io/gh/LuisScoccola/persistable/branch/main/graph/badge.svg)](https://codecov.io/gh/LuisScoccola/persistable)
 [![docs](https://readthedocs.org/projects/persistable/badge/?version=latest)](https://persistable.readthedocs.io/)
+[![status](https://joss.theoj.org/papers/63d612cd4730c3aa708e3a47eb2c50f3/status.svg)](https://joss.theoj.org/papers/63d612cd4730c3aa708e3a47eb2c50f3)
 [![license](https://img.shields.io/github/license/LuisScoccola/persistable)](https://github.com/LuisScoccola/persistable/blob/main/LICENSE)
 ---
 
