@@ -18,7 +18,7 @@ def setup():
     # TODO: figure out why in github CI we can't use use the loky backend for joblib
     p = persistable.Persistable(X, debug=True, threading=True)
     pi = persistable.PersistableInteractive(p)
-    port = pi.start_UI(debug=True)
+    port = pi.start_ui(debug=True)
     url = "http://localhost:" + str(port) + "/"
 
     default_params = {
