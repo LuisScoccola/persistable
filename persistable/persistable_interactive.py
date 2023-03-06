@@ -189,6 +189,10 @@ def compute_defaults(end, default_granularity):
         NUM_JOBS_RI: 1,
         MAX_COMPONENTS: 15,
         MAX_VINES: 15,
+        Y_COVARIANT: "Cov",
+        LINE: 1,
+        PV_GAP: 1,
+        PD_GAP: 1,
     }
     defr = 6
     d2 = {
@@ -240,7 +244,7 @@ class PersistableInteractive:
 
         ui_state: dictionary, optional
             The state of a previous UI session, as a Python object, obtained
-            by calling the method ``save_UI_state()``.
+            by calling the method ``save_ui_state()``.
 
         port: int, optional, default is 8050
             Integer representing which port of localhost to try use to run the GUI.
@@ -459,7 +463,7 @@ class PersistableInteractive:
                                 children=[
                                     html.Span(
                                         className="name",
-                                        children=GRANULARITY,
+                                        children="Granularity",
                                     ),
                                     dcc.Input(
                                         id=GRANULARITY,
@@ -511,7 +515,7 @@ class PersistableInteractive:
                                             "Cov",
                                             "Contr",
                                         ],
-                                        "Cov",
+                                        value=ui_state[Y_COVARIANT],
                                         id=Y_COVARIANT,
                                         className="small-value",
                                     ),
@@ -717,7 +721,7 @@ class PersistableInteractive:
                                         children=[
                                             html.Span(
                                                 className="name",
-                                                children=GRANULARITY,
+                                                children="Granularity",
                                             ),
                                             dcc.Input(
                                                 id=GRANULARITY_RI,
@@ -1077,7 +1081,7 @@ class PersistableInteractive:
                                 className=VALUE,
                                 id=LINE,
                                 type="number",
-                                value=1,
+                                value=ui_state[LINE],
                                 min=1,
                                 debounce=False,
                             ),
@@ -1089,7 +1093,7 @@ class PersistableInteractive:
                                 className=VALUE,
                                 id=PV_GAP,
                                 type="number",
-                                value=1,
+                                value=ui_state[PV_GAP],
                                 min=1,
                                 debounce=False,
                             ),
@@ -1226,7 +1230,7 @@ class PersistableInteractive:
                                 className=VALUE,
                                 id=PD_GAP,
                                 type="number",
-                                value=1,
+                                value=ui_state[PD_GAP],
                                 min=1,
                                 debounce=False,
                             ),
@@ -2975,11 +2979,11 @@ class PersistableInteractive:
             prevent_update_with_none_input=False,
         )
         def export_ui_state(d):
-            def remove_trailing_state(word):
+            def remove_trailing_value(word):
                 return word[:-5]
             state = d.copy()
             self._parameters_sem.acquire()
-            self._ui_state = { remove_trailing_state(w):v for w,v in state.items() }
+            self._ui_state = { remove_trailing_value(w):v for w,v in state.items() }
             self._parameters_sem.release()
             d[EXPORTED_STATE + DATA] = json.dumps(state)
             return d
