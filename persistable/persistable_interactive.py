@@ -286,7 +286,7 @@ class PersistableInteractive:
         params = self._chosen_parameters()
         if params == None:
             raise ValueError(
-                "No parameters where chosen. Please use the graphical user interface to choose parameters."
+                "No parameters were chosen. Please use the graphical user interface to choose parameters."
             )
         else:
             return self._persistable.cluster(**params,
