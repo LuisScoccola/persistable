@@ -270,11 +270,10 @@ class PersistableInteractive:
             The conservative approach usually results in more unclustered points.
 
         keep_low_persistence_clusters: bool, optional, default is False
-            Only relevant if conservative_flattening_style is set to False.
+            Only has effect if ``conservative_flattening_style`` is set to False.
             Whether to keep clusters that are born below the persistence threshold
-            associated to the selected n_clusters. If set to True, all points will
-            belong to some cluster, but the number of clusters may be larger than the
-            selected one.
+            associated to the selected n_clusters. If set to True, the number of clusters
+            can be larger than the selected one.
 
         returns:
             A numpy array of length the number of points in the dataset containing
