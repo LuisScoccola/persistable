@@ -10,8 +10,6 @@
 import numpy as np
 cimport numpy as np
 
-from .relabel_dendrogram import label
-
 
 cdef extern from "numpy/npy_math.h":
     cdef enum:
@@ -67,7 +65,9 @@ def stepwise_dendrogram_with_core_distances(int n, const double[:,:] dists, cons
     order = np.argsort(Z_arr[:, 2], kind='mergesort')
     Z_arr = Z_arr[order]
 
+    # do not relabel since we don't really need it, and this makes things easier
+    # when combining different hierarchical clusterings
     # Find correct cluster labels and compute cluster sizes inplace.
-    label(Z_arr, n)
+    #label(Z_arr, n, n)
 
     return Z_arr

@@ -21,6 +21,7 @@ try:
 
     if cython_trace:
         from Cython.Compiler.Options import get_directive_defaults
+
         directive_defaults = get_directive_defaults()
         directive_defaults["linetrace"] = True
         directive_defaults["binding"] = True
@@ -47,19 +48,26 @@ class CustomBuildExtCommand(build_ext):
         self.include_dirs.append(numpy.get_include())
         build_ext.run(self)
 
+
 if cython_trace:
     define_macros = [("CYTHON_TRACE_NOGIL", "1")]
 else:
     define_macros = []
+
 
 auxiliary = Extension(
     "persistable.auxiliary",
     sources=["persistable/auxiliary.pyx"],
     define_macros=define_macros,
 )
-relabel_dendrogram = Extension(
-    "persistable.borrowed.relabel_dendrogram",
-    sources=["persistable/borrowed/relabel_dendrogram.pyx"],
+persistence_diagram_h0 = Extension(
+    "persistable.persistence_diagram_h0",
+    sources=["persistable/persistence_diagram_h0.pyx"],
+    define_macros=define_macros,
+)
+signed_betti_numbers = Extension(
+    "persistable.signed_betti_numbers",
+    sources=["persistable/signed_betti_numbers.pyx"],
     define_macros=define_macros,
 )
 dense_mst = Extension(
@@ -118,14 +126,18 @@ setup(
     packages=["persistable"],
     install_requires=requirements(),
     ext_modules=[
-        relabel_dendrogram,
+        signed_betti_numbers,
         auxiliary,
+        persistence_diagram_h0,
         dense_mst,
         dist_metrics,
         prim_mst,
         _hdbscan_boruvka,
     ],
     cmdclass={"build_ext": CustomBuildExtCommand},
-    data_files=("persistable/borrowed/dist_metrics.pxd",),
+    data_files=(
+        "persistable/borrowed/dist_metrics.pxd",
+        "persistable/borrowed/_hdbscan_boruvka.pxd",
+    ),
     include_package_data=True,
 )
