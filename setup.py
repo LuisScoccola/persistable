@@ -70,6 +70,11 @@ signed_betti_numbers = Extension(
     sources=["persistable/signed_betti_numbers.pyx"],
     define_macros=define_macros,
 )
+subsampling = Extension(
+    "persistable.subsampling",
+    sources=["persistable/subsampling.pyx"],
+    define_macros=define_macros,
+)
 dense_mst = Extension(
     "persistable.borrowed.dense_mst",
     sources=["persistable/borrowed/dense_mst.pyx"],
@@ -129,6 +134,7 @@ setup(
         signed_betti_numbers,
         auxiliary,
         persistence_diagram_h0,
+        subsampling,
         dense_mst,
         dist_metrics,
         prim_mst,
