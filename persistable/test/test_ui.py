@@ -18,7 +18,7 @@ def setup():
     # TODO: figure out why in github CI we can't use use the loky backend for joblib
     p = persistable.Persistable(X, debug=True, threading=True)
     pi = persistable.PersistableInteractive(p)
-    port = pi.start_UI(debug=True)
+    port = pi.start_ui(debug=True)
     url = "http://localhost:" + str(port) + "/"
 
     default_params = {
@@ -65,16 +65,16 @@ def pv_details_locator(page):
 
 # input fields
 def ccf_granularity_input_locator(page):
-    return page.locator("#input-granularity-ccf-")
+    return page.locator("#granularity-")
 
 def ccf_cores_input_locator(page):
-    return page.locator("#input-num-jobs-ccf-")
+    return page.locator("#num-jobs-ccf-")
 
 def pv_granularity_input_locator(page):
-    return page.locator("#input-granularity-pv-")
+    return page.locator("#granularity-pv-")
 
 def pv_cores_input_locator(page):
-    return page.locator("#input-num-jobs-pv-")
+    return page.locator("#num-jobs-pv-")
 
 
 # other objects
