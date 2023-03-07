@@ -609,6 +609,7 @@ class PersistableInteractive:
 
         ccf_extras = (
             html.Div(
+                hidden=True,
                 children=[
                     html.Details(
                         id=CCF_EXTRAS,
