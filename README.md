@@ -127,6 +127,24 @@ You may want to contact [Luis Scoccola](https://luisscoccola.github.io/) first, 
 
 [Luis Scoccola](https://luisscoccola.github.io/) and [Alexander Rolle](https://alexanderrolle.github.io/).
 
+## Citing
+
+If you use this package in your work, you may cite the corresponding paper using the following bibtex entry:
+
+```
+@article{Scoccola2023,
+    doi = {10.21105/joss.05022},
+    url = {https://doi.org/10.21105/joss.05022},
+    year = {2023},
+    publisher = {The Open Journal},
+    volume = {8},
+    number = {83},
+    pages = {5022},
+    author = {Luis Scoccola and Alexander Rolle},
+    title = {Persistable: persistent and stable clustering},
+    journal = {Journal of Open Source Software}
+}
+```
 
 ## References
 
