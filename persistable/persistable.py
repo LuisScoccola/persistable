@@ -252,11 +252,7 @@ class Persistable:
         min_clust = n_clusters_range[0] - 1
         max_clust = n_clusters_range[1] - 1
         num_clust = np.argmax(peaks[min_clust:max_clust]) + min_clust + 1
-        return self.cluster(
-            num_clust,
-            [0, k],
-            [s, 0]
-        )
+        return self.cluster(num_clust, [0, k], [s, 0])
 
     def cluster(
         self,
@@ -362,10 +358,18 @@ class Persistable:
         min_k,
         granularity,
         reduced=False,
+        homological_dimension=0,
         n_jobs=1,
     ):
         return self._bifiltration.hilbert_function_on_regular_grid(
-            min_s, max_s, max_k, min_k, granularity, reduced=reduced, n_jobs=n_jobs
+            min_s,
+            max_s,
+            max_k,
+            min_k,
+            granularity,
+            reduced=reduced,
+            homological_dimension=homological_dimension,
+            n_jobs=n_jobs,
         )
 
     def _rank_invariant(
@@ -390,7 +394,6 @@ class _DegreeRipsBifiltration:
         self._mpspace = mpspace
 
     def _core_distance(self, point_index, s_intercept, k_intercept, max_k=None):
-
         kernel_estimate = self._mpspace.kernel_estimate()
         nn_distance = self._mpspace.nn_distance()
 
@@ -576,10 +579,57 @@ class _DegreeRipsBifiltration:
         else:
             return self._lambda_linkage_skew(start, end)
 
-    def lambda_linkage_vineyard(self, startends, reduced=False, tol=_TOL, n_jobs=1):
-        run_in_parallel = lambda startend: self.lambda_linkage(
-            startend[0], startend[1]
-        ).persistence_diagram(tol=tol, reduced=reduced)
+    def ph_slice(self, start, end, reduced=False, homological_dimension=0, tol=_TOL):
+        if homological_dimension == 0:
+            return self.lambda_linkage(start, end).persistence_diagram(
+                tol=tol, reduced=reduced
+            )
+        else:
+            if start[0] > end[0] or start[1] < end[1]:
+                raise ValueError("Parameters do not give a monotonic line.")
+
+            if start[0] == end[0]:
+                raise ValueError("Parameters do not give a skew line.")
+            else:
+
+                def _startend_to_intercepts(start, end):
+                    if end[0] == np.infty or start[1] == end[1]:
+                        k_intercept = start[1]
+                        s_intercept = np.infty
+                    else:
+                        slope = (end[1] - start[1]) / (end[0] - start[0])
+                        k_intercept = -start[0] * slope + start[1]
+                        s_intercept = -k_intercept / slope
+                    return s_intercept, k_intercept
+
+                filtration_start = start[0]
+                filtration_end = end[0]
+                indices = np.arange(self._mpspace.size())
+                s_intercept, k_intercept = _startend_to_intercepts(start, end)
+                max_k = start[1]
+                core_distances = self._core_distance(
+                    indices, s_intercept, k_intercept, max_k
+                )
+
+                core_distances = np.minimum(filtration_end, core_distances)
+                core_distances = np.maximum(filtration_start, core_distances)
+
+                pd = np.array(
+                    self._mpspace.generalized_vietoris_rips_homology(
+                        core_distances, homological_dimension
+                    )
+                )
+
+                pd.clip(filtration_start, filtration_end)
+
+                return pd
+
+    def vineyard_pds(
+        self, startends, reduced=False, homological_dimension=0, tol=_TOL, n_jobs=1
+    ):
+        run_in_parallel = lambda startend: self.ph_slice(
+            startend[0], startend[1], reduced, homological_dimension, tol
+        )
 
         return parallel_computation(
             run_in_parallel,
@@ -616,7 +666,7 @@ class _DegreeRipsBifiltration:
             )
         )
         startends = list(zip(starts, ends))
-        pds = self.lambda_linkage_vineyard(startends, reduced=reduced, n_jobs=n_jobs)
+        pds = self.vineyard_pds(startends, reduced=reduced, n_jobs=n_jobs)
         return Vineyard(startends, pds)
 
     def _rank_invariant(self, ss, ks, reduced=False, n_jobs=1):
@@ -748,14 +798,21 @@ class _DegreeRipsBifiltration:
         rdr = rank_decomposition_2d_rectangles(np.array(ri, dtype=np.int64))
         return ss, ks, ri, rdr, rank_decomposition_2d_rectangles_to_hooks(rdr)
 
-    def _hilbert_function(self, ss, ks, reduced=False, n_jobs=1):
+    def _hilbert_function(
+        self, ss, ks, reduced=False, homological_dimension=0, n_jobs=1
+    ):
         n_s = len(ss)
         n_k = len(ks)
         ss = list(ss)
         # go on one more step to compute the Hilbert function at the last point
         ss.append(ss[-1] + _TOL)
         startends = [[[ss[0], k], [ss[-1], k]] for k in ks]
-        pds = self.lambda_linkage_vineyard(startends, reduced=reduced, n_jobs=n_jobs)
+        pds = self.vineyard_pds(
+            startends,
+            reduced=reduced,
+            homological_dimension=homological_dimension,
+            n_jobs=n_jobs,
+        )
         hf = np.zeros((n_s, n_k), dtype=int)
         for i, pd in enumerate(pds):
             for bar in pd:
@@ -773,6 +830,7 @@ class _DegreeRipsBifiltration:
         min_k,
         granularity,
         reduced=False,
+        homological_dimension=0,
         n_jobs=1,
     ):
         if min_k >= max_k:
@@ -794,12 +852,17 @@ class _DegreeRipsBifiltration:
 
         ss = np.linspace(min_s, max_s, granularity)
         ks = np.linspace(min_k, max_k, granularity)[::-1]
-        hf = self._hilbert_function(ss, ks, reduced=reduced, n_jobs=n_jobs)
+        hf = self._hilbert_function(
+            ss,
+            ks,
+            reduced=reduced,
+            homological_dimension=homological_dimension,
+            n_jobs=n_jobs,
+        )
         return ss, ks, hf, signed_betti(hf)
 
 
 class _MetricSpace:
-
     _MAX_DIM_USE_BORUVKA = 60
 
     def __init__(
@@ -958,6 +1021,22 @@ class _MetricSpace:
         return _HierarchicalClustering(
             core_distances, merges, merges_heights, -np.inf, np.inf
         )
+
+    def generalized_vietoris_rips_homology(self, core_distances, homological_dimension):
+        if self._dist_mat is None:
+            raise ValueError(
+                "Higher homology only works when dataset is given as precomputed distance matrix."
+            )
+
+        dm = self._dist_mat
+        dm = np.maximum(dm, core_distances)
+        dm = np.maximum(dm.T, core_distances).T
+
+        # TODO: abstract this properly once its working and tested
+        from ripser import ripser
+        _DEFAULT_COEFFICIENTS = 3
+        ripser_out = ripser(dm, distance_matrix=True, coeff=_DEFAULT_COEFFICIENTS, maxdim=homological_dimension)
+        return ripser_out["dgms"][-1]
 
     def hierarchical_clustering_filtered_rips_graph(self, k_births, rips_radius):
         shift = min(k_births) + 1
@@ -1124,7 +1203,6 @@ class _MetricProbabilitySpace(_MetricSpace):
         self._fit(measure)
 
     def _fit(self, measure):
-
         # save measure
         self._measure = measure
 
