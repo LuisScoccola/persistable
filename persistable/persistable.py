@@ -28,11 +28,13 @@ from scipy.sparse.csgraph import (
 from scipy.stats import mode
 from joblib import Parallel, delayed
 from joblib.parallel import cpu_count
+from ripser import ripser
 
 
 _TOL = 1e-08
 # starting when we consider a dataset large
 _MANY_POINTS = 40000
+_DEFAULT_HOMOLOGICAL_DIMENSION = 1
 
 
 def parallel_computation(function, inputs, n_jobs, debug=False, threading=False):
@@ -358,7 +360,8 @@ class Persistable:
         min_k,
         granularity,
         reduced=False,
-        homological_dimension=0,
+        homological_dimension=_DEFAULT_HOMOLOGICAL_DIMENSION,
+        field_characteristic=2,
         n_jobs=1,
     ):
         return self._bifiltration.hilbert_function_on_regular_grid(
@@ -369,6 +372,7 @@ class Persistable:
             granularity,
             reduced=reduced,
             homological_dimension=homological_dimension,
+            field_characteristic=field_characteristic,
             n_jobs=n_jobs,
         )
 
@@ -380,10 +384,21 @@ class Persistable:
         )
 
     def _linear_vineyard(
-        self, start_end1, start_end2, n_parameters, reduced=False, n_jobs=1
+        self,
+        start_end1,
+        start_end2,
+        n_parameters,
+        reduced=False,
+        field_characteristic=2,
+        n_jobs=1,
     ):
         return self._bifiltration.linear_vineyard(
-            start_end1, start_end2, n_parameters, reduced=reduced, n_jobs=n_jobs
+            start_end1,
+            start_end2,
+            n_parameters,
+            reduced=reduced,
+            field_characteristic=field_characteristic,
+            n_jobs=n_jobs,
         )
 
 
@@ -579,17 +594,53 @@ class _DegreeRipsBifiltration:
         else:
             return self._lambda_linkage_skew(start, end)
 
-    def ph_slice(self, start, end, reduced=False, homological_dimension=0, tol=_TOL):
+    def ph_slice(
+        self,
+        start,
+        end,
+        reduced=False,
+        homological_dimension=_DEFAULT_HOMOLOGICAL_DIMENSION,
+        field_characteristic=2,
+        tol=_TOL,
+    ):
         if homological_dimension == 0:
             return self.lambda_linkage(start, end).persistence_diagram(
                 tol=tol, reduced=reduced
             )
         else:
+            if field_characteristic not in _SUPPORTED_PRIMES:
+                raise ValueError(
+                    "field_characteristic must be in " + str(_SUPPORTED_PRIMES) + "."
+                )
             if start[0] > end[0] or start[1] < end[1]:
                 raise ValueError("Parameters do not give a monotonic line.")
 
             if start[0] == end[0]:
-                raise ValueError("Parameters do not give a skew line.")
+                s_intercept = start[0]
+                k_start = start[1]
+                k_end = end[1]
+
+                if k_end > k_start:
+                    raise ValueError("Parameters do not give a monotonic line.")
+
+                indices = np.arange(self._mpspace.size())
+                k_births = self._mpspace.density_estimate(
+                    indices, s_intercept, max_density=k_start
+                )
+                # clip
+                k_births = np.maximum(k_end, np.minimum(k_start, k_births))
+                # make it covariant
+                k_births = k_start - k_births
+
+                pd = self._mpspace.ph_filtered_rips_graph(
+                    k_births, s_intercept, homological_dimension, field_characteristic
+                )
+
+                filtration_start = 0
+                filtration_end = k_start - k_end
+                pd.clip(filtration_start, filtration_end)
+
+                return pd
             else:
 
                 def _startend_to_intercepts(start, end):
@@ -616,7 +667,7 @@ class _DegreeRipsBifiltration:
 
                 pd = np.array(
                     self._mpspace.generalized_vietoris_rips_homology(
-                        core_distances, homological_dimension
+                        core_distances, homological_dimension, field_characteristic
                     )
                 )
 
@@ -625,10 +676,21 @@ class _DegreeRipsBifiltration:
                 return pd
 
     def vineyard_pds(
-        self, startends, reduced=False, homological_dimension=0, tol=_TOL, n_jobs=1
+        self,
+        startends,
+        reduced=False,
+        homological_dimension=_DEFAULT_HOMOLOGICAL_DIMENSION,
+        field_characteristic=2,
+        tol=_TOL,
+        n_jobs=1,
     ):
         run_in_parallel = lambda startend: self.ph_slice(
-            startend[0], startend[1], reduced, homological_dimension, tol
+            startend[0],
+            startend[1],
+            reduced,
+            homological_dimension,
+            field_characteristic,
+            tol,
         )
 
         return parallel_computation(
@@ -640,7 +702,13 @@ class _DegreeRipsBifiltration:
         )
 
     def linear_vineyard(
-        self, start_end1, start_end2, n_parameters, reduced=False, n_jobs=1
+        self,
+        start_end1,
+        start_end2,
+        n_parameters,
+        reduced=False,
+        field_characteristic=2,
+        n_jobs=1,
     ):
         start1, end1 = start_end1
         start2, end2 = start_end2
@@ -651,7 +719,7 @@ class _DegreeRipsBifiltration:
             or start2[1] < end2[1]
         ):
             raise ValueError(
-                "Parameters chosen for vineyard will result in non-monotonic lines!"
+                "Parameters chosen will result in non-monotonic lines."
             )
         starts = list(
             zip(
@@ -666,7 +734,12 @@ class _DegreeRipsBifiltration:
             )
         )
         startends = list(zip(starts, ends))
-        pds = self.vineyard_pds(startends, reduced=reduced, n_jobs=n_jobs)
+        pds = self.vineyard_pds(
+            startends,
+            reduced=reduced,
+            field_characteristic=field_characteristic,
+            n_jobs=n_jobs,
+        )
         return Vineyard(startends, pds)
 
     def _rank_invariant(self, ss, ks, reduced=False, n_jobs=1):
@@ -799,7 +872,13 @@ class _DegreeRipsBifiltration:
         return ss, ks, ri, rdr, rank_decomposition_2d_rectangles_to_hooks(rdr)
 
     def _hilbert_function(
-        self, ss, ks, reduced=False, homological_dimension=0, n_jobs=1
+        self,
+        ss,
+        ks,
+        reduced=False,
+        homological_dimension=_DEFAULT_HOMOLOGICAL_DIMENSION,
+        field_characteristic=2,
+        n_jobs=1,
     ):
         n_s = len(ss)
         n_k = len(ks)
@@ -811,6 +890,7 @@ class _DegreeRipsBifiltration:
             startends,
             reduced=reduced,
             homological_dimension=homological_dimension,
+            field_characteristic=field_characteristic,
             n_jobs=n_jobs,
         )
         hf = np.zeros((n_s, n_k), dtype=int)
@@ -830,7 +910,8 @@ class _DegreeRipsBifiltration:
         min_k,
         granularity,
         reduced=False,
-        homological_dimension=0,
+        homological_dimension=_DEFAULT_HOMOLOGICAL_DIMENSION,
+        field_characteristic=2,
         n_jobs=1,
     ):
         if min_k >= max_k:
@@ -857,6 +938,7 @@ class _DegreeRipsBifiltration:
             ks,
             reduced=reduced,
             homological_dimension=homological_dimension,
+            field_characteristic=field_characteristic,
             n_jobs=n_jobs,
         )
         return ss, ks, hf, signed_betti(hf)
@@ -973,12 +1055,6 @@ class _MetricSpace:
         self._nn_indices = np.array(neighbors, dtype=np.int_)
         self._nn_distance = np.array(_nn_distance)
 
-    ####def distance(self, i,j):
-    ####    if self._metric in KDTree.valid_metrics + BallTree.valid_metrics:
-    ####        return self._dist_metric.dist(self._points[i], self._points[j], self._dimension)
-    ####    else:
-    ####        return self._dist_mat[i,j]
-
     def size(self):
         return self._size
 
@@ -1022,7 +1098,9 @@ class _MetricSpace:
             core_distances, merges, merges_heights, -np.inf, np.inf
         )
 
-    def generalized_vietoris_rips_homology(self, core_distances, homological_dimension):
+    def generalized_vietoris_rips_homology(
+        self, core_distances, homological_dimension, field_characteristic
+    ):
         if self._dist_mat is None:
             raise ValueError(
                 "Higher homology only works when dataset is given as precomputed distance matrix."
@@ -1032,10 +1110,12 @@ class _MetricSpace:
         dm = np.maximum(dm, core_distances)
         dm = np.maximum(dm.T, core_distances).T
 
-        # TODO: abstract this properly once its working and tested
-        from ripser import ripser
-        _DEFAULT_COEFFICIENTS = 3
-        ripser_out = ripser(dm, distance_matrix=True, coeff=_DEFAULT_COEFFICIENTS, maxdim=homological_dimension)
+        ripser_out = ripser(
+            dm,
+            distance_matrix=True,
+            coeff=field_characteristic,
+            maxdim=homological_dimension,
+        )
         return ripser_out["dgms"][-1]
 
     def hierarchical_clustering_filtered_rips_graph(self, k_births, rips_radius):
@@ -1091,6 +1171,50 @@ class _MetricSpace:
         return _HierarchicalClustering(
             core_scales, merges, merges_heights, -np.inf, np.inf
         )
+
+    def ph_filtered_rips_graph(
+        self, k_births, rips_radius, homological_dimension, field_characteristic
+    ):
+        shift = min(k_births) + 1
+        # must shift to strictly positive births (sparse matrix mst routine treats
+        # edges with zero and very small weight as not there (i.e., as having infinite weight))
+        k_births = k_births + shift
+
+        # metric tree case
+        if self._metric in KDTree.valid_metrics + BallTree.valid_metrics:
+            s_neighbors = self._nn_tree.query_radius(self._points, rips_radius)
+        # dense distance matrix case
+        elif self._metric == "precomputed":
+            s_neighbors = []
+            for i in range(self.size()):
+                s_neighbors.append(np.argwhere(self._dist_mat[i] <= rips_radius)[:, 0])
+        else:
+            raise ValueError("Metric given is not supported.")
+
+        edges = []
+        entries = []
+        for i in range(self.size()):
+            for j in s_neighbors[i]:
+                if j > i:
+                    edges.append([i, j])
+                    entries.append(max(k_births[i], k_births[j]))
+        matrix_entries = np.array(entries)
+        edges = np.array(edges, dtype=int)
+        if len(edges) > 0:
+            graph = csr_matrix(
+                (matrix_entries, (edges[:, 0], edges[:, 1])), (self.size(), self.size())
+            )
+            ripser_out = ripser(
+                graph,
+                distance_matrix=True,
+                coeff=field_characteristic,
+                maxdim=homological_dimension,
+            )
+            pd = ripser_out["dgms"][-1]
+            pd = pd - shift
+            return pd
+        else:
+            return np.array([])
 
     def close_subsample(self, subsample_size, seed=0, euclidean=False):
         """ Returns a pair of arrays with the first array containing the indices \
@@ -1502,3 +1626,32 @@ class _HierarchicalClustering:
             to_delete = np.argmax(pd[:, 1] - pd[:, 0])
             return np.delete(pd, to_delete, axis=0)
         return pd
+
+
+_SUPPORTED_PRIMES = [
+    2,
+    3,
+    5,
+    7,
+    11,
+    13,
+    17,
+    19,
+    23,
+    29,
+    31,
+    37,
+    41,
+    43,
+    47,
+    53,
+    59,
+    61,
+    67,
+    71,
+    73,
+    79,
+    83,
+    89,
+    97,
+]

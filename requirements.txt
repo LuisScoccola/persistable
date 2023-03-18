@@ -8,4 +8,4 @@ jupyter_dash>=0.4
 diskcache>=5.4
 multiprocess>=0.70
 psutil>=5.9
-
+ripser>=0.6
