@@ -34,7 +34,9 @@ from ripser import ripser
 _TOL = 1e-08
 # starting when we consider a dataset large
 _MANY_POINTS = 40000
-_DEFAULT_HOMOLOGICAL_DIMENSION = 1
+_DEFAULT_HOMOLOGICAL_DIMENSION = 0
+_DEFAULT_FIELD_CHARACTERISTIC = 3
+_DEFAULT_N_JOBS = 1
 
 
 def parallel_computation(function, inputs, n_jobs, debug=False, threading=False):
@@ -361,8 +363,8 @@ class Persistable:
         granularity,
         reduced=False,
         homological_dimension=_DEFAULT_HOMOLOGICAL_DIMENSION,
-        field_characteristic=2,
-        n_jobs=1,
+        field_characteristic=_DEFAULT_FIELD_CHARACTERISTIC,
+        n_jobs=_DEFAULT_N_JOBS,
     ):
         return self._bifiltration.hilbert_function_on_regular_grid(
             min_s,
@@ -377,7 +379,7 @@ class Persistable:
         )
 
     def _rank_invariant(
-        self, min_s, max_s, max_k, min_k, granularity, reduced=False, n_jobs=1
+        self, min_s, max_s, max_k, min_k, granularity, reduced=False, n_jobs=_DEFAULT_N_JOBS
     ):
         return self._bifiltration.rank_invariant_on_regular_grid(
             min_s, max_s, max_k, min_k, granularity, reduced=reduced, n_jobs=n_jobs
@@ -389,8 +391,8 @@ class Persistable:
         start_end2,
         n_parameters,
         reduced=False,
-        field_characteristic=2,
-        n_jobs=1,
+        field_characteristic=_DEFAULT_FIELD_CHARACTERISTIC,
+        n_jobs=_DEFAULT_N_JOBS,
     ):
         return self._bifiltration.linear_vineyard(
             start_end1,
@@ -600,7 +602,7 @@ class _DegreeRipsBifiltration:
         end,
         reduced=False,
         homological_dimension=_DEFAULT_HOMOLOGICAL_DIMENSION,
-        field_characteristic=2,
+        field_characteristic=_DEFAULT_FIELD_CHARACTERISTIC,
         tol=_TOL,
     ):
         if homological_dimension == 0:
@@ -615,6 +617,7 @@ class _DegreeRipsBifiltration:
             if start[0] > end[0] or start[1] < end[1]:
                 raise ValueError("Parameters do not give a monotonic line.")
 
+            # vertical slice case
             if start[0] == end[0]:
                 s_intercept = start[0]
                 k_start = start[1]
@@ -638,9 +641,10 @@ class _DegreeRipsBifiltration:
 
                 filtration_start = 0
                 filtration_end = k_start - k_end
-                pd.clip(filtration_start, filtration_end)
+                np.clip(pd, filtration_start, filtration_end, out=pd)
 
                 return pd
+            # skew slice case
             else:
 
                 def _startend_to_intercepts(start, end):
@@ -671,7 +675,10 @@ class _DegreeRipsBifiltration:
                     )
                 )
 
-                pd.clip(filtration_start, filtration_end)
+                print(filtration_end)
+                print(pd)
+                np.clip(pd, filtration_start, filtration_end, out=pd)
+                print(pd)
 
                 return pd
 
@@ -680,9 +687,9 @@ class _DegreeRipsBifiltration:
         startends,
         reduced=False,
         homological_dimension=_DEFAULT_HOMOLOGICAL_DIMENSION,
-        field_characteristic=2,
+        field_characteristic=_DEFAULT_FIELD_CHARACTERISTIC,
         tol=_TOL,
-        n_jobs=1,
+        n_jobs=_DEFAULT_N_JOBS,
     ):
         run_in_parallel = lambda startend: self.ph_slice(
             startend[0],
@@ -707,8 +714,8 @@ class _DegreeRipsBifiltration:
         start_end2,
         n_parameters,
         reduced=False,
-        field_characteristic=2,
-        n_jobs=1,
+        field_characteristic=_DEFAULT_FIELD_CHARACTERISTIC,
+        n_jobs=_DEFAULT_N_JOBS,
     ):
         start1, end1 = start_end1
         start2, end2 = start_end2
@@ -718,9 +725,7 @@ class _DegreeRipsBifiltration:
             or start2[0] > end2[0]
             or start2[1] < end2[1]
         ):
-            raise ValueError(
-                "Parameters chosen will result in non-monotonic lines."
-            )
+            raise ValueError("Parameters chosen will result in non-monotonic lines.")
         starts = list(
             zip(
                 np.linspace(start1[0], start2[0], n_parameters),
@@ -742,7 +747,7 @@ class _DegreeRipsBifiltration:
         )
         return Vineyard(startends, pds)
 
-    def _rank_invariant(self, ss, ks, reduced=False, n_jobs=1):
+    def _rank_invariant(self, ss, ks, reduced=False, n_jobs=_DEFAULT_N_JOBS):
         # go on one more step to compute rank invariant at the end of the grid
         ss = list(ss)
         ks = list(ks)
@@ -845,7 +850,7 @@ class _DegreeRipsBifiltration:
         return ri
 
     def rank_invariant_on_regular_grid(
-        self, min_s, max_s, max_k, min_k, granularity, reduced=False, n_jobs=1
+        self, min_s, max_s, max_k, min_k, granularity, reduced=False, n_jobs=_DEFAULT_N_JOBS
     ):
         if min_k >= max_k:
             raise ValueError("min_k must be smaller than max_k.")
@@ -877,8 +882,8 @@ class _DegreeRipsBifiltration:
         ks,
         reduced=False,
         homological_dimension=_DEFAULT_HOMOLOGICAL_DIMENSION,
-        field_characteristic=2,
-        n_jobs=1,
+        field_characteristic=_DEFAULT_FIELD_CHARACTERISTIC,
+        n_jobs=_DEFAULT_N_JOBS,
     ):
         n_s = len(ss)
         n_k = len(ks)
@@ -911,8 +916,8 @@ class _DegreeRipsBifiltration:
         granularity,
         reduced=False,
         homological_dimension=_DEFAULT_HOMOLOGICAL_DIMENSION,
-        field_characteristic=2,
-        n_jobs=1,
+        field_characteristic=_DEFAULT_FIELD_CHARACTERISTIC,
+        n_jobs=_DEFAULT_N_JOBS,
     ):
         if min_k >= max_k:
             raise ValueError("min_k must be smaller than max_k.")
@@ -948,7 +953,7 @@ class _MetricSpace:
     _MAX_DIM_USE_BORUVKA = 60
 
     def __init__(
-        self, X, metric, leaf_size=40, threading=False, debug=False, n_jobs=1, **kwargs
+        self, X, metric, leaf_size=40, threading=False, debug=False, n_jobs=_DEFAULT_N_JOBS, **kwargs
     ):
         # save extra arguments for metric
         self._kwargs = kwargs
@@ -1116,7 +1121,7 @@ class _MetricSpace:
             coeff=field_characteristic,
             maxdim=homological_dimension,
         )
-        return ripser_out["dgms"][-1]
+        return np.array(ripser_out["dgms"][-1])
 
     def hierarchical_clustering_filtered_rips_graph(self, k_births, rips_radius):
         shift = min(k_births) + 1
@@ -1210,7 +1215,7 @@ class _MetricSpace:
                 coeff=field_characteristic,
                 maxdim=homological_dimension,
             )
-            pd = ripser_out["dgms"][-1]
+            pd = np.array(ripser_out["dgms"][-1])
             pd = pd - shift
             return pd
         else:
@@ -1287,14 +1292,6 @@ class _MetricSpace:
 # rips bifiltration should take a persistent metric space as input.
 # examples of persistent metric spaces are the kernel filtration induced by a
 # metric probability space, as well as a metric space together with a function
-# class _PersistentMetricSpace:
-#
-#
-# class _FilteredMetricSpace(_MetricSpace):
-#    def __init__(self, X, metric, filter_function, **kwargs):
-#        _MetricSpace.__init__(self, X, metric, **kwargs)
-#        self._filter_function = filter_function
-
 
 class _MetricProbabilitySpace(_MetricSpace):
     """Implements a finite metric probability space that can compute its \
@@ -1308,7 +1305,7 @@ class _MetricProbabilitySpace(_MetricSpace):
         n_neighbors,
         threading=False,
         debug=False,
-        n_jobs=1,
+        n_jobs=_DEFAULT_N_JOBS,
         **kwargs
     ):
         _MetricSpace.__init__(
