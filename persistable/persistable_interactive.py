@@ -2507,10 +2507,16 @@ class PersistableInteractive:
         )
         def draw_pd(d):
             saved = json.loads(d[STORED_PARAMETERS_AND_PD_BY_PD + DATA])
-            if len(saved) != 0:
+            if len(saved) == 0:
+                d[PD_PLOT + FIGURE] = empty_figure()
+                return d
+            else :
                 saved_params, saved_pd = saved
+                if len(saved_pd) == 0:
+                    d[PD_PLOT + FIGURE] = empty_figure()
+                    return d
+                else:
 
-                if len(saved_pd) != 0:
                     saved_pd = np.array(saved_pd)
 
                     offset = min(saved_pd[:, 0])

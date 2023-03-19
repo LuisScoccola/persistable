@@ -34,7 +34,7 @@ from ripser import ripser
 _TOL = 1e-08
 # starting when we consider a dataset large
 _MANY_POINTS = 40000
-_DEFAULT_HOMOLOGICAL_DIMENSION = 0
+_DEFAULT_HOMOLOGICAL_DIMENSION = 1
 _DEFAULT_FIELD_CHARACTERISTIC = 3
 _DEFAULT_N_JOBS = 1
 
@@ -642,6 +642,7 @@ class _DegreeRipsBifiltration:
                 filtration_start = 0
                 filtration_end = k_start - k_end
                 np.clip(pd, filtration_start, filtration_end, out=pd)
+                pd = pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]
 
                 return pd
             # skew slice case
@@ -679,6 +680,7 @@ class _DegreeRipsBifiltration:
                 print(pd)
                 np.clip(pd, filtration_start, filtration_end, out=pd)
                 print(pd)
+                pd = pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]
 
                 return pd
 
