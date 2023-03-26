@@ -171,7 +171,7 @@ class TestDegreeRipsBifiltration(unittest.TestCase):
                 [4, 4, 2, 2, 1, 1, 1, 1],
             ]
         ).T
-        np.testing.assert_almost_equal(bf._hilbert_function(ss, ks, reduced=False, n_jobs=4), res)
+        np.testing.assert_almost_equal(bf._hilbert_function(ss, ks, reduced=False, n_jobs=4)[0], res)
 
 
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
@@ -215,7 +215,7 @@ class TestDegreeRipsBifiltration(unittest.TestCase):
 
         np.testing.assert_almost_equal(ss, np.array(res_ss))
         np.testing.assert_almost_equal(ks, np.array(res_ks))
-        np.testing.assert_almost_equal(hs, res)
+        np.testing.assert_almost_equal(hs[0], res)
 
     def test_vertical_slice(self):
         """ Check that the persistence diagram of lambda_linkage is correct \

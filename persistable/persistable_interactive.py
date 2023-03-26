@@ -2222,11 +2222,11 @@ class PersistableInteractive:
                     a.message, a.category, a.filename, a.lineno
                 )
 
-            d[STORED_CCF + DATA] = json.dumps(hf.tolist())
+            d[STORED_CCF + DATA] = json.dumps(hf[0].tolist())
             d[STORED_X_TICKS_CCF + DATA] = json.dumps(ss.tolist())
             d[STORED_Y_TICKS_CCF + DATA] = json.dumps(ks.tolist())
 
-            d[STORED_BETTI + DATA] = json.dumps(bn.tolist())
+            d[STORED_BETTI + DATA] = json.dumps(bn[0].tolist())
 
             d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = False

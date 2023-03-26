@@ -34,7 +34,7 @@ from ripser import ripser
 _TOL = 1e-08
 # starting when we consider a dataset large
 _MANY_POINTS = 40000
-_DEFAULT_HOMOLOGICAL_DIMENSION = 1
+_DEFAULT_HOMOLOGICAL_DIMENSION = 0
 _DEFAULT_FIELD_CHARACTERISTIC = 3
 _DEFAULT_N_JOBS = 1
 
@@ -606,9 +606,9 @@ class _DegreeRipsBifiltration:
         tol=_TOL,
     ):
         if homological_dimension == 0:
-            return self.lambda_linkage(start, end).persistence_diagram(
+            return [self.lambda_linkage(start, end).persistence_diagram(
                 tol=tol, reduced=reduced
-            )
+            )]
         else:
             if field_characteristic not in _SUPPORTED_PRIMES:
                 raise ValueError(
@@ -635,16 +635,19 @@ class _DegreeRipsBifiltration:
                 # make it covariant
                 k_births = k_start - k_births
 
-                pd = self._mpspace.ph_filtered_rips_graph(
+                raw_pds = self._mpspace.ph_filtered_rips_graph(
                     k_births, s_intercept, homological_dimension, field_characteristic
                 )
 
                 filtration_start = 0
                 filtration_end = k_start - k_end
-                np.clip(pd, filtration_start, filtration_end, out=pd)
-                pd = pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]
 
-                return pd
+                pds = []
+                for pd in raw_pds:
+                    np.clip(pd, filtration_start, filtration_end, out=pd)
+                    pds.append(pd[np.abs(pd[:, 0] - pd[:, 1]) > tol])
+
+                return pds
             # skew slice case
             else:
 
@@ -670,19 +673,19 @@ class _DegreeRipsBifiltration:
                 core_distances = np.minimum(filtration_end, core_distances)
                 core_distances = np.maximum(filtration_start, core_distances)
 
-                pd = np.array(
+                raw_pds = np.array(
                     self._mpspace.generalized_vietoris_rips_homology(
                         core_distances, homological_dimension, field_characteristic
                     )
                 )
 
-                print(filtration_end)
-                print(pd)
-                np.clip(pd, filtration_start, filtration_end, out=pd)
-                print(pd)
-                pd = pd[np.abs(pd[:, 0] - pd[:, 1]) > tol]
+                pds = []
+                for pd in raw_pds:
+                    np.clip(pd, filtration_start, filtration_end, out=pd)
+                    pds.append(pd[np.abs(pd[:, 0] - pd[:, 1]) > tol])
 
-                return pd
+                return pds
+
 
     def vineyard_pds(
         self,
@@ -747,6 +750,9 @@ class _DegreeRipsBifiltration:
             field_characteristic=field_characteristic,
             n_jobs=n_jobs,
         )
+        # ph_slice (used in vineyard_pds) returns a list of persistence diagrams
+        # now, one for each homological dimension
+        pds = [x[0] for x in pds]
         return Vineyard(startends, pds)
 
     def _rank_invariant(self, ss, ks, reduced=False, n_jobs=_DEFAULT_N_JOBS):
@@ -893,21 +899,33 @@ class _DegreeRipsBifiltration:
         # go on one more step to compute the Hilbert function at the last point
         ss.append(ss[-1] + _TOL)
         startends = [[[ss[0], k], [ss[-1], k]] for k in ks]
-        pds = self.vineyard_pds(
+        multidimensional_diagrams = self.vineyard_pds(
             startends,
             reduced=reduced,
             homological_dimension=homological_dimension,
             field_characteristic=field_characteristic,
             n_jobs=n_jobs,
         )
-        hf = np.zeros((n_s, n_k), dtype=int)
-        for i, pd in enumerate(pds):
-            for bar in pd:
-                b, d = bar
-                start = np.searchsorted(ss[:-1], b)
-                end = np.searchsorted(ss[:-1], d)
-                hf[start:end, i] += 1
-        return hf
+        # each element in multidimensional_diagrams contains a list of persistence
+        # diagrams, one for each homological dimension
+        pds_by_dimension = []
+        for d in range(homological_dimension+1):
+            pds = []
+            for multidimensional_diagram in multidimensional_diagrams:
+                pds.append(multidimensional_diagram[d])
+            pds_by_dimension.append(pds)
+
+        hfs = []
+        for pds in pds_by_dimension:
+            hf = np.zeros((n_s, n_k), dtype=int)
+            for i, pd in enumerate(pds):
+                for bar in pd:
+                    b, d = bar
+                    start = np.searchsorted(ss[:-1], b)
+                    end = np.searchsorted(ss[:-1], d)
+                    hf[start:end, i] += 1
+            hfs.append(hf)
+        return hfs
 
     def hilbert_function_on_regular_grid(
         self,
@@ -940,7 +958,7 @@ class _DegreeRipsBifiltration:
 
         ss = np.linspace(min_s, max_s, granularity)
         ks = np.linspace(min_k, max_k, granularity)[::-1]
-        hf = self._hilbert_function(
+        hfs = self._hilbert_function(
             ss,
             ks,
             reduced=reduced,
@@ -948,7 +966,9 @@ class _DegreeRipsBifiltration:
             field_characteristic=field_characteristic,
             n_jobs=n_jobs,
         )
-        return ss, ks, hf, signed_betti(hf)
+        sbs = [signed_betti(hf) for hf in hfs]
+
+        return ss, ks, hfs, sbs
 
 
 class _MetricSpace:
@@ -1123,7 +1143,8 @@ class _MetricSpace:
             coeff=field_characteristic,
             maxdim=homological_dimension,
         )
-        return np.array(ripser_out["dgms"][-1])
+
+        return [np.array(pd) for pd in ripser_out["dgms"]]
 
     def hierarchical_clustering_filtered_rips_graph(self, k_births, rips_radius):
         shift = min(k_births) + 1
@@ -1217,11 +1238,10 @@ class _MetricSpace:
                 coeff=field_characteristic,
                 maxdim=homological_dimension,
             )
-            pd = np.array(ripser_out["dgms"][-1])
-            pd = pd - shift
-            return pd
+            pds = [np.array(pd) - shift for pd in ripser_out["dgms"]]
+            return pds
         else:
-            return np.array([])
+            return [np.array([]) for _ in range(homological_dimension)]
 
     def close_subsample(self, subsample_size, seed=0, euclidean=False):
         """ Returns a pair of arrays with the first array containing the indices \
