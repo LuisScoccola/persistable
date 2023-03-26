@@ -379,7 +379,14 @@ class Persistable:
         )
 
     def _rank_invariant(
-        self, min_s, max_s, max_k, min_k, granularity, reduced=False, n_jobs=_DEFAULT_N_JOBS
+        self,
+        min_s,
+        max_s,
+        max_k,
+        min_k,
+        granularity,
+        reduced=False,
+        n_jobs=_DEFAULT_N_JOBS,
     ):
         return self._bifiltration.rank_invariant_on_regular_grid(
             min_s, max_s, max_k, min_k, granularity, reduced=reduced, n_jobs=n_jobs
@@ -606,9 +613,11 @@ class _DegreeRipsBifiltration:
         tol=_TOL,
     ):
         if homological_dimension == 0:
-            return [self.lambda_linkage(start, end).persistence_diagram(
-                tol=tol, reduced=reduced
-            )]
+            return [
+                self.lambda_linkage(start, end).persistence_diagram(
+                    tol=tol, reduced=reduced
+                )
+            ]
         else:
             if field_characteristic not in _SUPPORTED_PRIMES:
                 raise ValueError(
@@ -673,10 +682,8 @@ class _DegreeRipsBifiltration:
                 core_distances = np.minimum(filtration_end, core_distances)
                 core_distances = np.maximum(filtration_start, core_distances)
 
-                raw_pds = np.array(
-                    self._mpspace.generalized_vietoris_rips_homology(
-                        core_distances, homological_dimension, field_characteristic
-                    )
+                raw_pds = self._mpspace.generalized_vietoris_rips_homology(
+                    core_distances, homological_dimension, field_characteristic
                 )
 
                 pds = []
@@ -685,7 +692,6 @@ class _DegreeRipsBifiltration:
                     pds.append(pd[np.abs(pd[:, 0] - pd[:, 1]) > tol])
 
                 return pds
-
 
     def vineyard_pds(
         self,
@@ -719,6 +725,7 @@ class _DegreeRipsBifiltration:
         start_end2,
         n_parameters,
         reduced=False,
+        homological_dimension=_DEFAULT_HOMOLOGICAL_DIMENSION,
         field_characteristic=_DEFAULT_FIELD_CHARACTERISTIC,
         n_jobs=_DEFAULT_N_JOBS,
     ):
@@ -748,11 +755,12 @@ class _DegreeRipsBifiltration:
             startends,
             reduced=reduced,
             field_characteristic=field_characteristic,
+            homological_dimension=homological_dimension,
             n_jobs=n_jobs,
         )
         # ph_slice (used in vineyard_pds) returns a list of persistence diagrams
-        # now, one for each homological dimension
-        pds = [x[0] for x in pds]
+        # one for each homological dimension
+        pds = [x[homological_dimension] for x in pds]
         return Vineyard(startends, pds)
 
     def _rank_invariant(self, ss, ks, reduced=False, n_jobs=_DEFAULT_N_JOBS):
@@ -858,7 +866,14 @@ class _DegreeRipsBifiltration:
         return ri
 
     def rank_invariant_on_regular_grid(
-        self, min_s, max_s, max_k, min_k, granularity, reduced=False, n_jobs=_DEFAULT_N_JOBS
+        self,
+        min_s,
+        max_s,
+        max_k,
+        min_k,
+        granularity,
+        reduced=False,
+        n_jobs=_DEFAULT_N_JOBS,
     ):
         if min_k >= max_k:
             raise ValueError("min_k must be smaller than max_k.")
@@ -899,6 +914,7 @@ class _DegreeRipsBifiltration:
         # go on one more step to compute the Hilbert function at the last point
         ss.append(ss[-1] + _TOL)
         startends = [[[ss[0], k], [ss[-1], k]] for k in ks]
+
         multidimensional_diagrams = self.vineyard_pds(
             startends,
             reduced=reduced,
@@ -909,7 +925,7 @@ class _DegreeRipsBifiltration:
         # each element in multidimensional_diagrams contains a list of persistence
         # diagrams, one for each homological dimension
         pds_by_dimension = []
-        for d in range(homological_dimension+1):
+        for d in range(homological_dimension + 1):
             pds = []
             for multidimensional_diagram in multidimensional_diagrams:
                 pds.append(multidimensional_diagram[d])
@@ -975,7 +991,14 @@ class _MetricSpace:
     _MAX_DIM_USE_BORUVKA = 60
 
     def __init__(
-        self, X, metric, leaf_size=40, threading=False, debug=False, n_jobs=_DEFAULT_N_JOBS, **kwargs
+        self,
+        X,
+        metric,
+        leaf_size=40,
+        threading=False,
+        debug=False,
+        n_jobs=_DEFAULT_N_JOBS,
+        **kwargs
     ):
         # save extra arguments for metric
         self._kwargs = kwargs
@@ -1314,6 +1337,7 @@ class _MetricSpace:
 # rips bifiltration should take a persistent metric space as input.
 # examples of persistent metric spaces are the kernel filtration induced by a
 # metric probability space, as well as a metric space together with a function
+
 
 class _MetricProbabilitySpace(_MetricSpace):
     """Implements a finite metric probability space that can compute its \

@@ -2201,7 +2201,7 @@ class PersistableInteractive:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 try:
-                    ss, ks, hf, bn = persistable._hilbert_function(
+                    ss, ks, hfs, bns = persistable._hilbert_function(
                         d[MIN_DIST_SCALE + VALUE],
                         d[MAX_DIST_SCALE + VALUE],
                         d[MAX_DENSITY_THRESHOLD + VALUE],
@@ -2222,11 +2222,13 @@ class PersistableInteractive:
                     a.message, a.category, a.filename, a.lineno
                 )
 
-            d[STORED_CCF + DATA] = json.dumps(hf[0].tolist())
+            homological_dimension = 0
+
+            d[STORED_CCF + DATA] = json.dumps(hfs[homological_dimension].tolist())
             d[STORED_X_TICKS_CCF + DATA] = json.dumps(ss.tolist())
             d[STORED_Y_TICKS_CCF + DATA] = json.dumps(ks.tolist())
 
-            d[STORED_BETTI + DATA] = json.dumps(bn[0].tolist())
+            d[STORED_BETTI + DATA] = json.dumps(bns[homological_dimension].tolist())
 
             d[STORED_CCF_COMPUTATION_WARNINGS + DATA] = json.dumps(out)
             d[CCF_PLOT_CONTROLS_DIV + HIDDEN] = False
