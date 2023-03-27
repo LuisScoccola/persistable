@@ -263,7 +263,7 @@ class Persistable:
         n_clusters,
         start,
         end,
-        conservative_flattening_style=False,
+        conservative_flattening_style=True,
         keep_low_persistence_clusters=False,
     ):
         """Cluster dataset passed at initialization.
@@ -285,7 +285,7 @@ class Persistable:
             two-parameter hierarchical clustering used to do persistence-based
             clustering.
 
-        conservative_flattening_style: bool, optional, default is False
+        conservative_flattening_style: bool, optional, default is True
             If false, flatten the hierarchical clustering using the approach
             of 'Persistence-Based Clustering in Riemannian Manifolds' Chazal, Guibas,
             Oudot, Skraba. If true, use the more conservative and more stable approach

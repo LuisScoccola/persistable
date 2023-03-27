@@ -258,11 +258,11 @@ class PersistableInteractive:
 
             return port
 
-    def cluster(self, conservative_flattening_style=False, keep_low_persistence_clusters=False):
+    def cluster(self, conservative_flattening_style=True, keep_low_persistence_clusters=False):
         """Clusters the dataset with which the Persistable instance that was
         passed through ``run_with`` was initialized.
 
-        conservative_flattening_style: bool, optional, default is False
+        conservative_flattening_style: bool, optional, default is True
             If false, flatten the hierarchical clustering using the approach
             of 'Persistence-Based Clustering in Riemannian Manifolds' Chazal, Guibas,
             Oudot, Skraba. If true, use the more conservative and more stable approach
