@@ -1,5 +1,6 @@
 
 [![PyPI](https://img.shields.io/pypi/v/persistable-clustering?color=green)](https://pypi.org/project/persistable-clustering)
+[![Downloads](https://static.pepy.tech/personalized-badge/persistable-clustering?period=total&units=international_system&left_color=grey&right_color=green&left_text=Downloads)](https://pepy.tech/project/persistable-clustering)
 [![tests](https://github.com/LuisScoccola/persistable/actions/workflows/run_tests.yaml/badge.svg)](https://github.com/LuisScoccola/persistable/actions/workflows/run_tests.yaml)
 [![coverage](https://codecov.io/gh/LuisScoccola/persistable/branch/main/graph/badge.svg)](https://codecov.io/gh/LuisScoccola/persistable)
 [![docs](https://readthedocs.org/projects/persistable/badge/?version=latest)](https://persistable.readthedocs.io/)
