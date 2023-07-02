@@ -28,7 +28,7 @@ from dash.long_callback.managers import BaseLongCallbackManager
 import uuid
 
 
-def monkeypatched_hash_function(fn):
+def monkeypatched_hash_function(fn, callback_id=""):
     return uuid.uuid4()
 
 
