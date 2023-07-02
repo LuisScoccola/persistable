@@ -31,12 +31,27 @@ from joblib.parallel import cpu_count
 from ripser import ripser
 
 
+
+# TODO: eventually default to newer version and add version number in dependencies
+from packaging.version import Version
+import sklearn
+
+if Version(sklearn.__version__) >= Version("1.3.0"):
+    kdtree_valid_metrics = KDTree.valid_metrics()
+    balltree_valid_metrics = BallTree.valid_metrics()
+else:
+    kdtree_valid_metrics = KDTree.valid_metrics
+    balltree_valid_metrics = BallTree.valid_metrics
+#
+
 _TOL = 1e-08
 # starting when we consider a dataset large
 _MANY_POINTS = 40000
 _DEFAULT_HOMOLOGICAL_DIMENSION = 0
 _DEFAULT_FIELD_CHARACTERISTIC = 3
 _DEFAULT_N_JOBS = 1
+
+
 
 
 def parallel_computation(function, inputs, n_jobs, debug=False, threading=False):
@@ -70,7 +85,7 @@ class Persistable:
     metric: string, optional, default is "minkowski"
         A string determining which metric is used to compute distances
         between the points in X. It can be a metric in ``KDTree.valid_metrics``
-        or ``BallTree.valid_metric`` (which can be found by
+        or ``BallTree.valid_metrics`` (which can be found by
         ``from sklearn.neighbors import KDTree, BallTree``) or ``"precomputed"``
         if X is a distance matrix.
 
@@ -1035,16 +1050,16 @@ class _MetricSpace:
         # save metric and spatial tree
         self._metric = metric
         self._leaf_size = leaf_size
-        if metric in KDTree.valid_metrics + BallTree.valid_metrics:
+        if metric in kdtree_valid_metrics + balltree_valid_metrics:
             leaf_size_boruvka = 3 if self._leaf_size < 3 else self._leaf_size // 3
-            if metric in KDTree.valid_metrics:
+            if metric in kdtree_valid_metrics:
                 self._nn_tree = KDTree(
                     X, metric=metric, leaf_size=self._leaf_size, **kwargs
                 )
                 self._boruvka_tree = KDTree(
                     X, metric=metric, leaf_size=leaf_size_boruvka, **kwargs
                 )
-            elif metric in BallTree.valid_metrics:
+            elif metric in balltree_valid_metrics:
                 self._nn_tree = BallTree(
                     X, metric=metric, leaf_size=self._leaf_size, **kwargs
                 )
@@ -1061,7 +1076,7 @@ class _MetricSpace:
 
     def _fit_nn(self, n_neighbors):
         self._n_neighbors = n_neighbors
-        if self._metric in BallTree.valid_metrics + KDTree.valid_metrics:
+        if self._metric in balltree_valid_metrics + kdtree_valid_metrics:
 
             def query_neighbors(points):
                 return self._nn_tree.query(
@@ -1109,7 +1124,7 @@ class _MetricSpace:
         return self._size
 
     def generalized_single_linkage(self, core_distances):
-        if self._metric in KDTree.valid_metrics:
+        if self._metric in kdtree_valid_metrics:
             if self._dimension > self._MAX_DIM_USE_BORUVKA:
                 X = self._points
                 if not X.flags["C_CONTIGUOUS"]:
@@ -1123,7 +1138,7 @@ class _MetricSpace:
                     metric=self._metric,
                     **self._kwargs
                 ).spanning_tree()
-        elif self._metric in BallTree.valid_metrics:
+        elif self._metric in balltree_valid_metrics:
             if self._dimension > self._MAX_DIM_USE_BORUVKA:
                 X = self._points
                 if not X.flags["C_CONTIGUOUS"]:
@@ -1176,7 +1191,7 @@ class _MetricSpace:
         k_births = k_births + shift
 
         # metric tree case
-        if self._metric in KDTree.valid_metrics + BallTree.valid_metrics:
+        if self._metric in kdtree_valid_metrics + balltree_valid_metrics:
             s_neighbors = self._nn_tree.query_radius(self._points, rips_radius)
         # dense distance matrix case
         elif self._metric == "precomputed":
@@ -1277,7 +1292,7 @@ class _MetricSpace:
         np.random.seed(seed)
         random_start = np.random.randint(0, self.size())
 
-        if self._metric in KDTree.valid_metrics + BallTree.valid_metrics:
+        if self._metric in kdtree_valid_metrics + balltree_valid_metrics:
             X = self._points
             if not X.flags["C_CONTIGUOUS"]:
                 X = np.array(X, dtype=np.double, order="C")
