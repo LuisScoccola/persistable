@@ -10,7 +10,7 @@ jobs:
   test-linux-macos:
     strategy:
       matrix:
-        python-version: ["3.11"]
+        python-version: ["3.9", "3.10", "3.11"]
         os: ["ubuntu-latest", "macos-latest"]
     runs-on: ${{ matrix.os }}
 
@@ -38,7 +38,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        python-version: ["3.11"]
+        python-version: ["3.9", "3.10", "3.11"]
 
     steps:
       - uses: actions/checkout@v3
