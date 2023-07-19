@@ -13,7 +13,7 @@ import numpy as np
 cimport numpy as np
 ctypedef np.uint8_t uint8
 
-from .borrowed._hdbscan_boruvka cimport BoruvkaUnionFind
+from borrowed._hdbscan_boruvka cimport BoruvkaUnionFind
 
 
 cpdef persistence_diagram_h0(double end, double[:] heights, np.int64_t[:,:] merges, double[:] merges_heights):
