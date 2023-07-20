@@ -69,21 +69,10 @@ clustering_labels = pi.cluster()
 Make sure you are using Python 3.
 Persistable depends on the following python packages, which will be installed automatically when you install with `pip`:
 `numpy`, `scipy`, `scikit-learn`, `cython`, `plotly`, `dash`, `jupyter_dash`, `diskcache`, `multiprocess`, `psutil`.
-
-
-### Latest release
+To install from pypi, simply run the following:
 
 ```bash
 pip install persistable-clustering
-```
-
-### Experimental
-
-The `experimental` branch may contain newer and more advanced features.
-You can install from that branch by running
-
-```bash
-pip install git+https://github.com/LuisScoccola/persistable.git@experimental
 ```
 
 
