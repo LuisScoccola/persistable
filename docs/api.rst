@@ -26,7 +26,7 @@ Index
     :nosignatures:
 
     persistable.PersistableInteractive.cluster
-    persistable.PersistableInteractive.start_UI
+    persistable.PersistableInteractive.start_ui
 
 
 Details

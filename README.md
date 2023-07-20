@@ -47,7 +47,7 @@ X = make_blobs(2000, centers=4, random_state=1)[0]
 
 p = persistable.Persistable(X)
 pi = persistable.PersistableInteractive(p)
-pi.start_UI()
+pi.start_ui()
 ```
 
 The last command returns the port in `localhost` serving the UI, which is `8050` by default.
@@ -61,7 +61,7 @@ After choosing your parameters using the user interface, you can get your cluste
 clustering_labels = pi.cluster()
 ```
 
-**Note:** You may use `pi.start_UI(inline=True)` to have the graphical user interface display directly in the Jupyter notebook!
+**Note:** You may use `pi.start_ui(inline=True)` to have the graphical user interface display directly in the Jupyter notebook!
 
 
 ## Installing

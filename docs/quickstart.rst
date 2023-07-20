@@ -53,7 +53,7 @@ Next we launch Persistable's interactive mode:
 .. code:: python
 
 	pi = persistable.PersistableInteractive(p)
-	port = pi.start_UI()
+	port = pi.start_ui()
 	
 The variable ``port`` contains the port in ``localhost`` serving the GUI, which
 ``8050`` by default, but may be different if that port is in use.
