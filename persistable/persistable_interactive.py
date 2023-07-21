@@ -20,21 +20,6 @@ from ._vineyard import Vineyard
 import threading
 
 
-# monkeypatch the hashing function of dash, so that
-# we can use a decorator to register callbacks
-from dash.long_callback.managers import BaseLongCallbackManager
-
-import uuid
-
-
-def monkeypatched_hash_function(fn, callback_id=""):
-    return uuid.uuid4()
-
-
-BaseLongCallbackManager.hash_function = monkeypatched_hash_function
-###
-
-
 X_POINT = "x-point-"
 Y_POINT = "y-point-"
 POINT_SELECTION_DIV = "point-selection-div-"
@@ -262,7 +247,7 @@ class PersistableInteractive:
             "jupyterlab" to open the app in a separate tab in JupyterLab.
 
         return: int
-            If run "external" jupyter_mode, returns the port of localhost used to serve the UI.
+            Returns the port of localhost used to serve the UI.
 
         """
 
