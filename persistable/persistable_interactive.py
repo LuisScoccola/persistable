@@ -555,7 +555,7 @@ class PersistableInteractive:
                                             dcc.RadioItems(
                                                 [
                                                     "Off",
-                                                    "Single clustering",
+                                                    #"Single clustering",
                                                     "Line",
                                                     "Family of lines",
                                                 ],
