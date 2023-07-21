@@ -13,7 +13,6 @@ import json
 import dash
 from dash import dcc, html, DiskcacheManager, ctx
 from dash.exceptions import PreventUpdate
-from jupyter_dash import JupyterDash
 import click
 import socket
 from ._vineyard import Vineyard
@@ -262,6 +261,7 @@ class PersistableInteractive:
             If not run in inline mode, returns the port of localhost used to serve the UI.
 
         """
+
         if debug:
             self._debug = debug
         max_port = 65535
@@ -294,39 +294,27 @@ class PersistableInteractive:
             click.echo = echo
             click.secho = secho
 
-        if inline == True:
-            self._app = JupyterDash(
-                __name__,
-                background_callback_manager=background_callback_manager,
-                update_title="Persistable is computing...",
-            )
-            self._layout_gui(ui_state)
-            self._register_callbacks(self._persistable, self._debug)
+        self._app = dash.Dash(
+            __name__,
+            background_callback_manager=background_callback_manager,
+            update_title="Persistable is computing...",
+        )
+        self._layout_gui(ui_state)
+        self._register_callbacks(self._persistable, self._debug)
 
-            if not debug:
-                suppress_warnings(self._app)
+        if not debug:
+            suppress_warnings(self._app)
 
-            self._app.run_server(port=port, mode="inline", debug=debug)
-        else:
-            self._app = dash.Dash(
-                __name__,
-                background_callback_manager=background_callback_manager,
-                update_title="Persistable is computing...",
-            )
-            self._layout_gui(ui_state)
-            self._register_callbacks(self._persistable, self._debug)
+        jupyter_mode = "inline" if inline else "external"
 
-            if not debug:
-                suppress_warnings(self._app)
+        def run():
+            self._app.run_server(port=port, debug=debug, use_reloader=False, jupyter_mode=jupyter_mode)
 
-            def run():
-                self._app.run_server(port=port, debug=debug, use_reloader=False)
+        self._thread = threading.Thread(target=run)
+        self._thread.daemon = True
+        self._thread.start()
 
-            self._thread = threading.Thread(target=run)
-            self._thread.daemon = True
-            self._thread.start()
-
-            return port
+        return port
 
     def save_ui_state(self):
         """Save state of input fields in the UI as a Python object. The output
