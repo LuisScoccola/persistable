@@ -26,7 +26,7 @@ class TestDegreeRipsBifiltration(unittest.TestCase):
             self._different_weights.append(np.random.random_sample(self._n))
 
     def test_k_can_be_one(self):
-        """ Check that k can be 1 when intialized with all neighbors """
+        """Check that k can be 1 when intialized with all neighbors"""
         n = 2000
         X = np.random.random_sample((n, 2))
 
@@ -37,7 +37,7 @@ class TestDegreeRipsBifiltration(unittest.TestCase):
         bf._core_distance(np.arange(n), s0, k0)
 
     def test_core_distances(self):
-        """ Check that the _core_distance method returns the correct answer """
+        """Check that the _core_distance method returns the correct answer"""
         n = 4
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
         p = Persistable(X)
@@ -154,7 +154,7 @@ class TestDegreeRipsBifiltration(unittest.TestCase):
                         )
 
     def test_hilbert_function(self):
-        """ Check that _hilbert_function method returns a correct answer """
+        """Check that _hilbert_function method returns a correct answer"""
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
         p = Persistable(X)
         bf = p._bifiltration
@@ -171,8 +171,9 @@ class TestDegreeRipsBifiltration(unittest.TestCase):
                 [4, 4, 2, 2, 1, 1, 1, 1],
             ]
         ).T
-        np.testing.assert_almost_equal(bf._hilbert_function(ss, ks, reduced=False, n_jobs=4), res)
-
+        np.testing.assert_almost_equal(
+            bf._hilbert_function(ss, ks, reduced=False, n_jobs=4), res
+        )
 
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
         p = Persistable(X)
@@ -211,7 +212,9 @@ class TestDegreeRipsBifiltration(unittest.TestCase):
                 [4, 4, 2, 2, 1, 1, 1, 1],
             ]
         ).T
-        ss, ks, hs, _ = p._bifiltration.hilbert_function_on_regular_grid(0, 4, 1, 0, granularity=8)
+        ss, ks, hs, _ = p._bifiltration.hilbert_function_on_regular_grid(
+            0, 4, 1, 0, granularity=8
+        )
 
         np.testing.assert_almost_equal(ss, np.array(res_ss))
         np.testing.assert_almost_equal(ks, np.array(res_ks))
@@ -282,7 +285,7 @@ class TestDegreeRipsBifiltration(unittest.TestCase):
         )
 
     def test_rank_invariant(self):
-        """ Check that the rank_invariant method returns correct answers """
+        """Check that the rank_invariant method returns correct answers"""
         X = np.array(
             [
                 [0, 0],
@@ -340,7 +343,10 @@ class TestMetricSpace(unittest.TestCase):
     def test_subsampling(self):
         """ Check that subsampling with fast metric produces the same \
             subsample as subsampling with distance matrix """
-    X = make_blobs(n_samples=1000, n_features=2, centers=3, random_state=6, cluster_std=1.5)[0]
+
+    X = make_blobs(
+        n_samples=1000, n_features=2, centers=3, random_state=6, cluster_std=1.5
+    )[0]
     dm = distance_matrix(X, X, p=2)
     ms = _MetricSpace(dm, "precomputed")
     Y, reps = ms.close_subsample(100, seed=0)
@@ -348,8 +354,8 @@ class TestMetricSpace(unittest.TestCase):
     ms2 = _MetricSpace(X, metric="minkowski")
     Y2, reps2 = ms2.close_subsample(100, seed=0)
 
-    np.testing.assert_array_equal(Y,Y2)
-    np.testing.assert_array_equal(reps,reps2)
+    np.testing.assert_array_equal(Y, Y2)
+    np.testing.assert_array_equal(reps, reps2)
 
 
 class TestHierarchicalClustering(unittest.TestCase):
@@ -362,7 +368,7 @@ class TestHierarchicalClustering(unittest.TestCase):
         return mat
 
     def test_persistence_diagram(self):
-        """ Check that persistence_diagram method returns correct answers """
+        """Check that persistence_diagram method returns correct answers"""
         heights = np.array([0, 1, 3, 2])
         merges = np.array([[0, 1], [2, 0]])
         merges_heights = np.array([2, 6])
@@ -408,19 +414,23 @@ class TestHierarchicalClustering(unittest.TestCase):
         )
 
     def test_flattening(self):
-        """ Check that persistence_based_flattening method returns correct answers """
+        """Check that persistence_based_flattening method returns correct answers"""
         heights = np.array([0, 1, 3, 8])
         merges = np.array([[0, 1], [2, 0]])
         merges_heights = np.array([2, 6])
         end = 10
         hc = _HierarchicalClustering(heights, merges, merges_heights, 0, end)
-        c = hc.persistence_based_flattening(0.5, conservative_flattening_style=True, keep_low_persistence_clusters=False)
+        c = hc.persistence_based_flattening(
+            0.5, flattening_mode="conservative", keep_low_persistence_clusters=False
+        )
         res = np.array([0, 1, 2, 3])
         np.testing.assert_array_equal(
             self.clustering_matrix(c), self.clustering_matrix(res)
         )
 
-        c = hc.persistence_based_flattening(1.5, conservative_flattening_style=True, keep_low_persistence_clusters=False)
+        c = hc.persistence_based_flattening(
+            1.5, flattening_mode="conservative", keep_low_persistence_clusters=False
+        )
         res = np.array([0, 0, 1, 2])
         np.testing.assert_array_equal(
             self.clustering_matrix(c), self.clustering_matrix(res)
@@ -429,7 +439,7 @@ class TestHierarchicalClustering(unittest.TestCase):
 
 class TestPersistable(unittest.TestCase):
     def test_number_clusters(self):
-        """ Check that cluster method returns the correct number of clusters """
+        """Check that cluster method returns the correct number of clusters"""
         n_datapoints = 1000
         n_true_points = int(n_datapoints * 0.7)
         X, _ = datasets.make_blobs(
@@ -447,18 +457,23 @@ class TestPersistable(unittest.TestCase):
         k0 = 0.05
         for s0 in np.linspace(0.1, 0.5, 5):
             for i in list(range(2, 5)):
-                c = p.cluster(n_clusters=i, start=[0, k0], end=[s0, 0], conservative_flattening_style=True)
+                c = p.cluster(
+                    n_clusters=i,
+                    start=[0, k0],
+                    end=[s0, 0],
+                    flattening_mode="conservative",
+                )
                 self.assertEqual(len(set(c[c >= 0])), i)
                 c = p.cluster(
                     n_clusters=i,
                     start=[0, k0],
                     end=[s0, 0],
-                    conservative_flattening_style=True
+                    flattening_mode="conservative",
                 )
                 self.assertEqual(len(set(c[c >= 0])), i)
 
     def test_number_clusters_quick_cluster(self):
-        """ Check that quick_cluster method returns the correct number of clusters """
+        """Check that quick_cluster method returns the correct number of clusters"""
         X, _ = datasets.make_blobs(
             n_samples=1000, centers=3, cluster_std=[0.05, 0.06, 0.07], random_state=1
         )
@@ -479,13 +494,15 @@ class TestPersistable(unittest.TestCase):
 
 class TestVineyard(unittest.TestCase):
     def test_prominence_vineyard(self):
-        """ Check that _vineyard_to_vines and _vine_parts methods return a correct answer """
+        """Check that _vineyard_to_vines and _vine_parts methods return a correct answer"""
         X = np.array([[0, 0], [1, 0], [1, 1], [3, 0]])
         p = Persistable(X)
 
         start_end1 = [(0, 0.1), (10, 0)]
         start_end2 = [(0, 1), (10, 0.9)]
-        vineyard = p._bifiltration.linear_vineyard(start_end1, start_end2, n_parameters=4)
+        vineyard = p._bifiltration.linear_vineyard(
+            start_end1, start_end2, n_parameters=4
+        )
 
         vines = vineyard._vineyard_to_vines()
         res_vines = [

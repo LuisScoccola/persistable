@@ -323,19 +323,20 @@ class PersistableInteractive:
         return state
 
     def cluster(
-        self, conservative_flattening_style=False, keep_low_persistence_clusters=False
+        self, flattening_mode="conservative", keep_low_persistence_clusters=False
     ):
         """Clusters the dataset with which the Persistable instance that was initialized.
 
-        conservative_flattening_style: bool, optional, default is True
-            If false, flatten the hierarchical clustering using the approach
+        flattening_mode: string, optional, default is "conservative"
+            If "exhaustive", flatten the hierarchical clustering using the approach
             of 'Persistence-Based Clustering in Riemannian Manifolds' Chazal, Guibas,
-            Oudot, Skraba. If true, use the more conservative and more stable approach
-            of 'Stable and consistent density-based clustering' Rolle, Scoccola is used.
+            Oudot, Skraba.
+            If "conservative", use the more stable approach of
+            'Stable and consistent density-based clustering' Rolle, Scoccola.
             The conservative approach usually results in more unclustered points.
 
         keep_low_persistence_clusters: bool, optional, default is False
-            Only has effect if ``conservative_flattening_style`` is set to False.
+            Only has effect if ``flattening_mode`` is set to "exhaustive".
             Whether to keep clusters that are born below the persistence threshold
             associated to the selected n_clusters. If set to True, the number of clusters
             can be larger than the selected one.
@@ -358,7 +359,7 @@ class PersistableInteractive:
             else:
                 return self._persistable.cluster(
                     **params,
-                    conservative_flattening_style=conservative_flattening_style,
+                    flattening_mode=flattening_mode,
                     keep_low_persistence_clusters=keep_low_persistence_clusters
                 )
 

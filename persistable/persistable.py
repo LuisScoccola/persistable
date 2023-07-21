@@ -278,7 +278,7 @@ class Persistable:
         n_clusters,
         start,
         end,
-        conservative_flattening_style=True,
+        flattening_mode="conservative",
         keep_low_persistence_clusters=False,
     ):
         """Cluster dataset passed at initialization.
@@ -300,19 +300,19 @@ class Persistable:
             two-parameter hierarchical clustering used to do persistence-based
             clustering.
 
-        conservative_flattening_style: bool, optional, default is True
-            If false, flatten the hierarchical clustering using the approach
+        flattening_mode: string, optional, default is "conservative"
+            If "exhaustive", flatten the hierarchical clustering using the approach
             of 'Persistence-Based Clustering in Riemannian Manifolds' Chazal, Guibas,
-            Oudot, Skraba. If true, use the more conservative and more stable approach
-            of 'Stable and consistent density-based clustering' Rolle, Scoccola is used.
+            Oudot, Skraba.
+            If "conservative", use the more stable approach of
+            'Stable and consistent density-based clustering' Rolle, Scoccola.
             The conservative approach usually results in more unclustered points.
 
         keep_low_persistence_clusters: bool, optional, default is False
-            Only relevant if conservative_flattening_style is set to False.
+            Only has effect if ``flattening_mode`` is set to "exhaustive".
             Whether to keep clusters that are born below the persistence threshold
-            associated to the selected n_clusters. If set to True, all points will
-            belong to some cluster, but the number of clusters may be larger than the
-            selected one.
+            associated to the selected n_clusters. If set to True, the number of clusters
+            can be larger than the selected one.
 
         returns:
             A numpy array of length the number of points in the dataset containing
@@ -346,7 +346,7 @@ class Persistable:
             threshold = (spers[-n_clusters] + spers[-(n_clusters + 1)]) / 2
         cl = hc.persistence_based_flattening(
             threshold,
-            conservative_flattening_style=conservative_flattening_style,
+            flattening_mode=flattening_mode,
             keep_low_persistence_clusters=keep_low_persistence_clusters,
         )
 
@@ -1295,9 +1295,9 @@ class _HierarchicalClustering:
         return res
 
     def persistence_based_flattening(
-        self, threshold, conservative_flattening_style, keep_low_persistence_clusters
+        self, threshold, flattening_mode, keep_low_persistence_clusters
     ):
-        if conservative_flattening_style:
+        if flattening_mode=="conservative":
             return self._conservative_persistence_based_flattening(threshold)
         else:
             return self._tomato_style_persistence_based_flattening(
