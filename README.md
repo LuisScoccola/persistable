@@ -61,7 +61,7 @@ After choosing your parameters using the user interface, you can get your cluste
 clustering_labels = pi.cluster()
 ```
 
-**Note:** You may use `pi.start_ui(inline=True)` to have the graphical user interface display directly in the Jupyter notebook!
+**Note:** You may use `pi.start_ui(jupyter_mode="inline")` to have the graphical user interface display directly in the Jupyter notebook!
 
 
 ## Installing
