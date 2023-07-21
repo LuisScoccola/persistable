@@ -238,7 +238,7 @@ class PersistableInteractive:
         self._parameters = None
         self._ui_state = None
 
-    def start_ui(self, ui_state=None, port=8050, debug=False, inline=False):
+    def start_ui(self, ui_state=None, port=8050, debug=False, jupyter_mode="external"):
         """Serves the GUI with a given persistable instance.
 
         ui_state: dictionary, optional
@@ -253,12 +253,15 @@ class PersistableInteractive:
         debug: bool, optional, default is False
             Whether to run Dash in debug mode.
 
-        inline: bool, optional, default is False
-            Boolean representing whether or not to display the GUI inside
-            the Jupyter notebook. Only works if using Persistable in a Jupyter notebook.
+        jupyter_mode: string, optional, default is "external"
+            How to display the application when running inside a jupyter notebook.
+            Options are "tab" to open the app in a new browser tab,
+            "jupyterlab" to open the app in a separate tab in JupyterLab,
+            "external" to serve the app in a port returned by this function,
+            "inline" to open the app inline in the jupyter notebook.
 
         return: int
-            If not run in inline mode, returns the port of localhost used to serve the UI.
+            If run "external" jupyter_mode, returns the port of localhost used to serve the UI.
 
         """
 
@@ -304,8 +307,6 @@ class PersistableInteractive:
 
         if not debug:
             suppress_warnings(self._app)
-
-        jupyter_mode = "inline" if inline else "external"
 
         def run():
             self._app.run_server(port=port, debug=debug, use_reloader=False, jupyter_mode=jupyter_mode)
