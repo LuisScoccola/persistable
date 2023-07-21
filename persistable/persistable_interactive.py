@@ -167,6 +167,7 @@ def empty_figure():
     fig.update_layout(clickmode="none")
     return fig
 
+
 def compute_defaults(end, default_granularity):
     bounds = {
         MIN_GRANULARITY: 2,
@@ -196,27 +197,28 @@ def compute_defaults(end, default_granularity):
     defr = 6
     d2 = {
         X_START_FIRST_LINE: (d1[MIN_DIST_SCALE] + d1[MAX_DIST_SCALE]) * (1 / defr),
-        Y_START_FIRST_LINE: (d1[MIN_DENSITY_THRESHOLD] + d1[MAX_DENSITY_THRESHOLD]) * (1 / 2),
+        Y_START_FIRST_LINE: (d1[MIN_DENSITY_THRESHOLD] + d1[MAX_DENSITY_THRESHOLD])
+        * (1 / 2),
         X_END_FIRST_LINE: (d1[MAX_DIST_SCALE] + d1[MIN_DIST_SCALE]) * (1 / 2),
-        Y_END_FIRST_LINE: (d1[MIN_DENSITY_THRESHOLD] + d1[MAX_DENSITY_THRESHOLD]) * (1 / defr),
+        Y_END_FIRST_LINE: (d1[MIN_DENSITY_THRESHOLD] + d1[MAX_DENSITY_THRESHOLD])
+        * (1 / defr),
         X_START_SECOND_LINE: (d1[MIN_DIST_SCALE] + d1[MAX_DIST_SCALE]) * (1 / 2),
         Y_START_SECOND_LINE: (d1[MIN_DENSITY_THRESHOLD] + d1[MAX_DENSITY_THRESHOLD])
         * ((defr - 1) / defr),
         X_END_SECOND_LINE: (d1[MAX_DIST_SCALE] + d1[MIN_DIST_SCALE])
         * ((defr - 1) / defr),
-        Y_END_SECOND_LINE: (d1[MIN_DENSITY_THRESHOLD] + d1[MAX_DENSITY_THRESHOLD]) * (1 / 2),
+        Y_END_SECOND_LINE: (d1[MIN_DENSITY_THRESHOLD] + d1[MAX_DENSITY_THRESHOLD])
+        * (1 / 2),
     }
     d3 = {
-        X_START_LINE: (d2[X_START_FIRST_LINE] + d2[X_START_SECOND_LINE])
-        / 2,
-        Y_START_LINE: (d2[Y_START_FIRST_LINE] + d2[Y_START_SECOND_LINE])
-        / 2,
+        X_START_LINE: (d2[X_START_FIRST_LINE] + d2[X_START_SECOND_LINE]) / 2,
+        Y_START_LINE: (d2[Y_START_FIRST_LINE] + d2[Y_START_SECOND_LINE]) / 2,
         X_END_LINE: (d2[X_END_FIRST_LINE] + d2[X_END_SECOND_LINE]) / 2,
         Y_END_LINE: (d2[Y_END_FIRST_LINE] + d2[Y_END_SECOND_LINE]) / 2,
     }
     d4 = {
-        X_POINT: (d3[X_START_LINE] + d3[X_END_LINE])/2,
-        Y_POINT: (d3[Y_START_LINE] + d3[Y_END_LINE])/2,
+        X_POINT: (d3[X_START_LINE] + d3[X_END_LINE]) / 2,
+        Y_POINT: (d3[Y_START_LINE] + d3[Y_END_LINE]) / 2,
     }
 
     return {**d0, **d1, **d2, **d3, **d4}, bounds
@@ -255,10 +257,9 @@ class PersistableInteractive:
 
         jupyter_mode: string, optional, default is "external"
             How to display the application when running inside a jupyter notebook.
-            Options are "tab" to open the app in a new browser tab,
-            "jupyterlab" to open the app in a separate tab in JupyterLab,
-            "external" to serve the app in a port returned by this function,
+            Options are "external" to serve the app in a port returned by this function,
             "inline" to open the app inline in the jupyter notebook.
+            "jupyterlab" to open the app in a separate tab in JupyterLab.
 
         return: int
             If run "external" jupyter_mode, returns the port of localhost used to serve the UI.
@@ -308,8 +309,16 @@ class PersistableInteractive:
         if not debug:
             suppress_warnings(self._app)
 
+        jupyter_height = 1000
+
         def run():
-            self._app.run_server(port=port, debug=debug, use_reloader=False, jupyter_mode=jupyter_mode)
+            self._app.run_server(
+                port=port,
+                debug=debug,
+                use_reloader=False,
+                jupyter_mode=jupyter_mode,
+                jupyter_height=jupyter_height,
+            )
 
         self._thread = threading.Thread(target=run)
         self._thread.daemon = True
@@ -320,7 +329,7 @@ class PersistableInteractive:
     def save_ui_state(self):
         """Save state of input fields in the UI as a Python object. The output
         can then be used as the optional input of the ``start_ui()`` method.
-        
+
         returns: dictionary
         """
         self._parameters_sem.acquire()
@@ -379,7 +388,6 @@ class PersistableInteractive:
         return params
 
     def _layout_gui(self, ui_state):
-
         defaults, bounds = compute_defaults(
             self._persistable._find_end(), self._persistable._default_granularity()
         )
@@ -556,7 +564,7 @@ class PersistableInteractive:
                                             dcc.RadioItems(
                                                 [
                                                     "Off",
-                                                    #"Single clustering",
+                                                    # "Single clustering",
                                                     "Line",
                                                     "Family of lines",
                                                 ],
@@ -837,7 +845,7 @@ class PersistableInteractive:
                             ),
                         ],
                     ),
-                ]
+                ],
             ),
         )
 
@@ -2385,9 +2393,7 @@ class PersistableInteractive:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 try:
-                    reduced = (
-                        True if d[REDUCED_HOMOLOGY_RI + VALUE] == "Yes" else False
-                    )
+                    reduced = True if d[REDUCED_HOMOLOGY_RI + VALUE] == "Yes" else False
                     ss, ks, ri, sbr, sbh = persistable._rank_invariant(
                         d[MIN_DIST_SCALE + VALUE],
                         d[MAX_DIST_SCALE + VALUE],
@@ -2974,9 +2980,10 @@ class PersistableInteractive:
         def export_ui_state(d):
             def remove_trailing_value(word):
                 return word[:-5]
+
             state = d.copy()
             self._parameters_sem.acquire()
-            self._ui_state = { remove_trailing_value(w):v for w,v in state.items() }
+            self._ui_state = {remove_trailing_value(w): v for w, v in state.items()}
             self._parameters_sem.release()
             d[EXPORTED_STATE + DATA] = json.dumps(state)
             return d
