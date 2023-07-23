@@ -22,21 +22,6 @@ This is used to guide the choice of parameters that lead to the final clustering
 
 Here is a brief outline of the main functionality; see the [documentation](https://persistable.readthedocs.io/) for details, including the [API reference](https://persistable.readthedocs.io/en/latest/api.html).
 
-### Basic usage
-
-```python
-import persistable
-from sklearn.datasets import make_blobs
-
-X = make_blobs(2000, random_state=1)[0]
-p = persistable.Persistable(X)
-clustering_labels = p.quick_cluster()
-```
-
-
-### Interactive mode 
-
-For now, Persistable's interactive mode is supported through Jupyter notebooks.
 In order to run Persistable's interactive mode from a Jupyter notebook, run the following in a Jupyter cell:
 
 ```python

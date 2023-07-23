@@ -18,15 +18,15 @@ Index
     :nosignatures:
 
     persistable.Persistable.cluster
-    persistable.Persistable.quick_cluster
 
 .. rubric:: persistable.PersistableInteractive methods
 
 .. autosummary::
     :nosignatures:
 
-    persistable.PersistableInteractive.cluster
     persistable.PersistableInteractive.start_ui
+    persistable.PersistableInteractive.cluster
+    persistable.PersistableInteractive.save_ui_state
 
 
 Details
