@@ -16,20 +16,11 @@ Installing
 Make sure you are using Python 3.
 Persistable depends on the following python packages, which will be installed automatically when you install with `pip`:
 `numpy`, `scipy`, `scikit-learn`, `cython`, `plotly`, `dash`, `diskcache`, `multiprocess`, `psutil`.
-
-To install the latest release:
+To install from pypi, simply run the following:
 
 .. code-block::
 
     pip install persistable-clustering
-
-The `experimental` branch may contain newer and more advanced features.
-You can install from that branch by running:
-
-.. code-block::
-
-    pip install git+https://github.com/LuisScoccola/persistable.git@experimental
-
 
 
 Contents
