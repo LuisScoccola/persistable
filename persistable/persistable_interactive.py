@@ -219,7 +219,7 @@ class PersistableInteractive:
             background_callback_manager=background_callback_manager,
             update_title="Persistable is computing...",
         )
-        self._layout_gui(ui_state)
+        self._layout_gui()
         self._register_callbacks(self._persistable, self._debug)
 
         if not debug:
