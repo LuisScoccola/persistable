@@ -31,17 +31,8 @@ from joblib.parallel import cpu_count
 
 
 
-# TODO: eventually default to newer version and add version number in dependencies
-from packaging.version import Version
-import sklearn
-
-if Version(sklearn.__version__) >= Version("1.3.0"):
-    kdtree_valid_metrics = KDTree.valid_metrics()
-    balltree_valid_metrics = BallTree.valid_metrics()
-else:
-    kdtree_valid_metrics = KDTree.valid_metrics
-    balltree_valid_metrics = BallTree.valid_metrics
-#
+kdtree_valid_metrics = KDTree.valid_metrics
+balltree_valid_metrics = BallTree.valid_metrics
 
 _TOL = 1e-08
 # starting when we consider a dataset large
