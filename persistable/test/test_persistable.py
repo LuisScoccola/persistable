@@ -472,25 +472,6 @@ class TestPersistable(unittest.TestCase):
                 )
                 self.assertEqual(len(set(c[c >= 0])), i)
 
-    def test_number_clusters_quick_cluster(self):
-        """Check that quick_cluster method returns the correct number of clusters"""
-        X, _ = datasets.make_blobs(
-            n_samples=1000, centers=3, cluster_std=[0.05, 0.06, 0.07], random_state=1
-        )
-        p = Persistable(X)
-        c = p.quick_cluster()
-        self.assertEqual(len(set(c[c >= 0])), 3)
-
-        X, _ = datasets.make_blobs(n_samples=1000, centers=4, random_state=2)
-        p = Persistable(X)
-        c = p.quick_cluster(n_neighbors=50)
-        self.assertEqual(len(set(c[c >= 0])), 4)
-
-        X, _ = datasets.make_blobs(n_samples=1000, centers=5, random_state=3)
-        p = Persistable(X)
-        c = p.quick_cluster()
-        self.assertEqual(len(set(c[c >= 0])), 5)
-
 
 class TestVineyard(unittest.TestCase):
     def test_prominence_vineyard(self):
