@@ -59,13 +59,7 @@ def parallel_computation(function, inputs, n_jobs, debug=False, threading=False)
 
 class Persistable:
     """Density-based clustering on finite metric spaces.
-
-    Persistable has two main clustering methods: ``cluster()`` and ``quick_cluster()``.
-    The methods are similar, the main difference being that ``quick_cluster()`` takes
-    parameters that are sometimes easier to set. The parameters for ``cluster()``
-    are usually set by using the graphical user interface implemented by the
-    ``PersistableInteractive`` class.
-
+    
     X: ndarray (n_samples, n_features)
         A numpy vector of shape (samples, features) or a distance matrix.
 
@@ -209,59 +203,6 @@ class Persistable:
             self._mpspace,
             debug=debug,
             threading=threading,
-        )
-
-    def quick_cluster(
-        self,
-        n_neighbors: int = 30,
-        n_clusters_range=np.array([3, 15]),
-    ):
-        """Find parameters automatically and cluster dataset passed at initialization.
-
-        This function will find the best number of clusterings in the range passed
-        by the user, according to a certain measure of goodness of clustering
-        based on prominence of modes of the underlying distribution.
-
-        n_neighbors: int, optional, default is 30
-            Number of neighbors used as a maximum density threshold
-            when doing density-based clustering.
-
-        n_clusters_range: (int, int), optional, default is [3, 15]
-            A two-element list or tuple representing an integer
-            range of possible numbers of clusters to consider when finding the
-            optimum number of clusters.
-
-        returns:
-            A numpy array of length the number of points in the dataset containing
-            integers from -1 to the number of clusters minus 1, representing the
-            labels of the final clustering. The label -1 represents noise points,
-            i.e., points deemed not to belong to any cluster by the algorithm.
-
-        """
-        k = n_neighbors / self._mpspace.size()
-        default_percentile = 0.95
-        s = self._bifiltration.connection_radius(default_percentile) * 2
-
-        hc = self._bifiltration.lambda_linkage([0, k], [s, 0])
-        pd = hc.persistence_diagram()
-        if pd.shape[0] == 0:
-            return np.full(self._mpspace.size(), -1)
-
-        def _prominences(bd):
-            return np.sort(np.abs(bd[:, 0] - bd[:, 1]))[::-1]
-
-        proms = _prominences(pd)
-        if n_clusters_range[1] >= len(proms):
-            return self.cluster(n_clusters_range[1], [0, k], [s, 0])
-        logproms = np.log(proms)
-        peaks = logproms[:-1] - logproms[1:]
-        min_clust = n_clusters_range[0] - 1
-        max_clust = n_clusters_range[1] - 1
-        num_clust = np.argmax(peaks[min_clust:max_clust]) + min_clust + 1
-        return self.cluster(
-            num_clust,
-            [0, k],
-            [s, 0]
         )
 
     def cluster(
