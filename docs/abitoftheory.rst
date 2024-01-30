@@ -63,8 +63,9 @@ Rule 2 is called the *Elder rule*,
 since the elder bar (that entered the hierarchy first), 
 survives, while the younger bar dies.
 
-For a rigorous description of this algorithm, see Definition 3.7 
-`here <https://link.springer.com/article/10.1007/s41468-019-00024-z>`_.
+For a rigorous description of this algorithm, see Section 5 of 
+`Stable and consistent density-based clustering <https://arxiv.org/abs/2005.09048>`__ 
+(in particular, Algorithm 1).
 
 .. 
    To do: update this link to our paper once we add 
@@ -95,7 +96,7 @@ a flat (0-parameter) clustering.
 
 This tutorial provides a short description of the 
 persistence-based flattening algorithm. 
-For details, see Section 5 of 
+For details, see Section 6 of 
 `Stable and consistent density-based clustering <https://arxiv.org/abs/2005.09048>`__. 
 This method is inspired by the ToMATo algorithm; 
 see :ref:`links`.
