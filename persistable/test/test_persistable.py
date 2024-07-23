@@ -2,7 +2,7 @@
 # License: 3-clause BSD
 
 import unittest
-from persistable import Persistable
+from persistable import Persistable, FilteredGraph
 from persistable.persistable import _HierarchicalClustering, _MetricSpace
 from persistable.signed_betti_numbers import signed_betti
 from scipy.spatial import distance_matrix
@@ -590,6 +590,149 @@ class TestBettiNumbers(unittest.TestCase):
 
             np.testing.assert_equal(check, f)
 
+
+class TestFilteredGraph(unittest.TestCase):
+    def clustering_matrix(self, c):
+        mat = np.full((c.shape[0], c.shape[0]), -1)
+        for i in range(c.shape[0]):
+            for j in range(c.shape[0]):
+                if c[i] == c[j] and c[i] != -1:
+                    mat[i, j] = 0
+        return mat
+    
+    def test_persistence_diagram(self):
+        """Check that persistence_diagram method returns correct answers"""
+
+        vertex_values = np.zeros(shape=8)
+        edges = np.array([[0,1], [0,2], [1,2], [2,3], [1,3], [3,4], [4,5], 
+                          [5,6], [5,7], [6,7]])
+        edge_values = np.array([0,0.5,0.5,3,5,0.2,2,0.5,0.9,0.6])
+        G = FilteredGraph(vertex_values, edges, edge_values)
+        pd = G.persistence_diagram()
+        res = np.array([[0, 0.2], [0, 0.5], [0, 0.5], [0, 0.6], [0, 2], [0, 3], 
+                        [0, np.inf]])
+        np.testing.assert_array_almost_equal(
+            pd[np.lexsort(pd.T[::-1])], res[np.lexsort(res.T[::-1])]
+        )
+
+        vertex_values = np.array([0,0.1,0.2,0,2,1,3.7,4])
+        edges = np.array([[0,1], [0,2], [1,2], [1,3], [2,4], [3,4], [4,5], 
+                          [3,5], [3,6], [6,7]])
+        edge_values = np.array([0.1,0.2,0.3,5,7,2,2.5,1.2,4,4])
+        G = FilteredGraph(vertex_values, edges, edge_values)
+        pd = G.persistence_diagram()
+        res = np.array([[0, np.inf], [0, 5], [1, 1.2], [3.7, 4]])
+        np.testing.assert_array_almost_equal(
+            pd[np.lexsort(pd.T[::-1])], res[np.lexsort(res.T[::-1])]
+        )
+
+    def test_persistence_based_flattening(self):
+        """Check that persistence_based_flattening method returns 
+        correct answers"""
+
+        vertex_values = np.zeros(shape=8)
+        edges = np.array([[0,1], [0,2], [1,2], [2,3], [1,3], [3,4], [4,5], 
+                          [5,6], [5,7], [6,7]])
+        edge_values = np.array([0,0.5,0.5,3,5,0.2,2,0.5,0.9,0.6])
+        G = FilteredGraph(vertex_values, edges, edge_values)
+        
+        # n_clusters = 7
+        c = G.persistence_based_flattening(
+            n_clusters = 7, 
+            flattening_mode="conservative", 
+            keep_low_persistence_clusters=False
+        )
+        res = np.array([0,0,2,3,4,5,6,7])
+        np.testing.assert_array_equal(
+            self.clustering_matrix(c), self.clustering_matrix(res)
+        )
+        # n_clusters = 6
+        c = G.persistence_based_flattening(
+            n_clusters = 6, 
+            flattening_mode="conservative", 
+            keep_low_persistence_clusters=False
+        )
+        res = np.array([0,0,2,3,3,5,6,7])
+        np.testing.assert_array_equal(
+            self.clustering_matrix(c), self.clustering_matrix(res)
+        )
+        # n_clusters = 4
+        c = G.persistence_based_flattening(
+            n_clusters = 4, 
+            flattening_mode="conservative", 
+            keep_low_persistence_clusters=False
+        )
+        res = np.array([0,0,0,3,3,5,5,7])
+        np.testing.assert_array_equal(
+            self.clustering_matrix(c), self.clustering_matrix(res)
+        )
+        # n_clusters = 3
+        c = G.persistence_based_flattening(
+            n_clusters = 3, 
+            flattening_mode="conservative", 
+            keep_low_persistence_clusters=False
+        )
+        res = np.array([0,0,0,3,3,5,5,5])
+        np.testing.assert_array_equal(
+            self.clustering_matrix(c), self.clustering_matrix(res)
+        )
+        # n_clusters = 2
+        c = G.persistence_based_flattening(
+            n_clusters = 2, 
+            flattening_mode="conservative", 
+            keep_low_persistence_clusters=False
+        )
+        res = np.array([0,0,0,3,3,3,3,3])
+        np.testing.assert_array_equal(
+            self.clustering_matrix(c), self.clustering_matrix(res)
+        )
+        # n_clusters = 1
+        c = G.persistence_based_flattening(
+            n_clusters = 1, 
+            flattening_mode="conservative", 
+            keep_low_persistence_clusters=False
+        )
+        res = np.array([0,0,0,0,0,0,0,0])
+        np.testing.assert_array_equal(
+            self.clustering_matrix(c), self.clustering_matrix(res)
+        )
+
+        vertex_values = np.array([0,0.1,0.2,0,2,1,3.7,4])
+        edges = np.array([[0,1], [0,2], [1,2], [1,3], [2,4], [3,4], [4,5], 
+                          [3,5], [3,6], [6,7]])
+        edge_values = np.array([0.1,0.2,0.3,5,7,2,2.5,1.2,4.1,4])
+        G = FilteredGraph(vertex_values, edges, edge_values)
+
+        # n_clusters = 4
+        c = G.persistence_based_flattening(
+            n_clusters = 4, 
+            flattening_mode="conservative", 
+            keep_low_persistence_clusters=False
+        )
+        res = np.array([0,0,0,3,-1,5,6,6])
+        np.testing.assert_array_equal(
+            self.clustering_matrix(c), self.clustering_matrix(res)
+        )
+        # n_clusters = 3
+        c = G.persistence_based_flattening(
+            n_clusters = 3, 
+            flattening_mode="conservative", 
+            keep_low_persistence_clusters=False
+        )
+        res = np.array([0,0,0,3,3,3,6,6])
+        np.testing.assert_array_equal(
+            self.clustering_matrix(c), self.clustering_matrix(res)
+        )
+        # n_clusters = 2
+        c = G.persistence_based_flattening(
+            n_clusters = 2, 
+            flattening_mode="conservative", 
+            keep_low_persistence_clusters=False
+        )
+        res = np.array([0,0,0,3,3,3,3,3])
+        np.testing.assert_array_equal(
+            self.clustering_matrix(c), self.clustering_matrix(res)
+        )
 
 if __name__ == "__main__":
     unittest.main()
