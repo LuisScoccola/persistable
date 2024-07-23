@@ -11,6 +11,7 @@ Index
 
     persistable.Persistable
     persistable.PersistableInteractive
+    persistable.FilteredGraph
 
 .. rubric:: persistable.Persistable methods
 
@@ -29,6 +30,16 @@ Index
     persistable.PersistableInteractive.save_ui_state
 
 
+.. rubric:: persistable.FilteredGraph methods
+
+.. autosummary::
+    :nosignatures:
+
+    persistable.FilteredGraph.persistence_diagram
+    persistable.FilteredGraph.prominence_diagram
+    persistable.FilteredGraph.persistence_based_flattening
+
+
 Details
 -------
 
@@ -36,4 +47,7 @@ Details
     :members:
 
 .. autoclass:: persistable.PersistableInteractive
+    :members:
+
+.. autoclass:: persistable.FilteredGraph
     :members:
