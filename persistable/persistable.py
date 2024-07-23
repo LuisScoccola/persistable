@@ -260,22 +260,7 @@ class Persistable:
         if n_clusters < 1:
             raise ValueError("n_clusters must be greater than 0.")
         hc = self._bifiltration.lambda_linkage(start, end)
-        bd = hc.persistence_diagram()
-        pers = np.abs(bd[:, 0] - bd[:, 1])
-        # TODO: use sort from largest to smallest and make the logic below simpler
-        spers = np.sort(pers)
-        if n_clusters >= bd.shape[0]:
-            if n_clusters > bd.shape[0]:
-                warnings.warn(
-                    "n_clusters is larger than the number of gaps, using n_clusters = number of gaps."
-                )
-            threshold = spers[0] / 2
-        else:
-            if np.abs(spers[-n_clusters] - spers[-(n_clusters + 1)]) < _TOL:
-                warnings.warn(
-                    "The gap selected is too small to produce a reliable clustering."
-                )
-            threshold = (spers[-n_clusters] + spers[-(n_clusters + 1)]) / 2
+        threshold = hc._compute_threshold(n_clusters)
         cl = hc.persistence_based_flattening(
             threshold,
             flattening_mode=flattening_mode,
@@ -920,10 +905,6 @@ class _MetricSpace:
         )
 
     def hierarchical_clustering_filtered_rips_graph(self, k_births, rips_radius):
-        shift = min(k_births) + 1
-        # must shift to strictly positive births (sparse matrix mst routine treats
-        # edges with zero and very small weight as not there (i.e., as having infinite weight))
-        k_births = k_births + shift
 
         # metric tree case
         if self._metric in kdtree_valid_metrics + balltree_valid_metrics:
@@ -945,33 +926,11 @@ class _MetricSpace:
                     entries.append(max(k_births[i], k_births[j]))
         matrix_entries = np.array(entries)
         edges = np.array(edges, dtype=int)
-        if len(edges) > 0:
-            graph = csr_matrix(
-                (matrix_entries, (edges[:, 0], edges[:, 1])), (self.size(), self.size())
-            )
-
-            mst = sparse_matrix_minimum_spanning_tree(graph)
-            Is, Js = mst.nonzero()
-            # we now undo the shift
-            vals = np.array(mst[Is, Js])[0] - shift
-            sort_indices = np.argsort(vals)
-            Is = Is[sort_indices]
-            Js = Js[sort_indices]
-            vals = vals[sort_indices]
-            merges = np.zeros((vals.shape[0], 2), dtype=int)
-            merges[:, 0] = Is
-            merges[:, 1] = Js
-            merges_heights = vals
-        else:
-            merges = np.array([], dtype=int)
-            merges_heights = np.array([])
-
-        # undo the shift
-        core_scales = k_births - shift
-
-        return _HierarchicalClustering(
-            core_scales, merges, merges_heights, -np.inf, np.inf
-        )
+        G = FilteredGraph(vertex_values=k_births,
+                          edges=edges,
+                          edge_values=matrix_entries)
+        
+        return G._to_hc()
 
     def close_subsample(self, subsample_size, seed=0, euclidean=False):
         """ Returns a pair of arrays with the first array containing the indices \
@@ -1137,6 +1096,15 @@ class _HierarchicalClustering:
 
     def merges_heights(self):
         return self._merges_heights
+    
+    def enforce_monotonic(self):
+        """Enforce monotonicity of the hierarchical clustering"""
+        num_merges = self._merges.shape[0]
+        for i in range(num_merges):
+            x, y = self._merges[i,0], self._merges[i,1]
+            self._merges_heights[i] = max([self._merges_heights[i],
+                                           self._heights[x],
+                                           self._heights[y]])
 
     def snap_to_grid(self, grid):
         def _snap_array(grid, arr):
@@ -1225,6 +1193,29 @@ class _HierarchicalClustering:
                     res[x] = current_cluster
             current_cluster += 1
         return res
+    
+    def _compute_threshold(self, n_clusters):
+        """Compute threshold such that the persistence-based flattening
+        has ``n_clusters`` clusters."""
+
+        bd = self.persistence_diagram()
+        pers = np.abs(bd[:, 0] - bd[:, 1])
+        # TODO: use sort from largest to smallest and make the logic below simpler
+        spers = np.sort(pers)
+        if n_clusters >= bd.shape[0]:
+            if n_clusters > bd.shape[0]:
+                warnings.warn(
+                    "n_clusters is larger than the number of gaps, using n_clusters = number of gaps."
+                )
+            threshold = spers[0] / 2
+        else:
+            if np.abs(spers[-n_clusters] - spers[-(n_clusters + 1)]) < _TOL:
+                warnings.warn(
+                    "The gap selected is too small to produce a reliable clustering."
+                )
+            threshold = (spers[-n_clusters] + spers[-(n_clusters + 1)]) / 2
+
+        return threshold
 
     def persistence_based_flattening(
         self, threshold, flattening_mode, keep_low_persistence_clusters
@@ -1448,3 +1439,122 @@ class _HierarchicalClustering:
             to_delete = np.argmax(pd[:, 1] - pd[:, 0])
             return np.delete(pd, to_delete, axis=0)
         return pd
+    
+
+class FilteredGraph:
+    """Implements a one-parameter filtered graph. The vertices and edges of the
+    graph should have scalar filtration values such that, if ``(i,j)`` is an
+    edge, then the filtration value of ``i`` and ``j`` are less than or equal
+    to the filtration value of ``(i,j)``.
+
+    vertex_values: ndarray (num_vertices)
+        A numpy vector containing the filtration values of the vertices
+        of the graph. Implicitly, the vertices are ``0, ..., num_vertices - 1``
+
+    edges: ndarray (num_edges, 2)
+        A numpy array containing the edges of the graph. 
+        A row ``edges[i,:] = (j,k)`` indicates ``(j,k)`` is an edge.
+
+    edge_values: ndarray (num_edges)
+        A numpy vector containing the filtration values of the graph edges
+        An entry ``edge_values[i] = x`` indicates edge ``(j,k)`` has 
+        filtration value ``x``.
+
+    start: float, optional
+        The filtration value where the filtration begins.
+
+    end: float, optional
+        The filtration value where the filtration ends.
+    """
+
+    def __init__(self, vertex_values, edges, edge_values, 
+                 start=-np.inf, end=np.inf):
+        self.vertex_values = vertex_values
+        self.edges = edges
+        self.edge_values = edge_values
+        self.start = start
+        self.end = end
+        self.num_vertices = vertex_values.shape[0]
+
+    def _to_hc(self):
+
+        if self.edges.shape[0] > 0:
+            # shift edge weights to be strictly positive before computing mst
+            # as scipy sparse matrix mst implementation treats
+            # edges with weight zero as not there
+            if (min_weight := np.amin(self.edge_values)) < 0:
+                shift = np.abs(min_weight) + 1
+            else:
+                shift = 1
+            shifted_edge_values = self.edge_values + shift
+
+            matrix = csr_matrix(
+                    (shifted_edge_values, (self.edges[:, 0], self.edges[:, 1])), 
+                    (self.num_vertices, self.num_vertices)
+                )
+            mst = sparse_matrix_minimum_spanning_tree(matrix)
+            Is, Js = mst.nonzero()
+            # we now undo the shift
+            vals = np.array(mst[Is, Js])[0] - shift
+            sort_indices = np.argsort(vals)
+            Is = Is[sort_indices]
+            Js = Js[sort_indices]
+            vals = vals[sort_indices]
+            merges = np.zeros((vals.shape[0], 2), dtype=int)
+            merges[:, 0] = Is
+            merges[:, 1] = Js
+            merges_heights = vals
+        else:
+            merges = np.array([], dtype=int)
+            merges_heights = np.array([])
+
+        hc = _HierarchicalClustering(
+            self.vertex_values, merges, merges_heights, 
+            self.start, self.end
+        )
+
+        # for numerical reasons, it's possible that a vertex will be merged
+        # before it's born
+        hc.enforce_monotonic()
+        return hc
+    
+    def persistence_diagram(self):
+        """Compute the persistence diagram of the filtered graph"""
+        hc = self._to_hc()
+        return hc.persistence_diagram()
+    
+    def prominence_diagram(self):
+        """Compute the prominence diagram of the filtered graph"""
+        hc = self._to_hc()
+        persistence_diagram = hc.persistence_diagram()
+        prominences = persistence_diagram[:, 1] - persistence_diagram[:, 0]
+        prominences = np.sort(prominences)[::-1]
+        return prominences
+    
+    def persistence_based_flattening(self, 
+                                     n_clusters, 
+                                     flattening_mode="conservative", 
+                                     keep_low_persistence_clusters=False
+        ):
+        """Compute the persistence-based flattening of the filtered graph.
+        
+        n_clusters: int
+            The desired number of clusters in the output.
+
+        flattening_mode: string, optional, default is "conservative"
+            Use "conservative" for the persistence-based flattening algorithm
+            as described in Rolle and Scoccola, "Stable and consistent
+            density-based clustering via multiparameter persistence". 
+            Use "exhaustive" for the exhaustive persistence-based flattening
+            algorithm from the same paper.
+
+        keep_low_persistence_clusters: boolean, optional, default is False       
+        """
+        hc = self._to_hc()
+        threshold = hc._compute_threshold(n_clusters)
+        cl = hc.persistence_based_flattening(
+            threshold,
+            flattening_mode=flattening_mode,
+            keep_low_persistence_clusters=keep_low_persistence_clusters,
+        )
+        return cl
