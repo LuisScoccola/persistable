@@ -237,8 +237,8 @@ class Persistable:
             of 'Persistence-Based Clustering in Riemannian Manifolds' Chazal, Guibas,
             Oudot, Skraba.
             If "conservative", use the more stable approach of
-            'Stable and consistent density-based clustering' Rolle, Scoccola.
-            The conservative approach usually results in more unclustered points.
+            'Stable and consistent density-based clustering via multiparameter persistence'
+            Rolle, Scoccola. The conservative approach usually results in more unclustered points.
 
         keep_low_persistence_clusters: bool, optional, default is False
             Only has effect if ``flattening_mode`` is set to "exhaustive".

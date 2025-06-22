@@ -42,7 +42,7 @@ that encode both spatial relations among data points and density
 
 For a rigorous definition of hierarchical clustering, 
 see Section 2 of 
-`Stable and consistent density-based clustering <https://arxiv.org/abs/2005.09048>`__.
+`Stable and consistent density-based clustering via multiparameter persistence <https://arxiv.org/abs/2005.09048>`__.
 
 The barcode of a hierarchical clustering *H(X)* consists of *bars*, 
 which are simply intervals of the real line. 
@@ -64,7 +64,7 @@ since the elder bar (that entered the hierarchy first),
 survives, while the younger bar dies.
 
 For a rigorous description of this algorithm, see Section 5 of 
-`Stable and consistent density-based clustering <https://arxiv.org/abs/2005.09048>`__ 
+`Stable and consistent density-based clustering via multiparameter persistence <https://arxiv.org/abs/2005.09048>`__ 
 (in particular, Algorithm 1).
 
 .. 
@@ -97,7 +97,7 @@ a flat (0-parameter) clustering.
 This tutorial provides a short description of the 
 persistence-based flattening algorithm. 
 For details, see Section 6 of 
-`Stable and consistent density-based clustering <https://arxiv.org/abs/2005.09048>`__. 
+`Stable and consistent density-based clustering via multiparameter persistence <https://arxiv.org/abs/2005.09048>`__. 
 This method is inspired by the ToMATo algorithm; 
 see :ref:`links`.
 

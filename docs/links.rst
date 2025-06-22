@@ -4,7 +4,7 @@ Related tools for density-based clustering
 ==========================================
 
 The theory behind Persistable was developed in the paper
-`Stable and consistent density-based clustering <https://arxiv.org/abs/2005.09048>`_. 
+`Stable and consistent density-based clustering via multiparameter persistence <https://arxiv.org/abs/2005.09048>`_. 
 The introduction to the paper describes the previous work 
 by many researchers that we are building on.
 
