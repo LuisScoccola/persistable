@@ -124,7 +124,7 @@ If you use this package in your work, you may cite the corresponding paper using
 ## References
 
 <a id="1">[1]</a> 
-*Stable and consistent density-based clustering*. A. Rolle and L. Scoccola. Journal of Machine Learning Research, 25(258):1-74, 2024
+*Stable and consistent density-based clustering via multiparameter persistence*. A. Rolle and L. Scoccola. Journal of Machine Learning Research, 25(258):1-74, 2024
 
 <a id="2">[2]</a> 
 *Accelerated Hierarchical Density Based Clustering*. L. McInnes, J. Healy. 2017 IEEE International Conference on Data Mining Workshops (ICDMW), IEEE, pp 33-42. 2017
