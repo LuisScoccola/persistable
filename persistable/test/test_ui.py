@@ -105,7 +105,7 @@ def test_app_title(page: Page):
     # TODO: set timeout globally
     timeout_milliseconds = 180000
     
-    page.goto(url)
+    page.goto(url, timeout=timeout_milliseconds)
 
     expect(page).to_have_title(re.compile("Persistable"), timeout=timeout_milliseconds)
 
@@ -114,7 +114,7 @@ def test_save_ui(page: Page):
     # TODO: set timeout globally
     timeout_milliseconds = 180000
 
-    page.goto(url)
+    page.goto(url, timeout=timeout_milliseconds)
 
     # ccf
     ccf_details_locator(page).click()
@@ -155,7 +155,7 @@ def test_save_ui(page: Page):
 
     time.sleep(2)
 
-    page.goto(url2)
+    page.goto(url2, timeout=timeout_milliseconds)
 
     ccf_details_locator(page).click()
     ccf_compute_button_locator(page).click()
@@ -184,7 +184,7 @@ def test_end_to_end(page: Page):
     # TODO: set timeout globally
     timeout_milliseconds = 180000
 
-    page.goto(url)
+    page.goto(url, timeout=timeout_milliseconds)
 
     # ccf
     ccf_details_locator(page).click()
