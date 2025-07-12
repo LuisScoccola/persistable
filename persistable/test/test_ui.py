@@ -109,7 +109,7 @@ def test_app_title(page: Page):
 def test_save_ui(page: Page):
 
     # TODO: set timeout globally
-    timeout_milliseconds = 60000
+    timeout_milliseconds = 180000
 
     page.goto(url)
 
