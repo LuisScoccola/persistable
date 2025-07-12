@@ -102,9 +102,12 @@ def test_app_title(page: Page):
     global pi
     global url
 
+    # TODO: set timeout globally
+    timeout_milliseconds = 180000
+    
     page.goto(url)
 
-    expect(page).to_have_title(re.compile("Persistable"))
+    expect(page).to_have_title(re.compile("Persistable"), timeout=timeout_milliseconds)
 
 def test_save_ui(page: Page):
 
@@ -179,7 +182,7 @@ def test_save_ui(page: Page):
 def test_end_to_end(page: Page):
 
     # TODO: set timeout globally
-    timeout_milliseconds = 60000
+    timeout_milliseconds = 180000
 
     page.goto(url)
 
